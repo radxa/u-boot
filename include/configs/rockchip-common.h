@@ -112,6 +112,13 @@
 	BOOT_TARGET_PXE(func) \
 	BOOT_TARGET_DHCP(func)
 
+
+#ifdef CONFIG_ARM64
+#define FDTFILE "rockchip/" CONFIG_DEFAULT_DEVICE_TREE ".dtb" "\0"
+#else
+#define FDTFILE CONFIG_DEFAULT_DEVICE_TREE ".dtb" "\0"
+#endif
+
 #ifdef CONFIG_ARM64
 #define ROOT_UUID "B921B045-1DF0-41C3-AF44-4C6F280D3FAE;\0"
 #else
