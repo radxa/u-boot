@@ -968,6 +968,9 @@ int arch_cpu_init(void)
 	writel(1, SATA2_BASE_ADDR + SATA_PI);
 #endif
 
+	/* Set i2c0 iomux */
+	writel(0x07700110, 0xfdc20008);
+
 	return 0;
 }
 
