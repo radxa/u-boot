@@ -70,3 +70,22 @@ U_BOOT_CMD(charge, 4, 0, do_charge_display,
 	   "-charge\n"
 	   "-charge <power on soc> <power on voltage> <screen on voltage>"
 );
+
+static int do_charge(cmd_tbl_t *cmdtp, int flag, int argc,
+			     char *const argv[])
+{
+	int ret;
+	struct udevice *dev;
+
+	ret = uclass_get_device(UCLASS_PD, 0, &dev);
+	printf("ret = %d (dev => %p)\n", ret, dev);
+
+	return 0;
+}
+
+U_BOOT_CMD(charge_pd, 1, 0, do_charge,
+	   "Charge select",
+	   "-charge_pd\n"
+	   "-charge_pd <voltage wanted> <current wanted> \n"
+);
+
