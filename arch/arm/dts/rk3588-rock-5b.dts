@@ -39,7 +39,7 @@
 		compatible = "regulator-fixed";
 		regulator-name = "led_sys";
 		enable-active-high;
-		gpio = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>; // Turn on user led
+		gpio = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>; // Turn on user led
 		regulator-boot-on;
 		regulator-always-on;
 		vin-supply = <&vcc5v0_sys>;
