@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
  * Copyright (c) 2021 Rockchip Electronics Co., Ltd
+ * Copyright (c) 2022 Radxa Computer Co., Ltd.
  *
  */
 
@@ -10,8 +11,8 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	model = "Radxa NX5";
-	compatible = "radxa,nx5", "rockchip,rk3588";
+	model = "Radxa NX5 IO";
+	compatible = "radxa,nx5-io", "rockchip,rk3588";
 
 	vcc12v_dcin: vcc12v-dcin {
 		u-boot,dm-pre-reloc;
