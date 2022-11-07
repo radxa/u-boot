@@ -19,6 +19,11 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+/* QOS MMU600PHP-USB3_2 & SATA0-2 & GMAC0-1 */
+#define QOS_MMU600PHP_TBU_BASE		0xfdf3a608
+#define QOS_MMU600PHP_TCU_BASE		0xfdf3a808
+#define QOS_PRIORITY_LEVEL(h, l)	((((h) & 7) << 8) | ((l) & 7))
+
 #define FIREWALL_DDR_BASE		0xfe030000
 #define FW_DDR_MST5_REG			0x54
 #define FW_DDR_MST13_REG		0x74
@@ -1094,6 +1099,10 @@ int arch_cpu_init(void)
 
 	/* Select usb otg0 phy status to 0 that make rockusb can work at high-speed */
 	writel(0x00080008, USBGRF_BASE + USB_GRF_USB3OTG0_CON1);
+
+	/* Increase MMU600PHP QOS from 0 to 4 */
+	writel(QOS_PRIORITY_LEVEL(4, 4), QOS_MMU600PHP_TBU_BASE);
+	writel(QOS_PRIORITY_LEVEL(4, 4), QOS_MMU600PHP_TCU_BASE);
 
 	return 0;
 }
