@@ -1463,7 +1463,10 @@ static int parse_pxefile_top(cmd_tbl_t *cmdtp, char *p, unsigned long base,
 			break;
 
 		case T_PROMPT:
-			eol_or_eof(&p);
+			err = parse_integer(&p, &cfg->prompt);
+			// Do not fail if prompt configuration is undefined
+			if (err <  0)
+				eol_or_eof(&p);
 			break;
 
 		case T_EOL:
