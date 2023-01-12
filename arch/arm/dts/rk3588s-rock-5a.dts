@@ -34,6 +34,36 @@
 		vin-supply = <&vcc12v_dcin>;
 	};
 
+	vcc_5v0: vcc-5v0 {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_5v0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+		regulator-always-on;
+		enable-active-high;
+		gpio = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vcc_5v0_en>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
+	vcc5v0_host: vcc5v0-host-regulator {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_host";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&gpio4 RK_PB5 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vcc5v0_host_en>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
 	led_sys: led-sys {
 		u-boot,dm-pre-reloc;
 		compatible = "regulator-fixed";
@@ -60,6 +90,40 @@
 			press-threshold-microvolt = <1750>;
 		};
 	};
+};
+
+&usb_host0_ehci {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+	clocks = <&cru HCLK_HOST0>, <&cru HCLK_HOST_ARB0>, <&u2phy2>;
+	clock-names = "usbhost", "arbiter", "utmi";
+	companion = <&usb_host0_ohci>;
+	phys = <&u2phy2_host>;
+	phy-names = "usb2-phy";
+};
+
+&usb_host0_ohci {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+	clocks = <&cru HCLK_HOST0>, <&cru HCLK_HOST_ARB0>, <&u2phy2>;
+	clock-names = "usbhost", "arbiter", "utmi";
+	phys = <&u2phy2_host>;
+	phy-names = "usb2-phy";
+};
+
+&usb2phy2_grf {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+};
+
+&u2phy2 {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+};
+
+&u2phy2_host {
+	status = "okay";
+	u-boot,dm-pre-reloc;
 };
 
 &sfc {
@@ -92,6 +156,22 @@
 				<2 RK_PD2 2 &pcfg_pull_none>,
 				/* fspi_d3_m0 */
 				<2 RK_PD3 2 &pcfg_pull_none>;
+		};
+	};
+
+	usb {
+		u-boot,dm-pre-reloc;
+		vcc5v0_host_en: vcc5v0-host-en {
+			u-boot,dm-pre-reloc;
+			rockchip,pins = <4 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	power {
+		u-boot,dm-spl;
+		vcc_5v0_en: vcc-5v0-en {
+			u-boot,dm-spl;
+			rockchip,pins = <4 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };
