@@ -284,5 +284,10 @@
 	pcfg_output_low: pcfg-output-low {
 		output-low;
 	};
+
+	pcfg_output_low_pull_down: pcfg-output-low-pull-down {
+		output-low;
+		bias-pull-down;
+	};
 };
 
