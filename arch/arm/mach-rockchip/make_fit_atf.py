@@ -212,8 +212,19 @@ def get_bl31_segments_info(bl31_file_name):
 
 def main():
     uboot_elf="./u-boot"
-    bl31_elf="./bl31.elf"
     FIT_ITS=sys.stdout
+
+    if "BL31" in os.environ:
+        bl31_elf=os.getenv("BL31");
+    elif os.path.isfile("./bl31.elf"):
+        bl31_elf = "./bl31.elf"
+    else:
+        os.system("echo 'int main(){}' > bl31.c")
+        os.system("${CROSS_COMPILE}gcc -c bl31.c -o bl31.elf")
+        bl31_elf = "./bl31.elf"
+        logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
+        logging.warning(' BL31 file bl31.elf NOT found, resulting binary is non-functional')
+        logging.warning(' Please read Building section in doc/README.rockchip')
 
     opts, args = getopt.getopt(sys.argv[1:], "o:u:b:h")
     for opt, val in opts:
