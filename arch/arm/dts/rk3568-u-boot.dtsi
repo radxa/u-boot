@@ -103,6 +103,36 @@
 	status = "okay";
 };
 
+&pmu {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&power {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&gic {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&its {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&pipegrf {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&pipe_phy_grf2 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
 &sfc {
 	u-boot,dm-spl;
 	/delete-property/ pinctrl-names;
