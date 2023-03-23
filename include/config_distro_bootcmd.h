@@ -225,11 +225,11 @@
 #endif
 
 #if defined(CONFIG_DM_PCI)
-#define BOOTENV_RUN_NET_PCI_ENUM "run boot_net_pci_enum; "
+#define BOOTENV_RUN_PCI_ENUM "run boot_pci_enum; "
 #define BOOTENV_SHARED_PCI \
-	"boot_net_pci_enum=pci enum\0"
+	"boot_pci_enum=pci enum\0"
 #else
-#define BOOTENV_RUN_NET_PCI_ENUM
+#define BOOTENV_RUN_PCI_ENUM
 #define BOOTENV_SHARED_PCI
 #endif
 
@@ -298,7 +298,7 @@
 #define BOOTENV_DEV_DHCP(devtypeu, devtypel, instance) \
 	"bootcmd_dhcp=" \
 		BOOTENV_RUN_NET_USB_START \
-		BOOTENV_RUN_NET_PCI_ENUM \
+		BOOTENV_RUN_PCI_ENUM \
 		"if dhcp ${scriptaddr} ${boot_script_dhcp}; then " \
 			"source ${scriptaddr}; " \
 		"fi;" \
@@ -317,7 +317,7 @@
 #define BOOTENV_DEV_PXE(devtypeu, devtypel, instance) \
 	"bootcmd_pxe=" \
 		BOOTENV_RUN_NET_USB_START \
-		BOOTENV_RUN_NET_PCI_ENUM \
+		BOOTENV_RUN_PCI_ENUM \
 		"dhcp; " \
 		"if pxe get; then " \
 			"pxe boot; " \
