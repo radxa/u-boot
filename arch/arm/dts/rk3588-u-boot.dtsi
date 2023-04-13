@@ -24,6 +24,11 @@
 	};
 };
 
+&otp {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
 &firmware {
 	u-boot,dm-spl;
 };
