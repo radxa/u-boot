@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2021 Rockchip Electronics Co., Ltd
+ *
+ */
+
+/dts-v1/;
+#include "rk3588s-rock-5a.dts"
+
+&sdhci {
+	status = "disabled";
+};
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&fspim0_pins>;
+	u-boot,dm-pre-reloc;
+};
+
+&spi_nor {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+};
