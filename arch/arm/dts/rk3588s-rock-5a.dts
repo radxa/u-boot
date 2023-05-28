@@ -64,6 +64,18 @@
 		vin-supply = <&vcc5v0_sys>;
 	};
 
+	vcc3v3_pcie: vcc3v3-pcie {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_pcie";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		regulator-boot-on;
+		regulator-always-on;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
 	led_sys: led-sys {
 		u-boot,dm-pre-reloc;
 		compatible = "regulator-fixed";
@@ -90,6 +102,18 @@
 			press-threshold-microvolt = <1750>;
 		};
 	};
+};
+
+&combphy0_ps {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+};
+
+&pcie2x1l2 {
+	status = "okay";
+	reset-gpios = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
+	u-boot,dm-pre-reloc;
+	vpcie3v3-supply = <&vcc3v3_pcie>;
 };
 
 &usb_host0_ehci {
