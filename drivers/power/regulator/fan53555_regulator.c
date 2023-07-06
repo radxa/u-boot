@@ -56,6 +56,12 @@ DECLARE_GLOBAL_DATA_PTR;
 #define FAN53555_NVOLTAGES_64	64/* Numbers of voltages */
 #define FAN53555_NVOLTAGES_127	127/* Numbers of voltages */
 
+enum {
+	IS_RK860_0_ONLY = 1,
+	IS_RK860_1_ONLY,
+	IS_RK860_0_1,
+};
+
 enum fan53555_vendor {
 	FAN53555_VENDOR_FAIRCHILD = 0,
 	FAN53555_VENDOR_SILERGY,
@@ -105,6 +111,7 @@ struct fan53555_regulator_info {
 	unsigned int vsel_step;
 	struct gpio_desc vsel_gpio;
 	unsigned int sleep_vsel_id;
+	int rk860_type;
 };
 
 static int fan53555_write(struct udevice *dev, uint reg, const uint8_t *buff,
@@ -426,11 +433,129 @@ static int fan53555_regulator_ofdata_to_platdata(struct udevice *dev)
 	return 0;
 }
 
+static void fan53555_rk860_calibration(struct udevice *dev, struct fan53555_regulator_info *di)
+{
+	int ret;
+	uint8_t buffer0[3], buffer1[3];
+	uint8_t value, version0 = 0x04, version1 = 0x04;
+	uint8_t flag = 0;
+
+	di->rk860_type = 0;
+	ret = dm_i2c_addr_read(dev, 0x40, 0x0E, &value, 1);
+	if (ret < 0) {
+		printf("%s>>>>>>hardware do not have rk860-0\n", __func__);
+	} else {
+		if (value == 0x00 || value == 0x04) {
+			di->rk860_type = IS_RK860_0_ONLY;
+			version0 = value & 0x04;
+			printf("%s>>>>>>hardware have rk860-0, reg[0x0e] = 0x%x\n", __func__, value);
+		} else {
+			printf("%s>>>>>>hardware 0x40 i2c-dev is not rk860-0, maybe syr827/syr837, reg[0x0e] = 0x%x\n", __func__, value);
+			flag = 1;
+		}
+	}
+
+	ret = dm_i2c_addr_read(dev, 0x41, 0x0E, &value, 1);
+
+	if (ret < 0) {
+		printf("%s>>>>>>hardware do not have rk860-1\n", __func__);
+	} else {
+		if (value == 0x44 || value == 0x40) {
+			if (di->rk860_type)
+				di->rk860_type = IS_RK860_0_1;
+			else
+				di->rk860_type = IS_RK860_1_ONLY;
+
+			version1 = value & 0x04;
+			printf("%s>>>>>>hardware have rk860-1, reg[0x0e] = 0x%x\n", __func__, value);
+		} else {
+			printf("%s>>>>>>hardware 0x41 i2c-dev is not rk860-1, maybe syr828/syr838, reg[0x0e] = 0x%x\n", __func__, value);
+			flag = 2;
+		}
+	}
+
+	if (flag == 1 && di->rk860_type == IS_RK860_1_ONLY && version1 == 0) {
+		printf("%s>>>>>>warnning..., can not support this hardware mode\n", __func__);
+		return;
+	}
+
+	printf("%s>>>>>rk860_type = %d\n", __func__, di->rk860_type);
+
+	switch (di->rk860_type) {
+		case IS_RK860_0_ONLY:
+			if (version0 == 0) {
+				dm_i2c_addr_read(dev, 0x40, 0x0B, &buffer0[0], 1);
+				dm_i2c_addr_read(dev, 0x40, 0x0C, &buffer0[1], 1);
+				dm_i2c_addr_read(dev, 0x40, 0x0D, &buffer0[2], 1);
+				value=0x5a;
+				dm_i2c_addr_write(dev, 0x40, 0x0A, &value, 1);
+				value=0x04;
+				dm_i2c_addr_write(dev, 0x40, 0x0E, &value, 1);
+				dm_i2c_addr_write(dev, 0x40, 0x0B, &buffer0[0], 1);
+				dm_i2c_addr_write(dev, 0x40, 0x0C, &buffer0[1], 1);
+				dm_i2c_addr_write(dev, 0x40, 0x0D, &buffer0[2], 1);
+				printf("%s>>>>>>rk860-0 calibration okay.\n", __func__);
+			}
+			break;
+
+		case IS_RK860_1_ONLY:
+			if (version1 == 0) {
+				dm_i2c_addr_read(dev, 0x41, 0x0B, &buffer1[0], 1);
+				dm_i2c_addr_read(dev, 0x41, 0x0C, &buffer1[1], 1);
+				dm_i2c_addr_read(dev, 0x41, 0x0D, &buffer1[2], 1);
+				value=0x5a;
+				dm_i2c_addr_write(dev, 0x41, 0x0A, &value, 1);
+				value=0x44;
+				dm_i2c_addr_write(dev, 0x40, 0x0E, &value, 1);
+				dm_i2c_addr_write(dev, 0x41, 0x0B, &buffer1[0], 1);
+				dm_i2c_addr_write(dev, 0x41, 0x0C, &buffer1[1], 1);
+				dm_i2c_addr_write(dev, 0x41, 0x0D, &buffer1[2], 1);
+				printf("%s>>>>>>rk860-1 calibration okay.\n", __func__);
+			}
+			break;
+
+		case IS_RK860_0_1:
+			if (version0 == 0 || version1 == 0) {
+				dm_i2c_addr_read(dev, 0x40, 0x0B, &buffer0[0], 1);
+				dm_i2c_addr_read(dev, 0x40, 0x0C, &buffer0[1], 1);
+				dm_i2c_addr_read(dev, 0x40, 0x0D, &buffer0[2], 1);
+				dm_i2c_addr_read(dev, 0x41, 0x0B, &buffer1[0], 1);
+				dm_i2c_addr_read(dev, 0x41, 0x0C, &buffer1[1], 1);
+				dm_i2c_addr_read(dev, 0x41, 0x0D, &buffer1[2], 1);
+				value = 0x5a;
+				dm_i2c_addr_write(dev, 0x40, 0x0A, &value, 1);
+				value = 0x84;
+				dm_i2c_addr_write(dev, 0x40, 0x0E, &value, 1);
+				value = 0x5a;
+				dm_i2c_addr_write(dev, 0x41, 0x0A, &value, 1);
+				value = 0x44;
+				dm_i2c_addr_write(dev, 0x40, 0x0E, &value, 1);
+				dm_i2c_addr_write(dev, 0x41, 0x0B, &buffer1[0], 1);
+				dm_i2c_addr_write(dev, 0x41, 0x0C, &buffer1[1], 1);
+				dm_i2c_addr_write(dev, 0x41, 0x0D, &buffer1[2], 1);
+				value = 0x04;
+				dm_i2c_addr_write(dev, 0x42, 0x0E, &value, 1);
+				dm_i2c_addr_write(dev, 0x40, 0x0B, &buffer0[0], 1);
+				dm_i2c_addr_write(dev, 0x40, 0x0C, &buffer0[1], 1);
+				dm_i2c_addr_write(dev, 0x40, 0x0D, &buffer0[2], 1);
+				printf("%s>>>>>>rk860-0, rk860-1 calibration okay.\n", __func__);
+			}
+			break;
+
+		default:
+			printf("%s>>>>>>do nothing\n", __func__);
+			break;
+	}
+
+	return;
+}
+
+
 static int fan53555_regulator_probe(struct udevice *dev)
 {
 	struct fan53555_regulator_info *di = dev_get_priv(dev);
 	struct dm_regulator_uclass_platdata *uc_pdata;
-	u8 val;
+	int val;
 	int ret;
 
 	uc_pdata = dev_get_uclass_platdata(dev);
@@ -453,8 +578,12 @@ static int fan53555_regulator_probe(struct udevice *dev)
 	}
 	di->chip_rev = val & DIE_REV;
 
-	debug("FAN53555 Option[%d] Rev[%d] Detected!\n",
+	printf("FAN53555 Option[%d] Rev[%d] Detected!\n",
 	      di->chip_id, di->chip_rev);
+
+        if (di->vendor == FAN53555_VENDOR_SILERGY) {
+           fan53555_rk860_calibration(dev, di);
+        }
 
 	/* Device init */
 	ret = fan53555_device_setup(di);

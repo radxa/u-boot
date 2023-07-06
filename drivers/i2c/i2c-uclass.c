@@ -200,6 +200,95 @@ int dm_i2c_write(struct udevice *dev, uint offset, const uint8_t *buffer,
 	}
 }
 
+int dm_i2c_addr_read(struct udevice *dev, uint i2c_addr, uint offset, uint8_t *buffer, int len)
+{
+	struct dm_i2c_chip *chip = dev_get_parent_platdata(dev);
+	struct udevice *bus = dev_get_parent(dev);
+	struct dm_i2c_ops *ops = i2c_get_ops(bus);
+	struct i2c_msg msg[2], *ptr;
+	uint8_t offset_buf[I2C_MAX_OFFSET_LEN];
+	int msg_count;
+
+	if (!ops->xfer)
+		return -ENOSYS;
+	if (chip->flags & DM_I2C_CHIP_RD_ADDRESS)
+		return i2c_read_bytewise(dev, offset, buffer, len);
+	ptr = msg;
+	if (!i2c_setup_offset(chip, offset, offset_buf, ptr))
+		ptr++;
+
+	if (len) {
+		ptr->addr = i2c_addr;
+		ptr->flags = chip->flags & DM_I2C_CHIP_10BIT ? I2C_M_TEN : 0;
+		ptr->flags |= I2C_M_RD;
+		ptr->len = len;
+		ptr->buf = buffer;
+		ptr++;
+	}
+	msg_count = ptr - msg;
+
+	return ops->xfer(bus, msg, msg_count);
+}
+
+
+int dm_i2c_addr_write(struct udevice *dev, uint i2c_addr, uint offset, const uint8_t *buffer,
+		 int len)
+{
+	struct dm_i2c_chip *chip = dev_get_parent_platdata(dev);
+	struct udevice *bus = dev_get_parent(dev);
+	struct dm_i2c_ops *ops = i2c_get_ops(bus);
+	struct i2c_msg msg[1];
+
+	if (!ops->xfer)
+		return -ENOSYS;
+
+	if (chip->flags & DM_I2C_CHIP_WR_ADDRESS)
+		return i2c_write_bytewise(dev, offset, buffer, len);
+	/*
+	 * The simple approach would be to send two messages here: one to
+	 * set the offset and one to write the bytes. However some drivers
+	 * will not be expecting this, and some chips won't like how the
+	 * driver presents this on the I2C bus.
+	 *
+	 * The API does not support separate offset and data. We could extend
+	 * it with a flag indicating that there is data in the next message
+	 * that needs to be processed in the same transaction. We could
+	 * instead add an additional buffer to each message. For now, handle
+	 * this in the uclass since it isn't clear what the impact on drivers
+	 * would be with this extra complication. Unfortunately this means
+	 * copying the message.
+	 *
+	 * Use the stack for small messages, malloc() for larger ones. We
+	 * need to allow space for the offset (up to 4 bytes) and the message
+	 * itself.
+	 */
+	if (len < 64) {
+		uint8_t buf[I2C_MAX_OFFSET_LEN + len];
+
+		i2c_setup_offset(chip, offset, buf, msg);
+		msg->len += len;
+		msg->addr = i2c_addr;
+		memcpy(buf + chip->offset_len, buffer, len);
+
+		return ops->xfer(bus, msg, 1);
+	} else {
+		uint8_t *buf;
+		int ret;
+
+		buf = malloc(I2C_MAX_OFFSET_LEN + len);
+		if (!buf)
+			return -ENOMEM;
+		i2c_setup_offset(chip, offset, buf, msg);
+		msg->len += len;
+		msg->addr = i2c_addr;
+		memcpy(buf + chip->offset_len, buffer, len);
+
+		ret = ops->xfer(bus, msg, 1);
+		free(buf);
+		return ret;
+	}
+}
+
 int dm_i2c_xfer(struct udevice *dev, struct i2c_msg *msg, int nmsgs)
 {
 	struct udevice *bus = dev_get_parent(dev);
