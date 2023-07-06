@@ -2398,7 +2398,7 @@ moredata:
 					|| zi->bytes_received > last_bps / 2 + last_rxbytes)) {
 				int minleft =  0;
 				int secleft =  0;
-				time_t now;
+				time_t now = 0;
 				ulong d;
 				//xil_printf("%s(): L%d debug\n\r", __func__, __LINE__);
 				d=timing(0,&now);
