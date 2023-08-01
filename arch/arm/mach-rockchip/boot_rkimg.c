@@ -329,6 +329,7 @@ __weak int rockchip_dnl_key_pressed(void)
 void setup_download_mode(void)
 {
 	int vbus = 1; /* Assumed 1 in case of no rockusb */
+	const void *blob = gd->fdt_blob;
 
 	boot_devtype_init();
 
@@ -346,6 +347,9 @@ void setup_download_mode(void)
 			/* try rockusb download and brom download */
 			run_command("download", 0);
 		} else {
+			if ((fdt_node_offset_by_compatible(blob, -1, "radxa,rockpie")) >= 0) {
+				run_command("download", 0);
+			}
 			printf("entering recovery mode!\n");
 			env_set("reboot_mode", "recovery-key");
 		}
