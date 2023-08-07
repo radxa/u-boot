@@ -36,7 +36,7 @@ const struct pci_device_id scsi_device_list[] = { SCSI_DEV_LIST };
 #endif
 static struct scsi_cmd tempccb;	/* temporary scsi command buffer */
 
-static unsigned char tempbuff[512]; /* temporary data buffer */
+DEFINE_CACHE_ALIGN_BUFFER(u8, tempbuff, 512);	/* temporary data buffer */
 
 #if !defined(CONFIG_DM_SCSI)
 static int scsi_max_devs; /* number of highest available scsi device */
@@ -665,7 +665,7 @@ static int scsi_detect_dev(struct udevice *dev, int target, int lun,
 
 	pccb->target = target;
 	pccb->lun = lun;
-	pccb->pdata = (unsigned char *)&tempbuff;
+	pccb->pdata = tempbuff;
 	pccb->datalen = SCSI_STD_INQUIRY_BYTES;
 	pccb->dma_dir = DMA_FROM_DEVICE;
 	scsi_setup_inquiry(pccb);
