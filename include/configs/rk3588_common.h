@@ -75,6 +75,8 @@
 #define CONFIG_SYS_NAND_PAGE_COUNT	64
 #define CONFIG_SYS_NAND_SIZE		(256 * 1024 * 1024)
 
+#define CONFIG_MISC_INIT_R
+
 /*
  * decompressed kernel:  4M ~ 84M
  *	Why not start from 2M ? if kernel < 5.10 in Android image,
