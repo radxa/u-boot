@@ -46,6 +46,8 @@
 
 #ifndef CONFIG_SPL_BUILD
 
+#define CONFIG_MISC_INIT_R
+
 /* usb mass storage */
 #define CONFIG_USB_FUNCTION_MASS_STORAGE
 
