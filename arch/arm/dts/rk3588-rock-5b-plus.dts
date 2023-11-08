@@ -8,6 +8,7 @@
 #include "rk3588.dtsi"
 #include "rk3588-u-boot.dtsi"
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/phy/phy-snps-pcie3.h>
 
 / {
 	model = "Radxa ROCK 5B+";
@@ -78,11 +79,20 @@
 &pcie3x4 {
 	u-boot,dm-pre-reloc;
 	reset-gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_HIGH>;
+	num-lanes = <2>;
+	vpcie3v3-supply = <&vcc3v3_pcie30>;
 	status = "okay";
+};
 
+&pcie3x2 {
+	u-boot,dm-pre-reloc;
+	reset-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
+	vpcie3v3-supply = <&vcc3v3_pcie30>;
+	status = "disabled";
 };
 
 &pcie30phy {
 	u-boot,dm-pre-reloc;
+	rockchip,pcie30-phymode = <PHY_MODE_PCIE_NANBNB>;
 	status = "okay";
 };
