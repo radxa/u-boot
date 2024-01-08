@@ -84,6 +84,21 @@
 		regulator-always-on;
 		vin-supply = <&vcc5v0_sys>;
 	};
+
+	vcc5v0_host: vcc5v0-host-regulator {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_host";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vcc5v0_host_en>;
+		vin-supply = <&vcc5v0_sys>;
+	};
 };
 
 &pcie3x4 {
@@ -105,4 +120,66 @@
 	u-boot,dm-pre-reloc;
 	rockchip,pcie30-phymode = <PHY_MODE_PCIE_NANBNB>;
 	status = "okay";
+};
+
+&usb2phy2_grf {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&usb2phy3_grf {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&usb_host0_ehci {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&usb_host0_ohci {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&usb_host1_ehci {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&usb_host1_ohci {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&u2phy2 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&u2phy2_host {
+	u-boot,dm-pre-reloc;
+	phy-supply = <&vcc5v0_host>;
+	status = "okay";
+};
+
+&u2phy3 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&u2phy3_host {
+	u-boot,dm-pre-reloc;
+	phy-supply = <&vcc5v0_host>;
+	status = "okay";
+};
+
+&pinctrl {
+	usb {
+		u-boot,dm-pre-reloc;
+		vcc5v0_host_en: vcc5v0_host_en {
+			u-boot,dm-pre-reloc;
+			rockchip,pins = <3 RK_PB7 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
 };
