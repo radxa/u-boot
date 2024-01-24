@@ -1,0 +1,40 @@
+/*
+ * SPDX-License-Identifier:     GPL-2.0+
+ * Copyright (c) 2020 Rockchip Electronics Co., Ltd.
+ * Copyright (c) 2024 Radxa Limited
+ */
+
+/dts-v1/;
+#include "rk3568-radxa-cm3i.dtsi"
+
+/ {
+	model = "Radxa E25 Carrier Board";
+	compatible = "radxa,e25", "radxa,cm3i", "rockchip,rk3568";
+
+	led_sys: led-sys {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "led_sys";
+		enable-active-high;
+		gpio = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+		vin-supply = <&vcc3v3_sys>;
+	};
+
+	adc-keys {
+		compatible = "adc-keys";
+		io-channels = <&saradc 0>;
+		io-channel-names = "buttons";
+		keyup-threshold-microvolt = <1800000>;
+		u-boot,dm-spl;
+		status = "okay";
+
+		volumeup-key {
+			u-boot,dm-spl;
+			linux,code = <KEY_VOLUMEUP>;
+			label = "volume up";
+			press-threshold-microvolt = <9>;
+		};
+	};
+};
