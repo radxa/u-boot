@@ -75,6 +75,22 @@
 		regulator-always-on;
 		vin-supply = <&vcc5v0_sys>;
 	};
+
+	adc-keys {
+		compatible = "adc-keys";
+		io-channels = <&saradc 1>;
+		io-channel-names = "buttons";
+		keyup-threshold-microvolt = <1800000>;
+		u-boot,dm-pre-reloc;
+		status = "okay";
+
+		user-key {
+			u-boot,dm-pre-reloc;
+			linux,code = <KEY_MACRO>;
+			label = "macro";
+			press-threshold-microvolt = <1750>;
+		};
+	};
 };
 
 &combphy0_ps {
