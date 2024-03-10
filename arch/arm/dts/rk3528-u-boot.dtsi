@@ -27,6 +27,10 @@
 
 };
 
+&otp {
+	u-boot,dm-spl;
+};
+
 &grf {
 	u-boot,dm-spl;
 	status = "okay";
