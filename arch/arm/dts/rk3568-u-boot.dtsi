@@ -123,6 +123,10 @@
 	status = "okay";
 };
 
+&otp {
+	u-boot,dm-spl;
+};
+
 &pipegrf {
 	u-boot,dm-pre-reloc;
 	status = "okay";
