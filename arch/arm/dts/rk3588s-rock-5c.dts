@@ -86,8 +86,8 @@
 
 		user-key {
 			u-boot,dm-pre-reloc;
-			linux,code = <KEY_MACRO>;
-			label = "macro";
+			linux,code = <KEY_VOLUMEUP>;
+			label = "volume up";
 			press-threshold-microvolt = <1750>;
 		};
 	};
