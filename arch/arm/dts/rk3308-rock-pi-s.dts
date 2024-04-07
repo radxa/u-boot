@@ -1,0 +1,108 @@
+/*
+ * (C) Copyright 2018 Rockchip Electronics Co., Ltd
+ *
+ * SPDX-License-Identifier:     GPL-2.0+
+ */
+
+/dts-v1/;
+#include "rk3308.dtsi"
+#include "rk3308-u-boot.dtsi"
+#include <dt-bindings/input/input.h>
+#include <linux/media-bus-format.h>
+
+/ {
+	model = "Radxa ROCK Pi S";
+	compatible = "radxa,rockpis", "rockchip,rk3308";
+
+	vdd_log: vdd_core: vdd-core {
+		compatible = "pwm-regulator";
+		pwms = <&pwm0 0 5000 1>;
+		regulator-name = "vdd_core";
+		regulator-min-microvolt = <847000>;
+		regulator-max-microvolt = <1366000>;
+		regulator-init-microvolt  = <1044000>;
+		regulator-always-on;
+		regulator-boot-on;
+		status = "okay";
+	};
+
+	vcc5v0_host: vcc5v0-host-en {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_host";
+		enable-active-high;
+		gpio = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vcc5v0_host_drv>;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	vcc_phy: vcc-phy-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_phy";
+		regulator-always-on;
+		regulator-boot-on;
+	};
+};
+
+&emmc {
+	cap-mmc-highspeed;
+	supports-emmc;
+	non-removable;
+	num-slots = <1>;
+	status = "okay";
+};
+
+&sdmmc {
+	bus-width = <4>;
+	status = "okay";
+};
+
+&pwm0 {
+	status = "okay";
+};
+
+&u2phy {
+	status = "okay";
+};
+
+&u2phy_otg {
+	status = "okay";
+};
+
+&u2phy_host {
+	status = "okay";
+};
+
+&usb_host0_ehci {
+	status = "okay";
+};
+
+&usb_host0_ohci {
+	status = "okay";
+};
+
+&usb20_otg {
+	status = "okay";
+};
+
+&mac {
+	phy-supply = <&vcc_phy>;
+	clock_in_out = "output";
+	assigned-clocks = <&cru SCLK_MAC>;
+	assigned-clock-parents = <&cru SCLK_MAC_SRC>;
+	snps,reset-gpio = <&gpio0 RK_PA7 GPIO_ACTIVE_LOW>;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 50000 50000>;
+	status = "okay";
+};
+
+&pinctrl {
+	usb {
+		vcc5v0_host_drv: vcc5v0-host-drv {
+			rockchip,pins = <0 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+};
