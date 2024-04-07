@@ -56,6 +56,8 @@
 #define CONFIG_PREBOOT
 #endif
 
+#define CONFIG_MISC_INIT_R
+
 #ifndef CONFIG_SPL_BUILD
 
 /* usb mass storage */
