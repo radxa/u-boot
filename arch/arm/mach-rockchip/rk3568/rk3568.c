@@ -946,7 +946,7 @@ int arch_cpu_init(void)
 
 	/* Set the fspi to secure */
 	writel(((0x1 << 14) << 16) | (0x0 << 14), SGRF_BASE + SGRF_SOC_CON3);
-#else /* U-Boot */
+#endif /* U-Boot */
 	/* uboot: config iomux */
 #if defined(CONFIG_ROCKCHIP_SFC_IOMUX)
 	writel((0x70002000), GRF_BASE + GRF_GPIO1C_IOMUX_H);
@@ -966,7 +966,6 @@ int arch_cpu_init(void)
 	writel(1, SATA1_BASE_ADDR + SATA_PI);
 	writel(SATA_FBS_ENABLE, SATA2_BASE_ADDR + SATA_PORT_CMD);
 	writel(1, SATA2_BASE_ADDR + SATA_PI);
-#endif
 
 	/* Set i2c0 iomux */
 	writel(0x07700110, 0xfdc20008);
