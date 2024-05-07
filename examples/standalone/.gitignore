@@ -2,6 +2,7 @@
 /hello_world
 /interrupt
 /mem_to_mem_idma2intr
+/rkspi
 /sched
 /smc91111_eeprom
 /smc911x_eeprom
