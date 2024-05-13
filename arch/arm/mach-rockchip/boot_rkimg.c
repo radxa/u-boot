@@ -336,6 +336,12 @@ void setup_download_mode(void)
 	if (rockchip_dnl_key_pressed() || is_hotkey(HK_ROCKUSB_DNL)) {
 		printf("download %skey pressed... ",
 		       is_hotkey(HK_ROCKUSB_DNL) ? "hot" : "");
+		if ((fdt_node_offset_by_compatible(blob, -1, "radxa,rock-5-itx")) >= 0 &&
+			!run_command("test -e mmc 0:3 /boot/extlinux/extlinux.conf", 0)) {
+			printf("\nForce to boot from eMMC!\n");
+			run_command("sysboot mmc 0:3 any 0x00500000 /boot/extlinux/extlinux.conf", 0);
+		}
+
 #ifdef CONFIG_CMD_ROCKUSB
 		vbus = rockchip_u2phy_vbus_detect();
 #endif
