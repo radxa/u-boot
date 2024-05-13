@@ -62,20 +62,27 @@
 	BOOT_TARGET_DEVICES_references_MTD_without_CONFIG_CMD_MTD_BLK
 #endif
 
-/* First try to boot from SD (index 1), then NVME (if CMD_NVME is enabled), then eMMC (index 0) */
+/* First try to boot from SD (index 1), then NVME (if CMD_NVME is enabled), then SCSI (if CMD_SCSI is enabled),then eMMC (index 0) */
 #if CONFIG_IS_ENABLED(CMD_MMC)
-#if CONFIG_IS_ENABLED(CMD_NVME)
-	#define BOOT_TARGET_NVME_MMC(func) \
-		func(MMC, mmc, 1) \
-		func(NVME, nvme, 0) \
-		func(MMC, mmc, 0)
+	#define BOOT_TARGET_EMMC(func)	func(MMC, mmc, 0)
+	#define BOOT_TARGET_SD(func)	func(MMC, mmc, 1)
 #else
-	#define BOOT_TARGET_NVME_MMC(func) \
-		func(MMC, mmc, 1) \
-		func(MMC, mmc, 0)
+	#define BOOT_TARGET_EMMC(func)
+	#define BOOT_TARGET_SD(func)
 #endif
+
+#if CONFIG_IS_ENABLED(CMD_NVME)
+	#define BOOT_TARGET_NVME(func)	\
+		func(NVME, nvme, 0)	\
+		func(NVME, nvme, 1)
 #else
-	#define BOOT_TARGET_NVME_MMC(func)
+	#define BOOT_TARGET_NVME(func)
+#endif
+
+#if CONFIG_IS_ENABLED(CMD_SCSI)
+	#define BOOT_TARGET_SCSI(func)	func(SCSI, scsi, 0)
+#else
+	#define BOOT_TARGET_SCSI(func)
 #endif
 
 #if CONFIG_IS_ENABLED(CMD_MTD_BLK)
@@ -113,7 +120,10 @@
 
 #define BOOT_TARGET_DEVICES(func) \
 	BOOT_TARGET_USB(func) \
-	BOOT_TARGET_NVME_MMC(func) \
+	BOOT_TARGET_SD(func) \
+	BOOT_TARGET_NVME(func) \
+	BOOT_TARGET_SCSI(func) \
+	BOOT_TARGET_EMMC(func) \
 	BOOT_TARGET_MTD(func) \
 	BOOT_TARGET_RKNAND(func) \
 	BOOT_TARGET_PXE(func) \
@@ -164,6 +174,10 @@
 		"setenv devtype mmc; setenv devnum 1; echo Boot from SDcard;" \
 	"elif nvme dev 0; then " \
 		"setenv devtype nvme; setenv devnum 0; echo Boot from nvme;" \
+	"elif nvme dev 1; then " \
+		"setenv devtype nvme; setenv devnum 1; echo Boot from nvme;" \
+	"elif scsi dev 0; then " \
+		"setenv devtype scsi; setenv devnum 0; echo Boot from scsi;" \
 	"elif mmc dev 0; then " \
 		"setenv devtype mmc; setenv devnum 0;" \
 	"elif mtd_blk dev 0; then " \
