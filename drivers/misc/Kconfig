@@ -301,6 +301,13 @@ config I2C_EEPROM
 	help
 	  Enable a generic driver for EEPROMs attached via I2C.
 
+config RADXA_ID_EEPROM
+	bool "Enable Radxa ID EEPROM driver"
+	depends on MISC
+	help
+	  Enable support for Radxa ID EEPROM.
+	  This EEPROM is used to store persistent platform data, such as MAC address.
+
 if I2C_EEPROM
 
 config SYS_I2C_EEPROM_ADDR
