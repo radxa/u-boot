@@ -682,6 +682,15 @@ config I2C_EEPROM
 	help
 	  Enable a generic driver for EEPROMs attached via I2C.
 
+config RADXA_ID_EEPROM
+	bool "Enable Radxa ID EEPROM driver"
+	depends on ARCH_ROCKCHIP && MISC && DM_I2C && NET
+	select I2C_EEPROM
+	help
+	  Read MAC addresses from Radxa-formatted factory data in an I2C
+	  EEPROM described by the device tree. Check offset zero first,
+	  then offset 0x100 for older layouts. Invalid or missing data leaves
+	  the platform's normal MAC fallback in place.
 
 config SPL_I2C_EEPROM
 	bool "Enable driver for generic I2C-attached EEPROMs for SPL"

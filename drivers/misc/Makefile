@@ -12,6 +12,7 @@ obj-$(CONFIG_$(PHASE_)CROS_EC_SANDBOX) += cros_ec_sandbox.o
 obj-$(CONFIG_$(PHASE_)CROS_EC_LPC) += cros_ec_lpc.o
 
 ifndef CONFIG_XPL_BUILD
+obj-$(CONFIG_RADXA_ID_EEPROM) += radxa-i2c-eeprom.o
 obj-$(CONFIG_SANDBOX) += sandbox_adder.o
 obj-$(CONFIG_CROS_EC_I2C) += cros_ec_i2c.o
 obj-$(CONFIG_CROS_EC_SPI) += cros_ec_spi.o

@@ -27,6 +27,7 @@
 #include <dm/uclass-internal.h>
 #include <u-boot/crc.h>
 #include <u-boot/sha256.h>
+#include <radxa-i2c-eeprom.h>
 #include <asm/io.h>
 #include <asm/arch-rockchip/boot_mode.h>
 #include <asm/arch-rockchip/misc.h>
@@ -66,7 +67,7 @@ static int rockchip_vendor_serial_number_set(void)
 	return 0;
 }
 
-int rockchip_setup_macaddr(void)
+static int rockchip_setup_macaddr_fallback(void)
 {
 #define MAX_ETHERNET	0x2
 	bool need_write = false;
@@ -116,7 +117,7 @@ int rockchip_setup_macaddr(void)
 }
 
 #else
-int rockchip_setup_macaddr(void)
+static int rockchip_setup_macaddr_fallback(void)
 {
 #if CONFIG_IS_ENABLED(HASH) && CONFIG_IS_ENABLED(SHA256)
 	const char *cpuid = env_get("cpuid#");
@@ -155,6 +156,14 @@ int rockchip_setup_macaddr(void)
 	return 0;
 }
 #endif
+
+int rockchip_setup_macaddr(void)
+{
+	if (!radxa_mac_read_from_eeprom())
+		return 0;
+
+	return rockchip_setup_macaddr_fallback();
+}
 
 int rockchip_cpuid_from_efuse(const u32 cpuid_offset,
 			      const u32 cpuid_length,
