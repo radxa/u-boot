@@ -103,7 +103,7 @@
 	u-boot,dm-pre-reloc;
 	reset-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
 	vpcie3v3-supply = <&vcc3v3_pcie30>;
-	status = "disabled";
+	status = "okay";
 };
 
 &pcie30phy {
