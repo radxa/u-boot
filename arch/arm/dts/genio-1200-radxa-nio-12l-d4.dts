@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0 OR MIT
+/*
+ * Copyright (C) 2023 MediaTek Inc.
+ * Author: Macpaul Lin <macpaul.lin@mediatek.com>
+ * Copyright (C) 2024 Radxa Limited
+ */
+
+/dts-v1/;
+
+#include "genio-1200-radxa-nio-12l.dtsi"
+
+/ {
+	memory@40000000 {
+		/* 4GB */
+		device_type = "memory";
+		reg = <0 0x40000000 1 0x00000000>;
+	};
+};
