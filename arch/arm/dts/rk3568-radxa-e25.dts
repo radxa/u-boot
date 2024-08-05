@@ -37,4 +37,20 @@
 			press-threshold-microvolt = <9>;
 		};
 	};
+
+	leds {
+		u-boot,dm-pre-reloc;
+		compatible = "gpio-leds";
+		status = "okay";
+
+		blue-led {
+			u-boot,dm-pre-reloc;
+			label = "blue";
+			gpios = <&gpio4 RK_PC5 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
+
+&gpio4 {
+	u-boot,dm-pre-reloc;
 };
