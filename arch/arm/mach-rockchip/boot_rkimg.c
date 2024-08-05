@@ -340,6 +340,9 @@ void setup_download_mode(void)
 			!run_command("test -e mmc 0:3 /boot/extlinux/extlinux.conf", 0)) {
 			printf("\nForce to boot from eMMC!\n");
 			run_command("sysboot mmc 0:3 any 0x00500000 /boot/extlinux/extlinux.conf", 0);
+		} else if ((fdt_node_offset_by_compatible(blob, -1, "radxa,e25")) >= 0) {
+			printf("\nTurn on Blue LED on Radxa E25!\n");
+			run_command("led blue on", 0);
 		}
 
 #ifdef CONFIG_CMD_ROCKUSB
