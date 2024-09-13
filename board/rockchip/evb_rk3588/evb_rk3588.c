@@ -12,14 +12,20 @@
 #include <rockusb.h>
 #include <adc.h>
 #include <dm.h>
+#include <i2c.h>
+#include <dm/device.h>
+#include <dm/uclass.h>
 
 #define SARADC_ADDR	"saradc@fec10000"
 #define HW_ID_CHANNEL	5
+
+#define RTC_ADDRESS 0x51
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
 struct variant_def {
 	char *compatible;
+	unsigned int i2c_bus;
 	unsigned int hw_id_lower_bound;
 	unsigned int hw_id_upper_bound;
 	char *fdtfile;
@@ -100,13 +106,36 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 
 #ifdef CONFIG_ID_EEPROM
 static struct variant_def variants[] = {
-	{"rockchip,rk3588", 300, 380, "rockchip/rk3588s-radxa-e54c.dtb"},
-	{"rockchip,rk3588", 980, 1060, "rockchip/rk3588-rock-5t.dtb"},
-	{"rockchip,rk3588", 1650, 1730, "rockchip/rk3588s-radxa-e52c.dtb"},
-	{"rockchip,rk3588", 2360, 2440, "rockchip/rk3588s-rock-5c.dtb"},
-	{"rockchip,rk3588", 3370, 3450, "rockchip/rk3588s-rock-5d.dtb"},
-	{"rockchip,rk3588", 4050, 4130, "rockchip/rk3588-rock-5b-plus.dtb"},
+	{"rockchip,rk3588", 5, 300, 380, "rockchip/rk3588s-radxa-e54c.dtb"},
+	{"rockchip,rk3588", 6, 980, 1060, "rockchip/rk3588-rock-5t.dtb"},
+	{"rockchip,rk3588", 5, 1650, 1730, "rockchip/rk3588s-radxa-e52c.dtb"},
+	{"rockchip,rk3588", 6, 2010, 2090, "rockchip/rk3588s-radxa-cm5-io.dtb"},
+	{"rockchip,rk3588", 7, 2010, 2090, "rockchip/rk3588s-radxa-cm5-rpi-cm4-io.dtb"},
+	{"rockchip,rk3588", 5, 2360, 2440, "rockchip/rk3588s-rock-5c.dtb"},
+	{"rockchip,rk3588", 5, 3370, 3450, "rockchip/rk3588s-rock-5d.dtb"},
+	{"rockchip,rk3588", 6, 4050, 4130, "rockchip/rk3588-rock-5b-plus.dtb"},
 };
+
+static int find_rtc_on_bus(int i2c_bus)
+{
+	int ret;
+	struct udevice *bus, *dev;
+
+	ret = uclass_get_device_by_seq(UCLASS_I2C, i2c_bus, &bus);
+	if (ret) {
+		printf("Failed to get I2C bus %d: %d\n", i2c_bus, ret);
+		return ret;
+	}
+
+	ret = dm_i2c_probe(bus, RTC_ADDRESS, 0, &dev);
+	if (ret) {
+		printf("RTC device not found on bus %d: %d\n", i2c_bus, ret);
+		return ret;
+	}
+
+	printf("RTC device found on bus %d\n", i2c_bus);
+	return 0;
+}
 
 static void set_fdtfile(void)
 {
@@ -124,9 +153,19 @@ static void set_fdtfile(void)
 		if (of_machine_is_compatible(v->compatible) &&
 		    hw_id >= v->hw_id_lower_bound &&
 		    hw_id <= v->hw_id_upper_bound) {
-			printf("Override default fdtfile to %s\n", v->fdtfile);
-			env_set("fdtfile", v->fdtfile);
-			break;
+			if (v->hw_id_lower_bound >= 2010 && v->hw_id_upper_bound <= 2090) {
+				ret = find_rtc_on_bus(v->i2c_bus);
+				if (ret) {
+					continue;
+				}
+				printf("Override default fdtfile to %s\n", v->fdtfile);
+				env_set("fdtfile", v->fdtfile);
+				break;
+			} else {
+				printf("Override default fdtfile to %s\n", v->fdtfile);
+				env_set("fdtfile", v->fdtfile);
+				break;
+			}
 		}
 	}
 }
