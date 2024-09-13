@@ -218,6 +218,12 @@ config IO_TRACE
 	help
 	  This enable iotrace feature.
 
+config ID_EEPROM
+	bool "Enable I2C connected system identifier EEPROM"
+	help
+	  A number of different systems and vendors enable a vendor-specified
+	  EEPROM that contains various identifying features.
+
 menu "Console"
 
 config MENU
