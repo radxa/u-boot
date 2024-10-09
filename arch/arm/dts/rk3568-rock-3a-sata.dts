@@ -1,0 +1,18 @@
+/*
+ * SPDX-License-Identifier:     GPL-2.0+
+ *
+ * (C) Copyright 2020 Rockchip Electronics Co., Ltd
+ */
+
+/dts-v1/;
+#include "rk3568-rock-3a.dts"
+
+&sata2 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&pcie2x1 {
+	u-boot,dm-pre-reloc;
+	status = "disabled";
+};
