@@ -55,6 +55,7 @@ obj-$(CONFIG_WINBOND_W83627) += winbond_w83627.o
 obj-$(CONFIG_QFW) += qfw.o
 obj-$(CONFIG_ROCKCHIP_EFUSE) += rockchip-efuse.o
 obj-$(CONFIG_ROCKCHIP_OTP) += rockchip-otp.o
+obj-$(CONFIG_RADXA_ID_EEPROM) += radxa-i2c-eeprom.o
 
 ifeq ($(CONFIG_$(SPL_TPL_)ROCKCHIP_SECURE_OTP),y)
 obj-$(CONFIG_ROCKCHIP_RK3308) += rk3308-secure-otp.o

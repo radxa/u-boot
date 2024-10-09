@@ -17,11 +17,18 @@
 #include <misc.h>
 #include <u-boot/crc.h>
 #include <u-boot/sha256.h>
+#include <radxa-i2c-eeprom.h>
 
 #include <asm/arch-rockchip/misc.h>
 
 int rockchip_setup_macaddr(void)
 {
+
+#ifdef CONFIG_RADXA_ID_EEPROM
+	if(!radxa_mac_read_from_eeprom())
+		return 0;
+#endif
+
 #if CONFIG_IS_ENABLED(HASH) && CONFIG_IS_ENABLED(SHA256)
 	int ret;
 	const char *cpuid = env_get("cpuid#");

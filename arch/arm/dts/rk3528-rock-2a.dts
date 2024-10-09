@@ -68,3 +68,26 @@
 	vref-supply = <&vdd_1v8_s3>;
 	status = "okay";
 };
+
+&i2c1 {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1m0_xfer>;
+	compatible = "rockchip,rk3528-i2c", "rockchip,rk3399-i2c", "i2c-eeprom";
+};
+
+&pinctrl {
+	i2c1 {
+		u-boot,dm-spl;
+	};
+};
+
+&i2c1m0_xfer {
+	u-boot,dm-spl;
+	rockchip,pins =
+		/* i2c1_scl_m0 */
+		<4 RK_PA3 2 &pcfg_pull_up>,
+		/* i2c1_sda_m0 */
+		<4 RK_PA2 2 &pcfg_pull_up>;
+};

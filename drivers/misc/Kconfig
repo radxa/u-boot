@@ -59,7 +59,7 @@ config ATSHA204A
 	   board.
 
 config ROCKCHIP_EFUSE
-        bool "Rockchip e-fuse support"
+	 bool "Rockchip e-fuse support"
 	depends on MISC
 	help
 	  Enable (read-only) access for the e-fuse block found in Rockchip
@@ -265,6 +265,13 @@ config I2C_EEPROM
 	depends on MISC
 	help
 	  Enable a generic driver for EEPROMs attached via I2C.
+
+config RADXA_ID_EEPROM
+	bool "Enable Radxa ID EEPROM driver"
+	depends on MISC
+	help
+	  Enable support for Radxa ID EEPROM.
+	  This EEPROM is used to store persistent platform data, such as MAC address.
 
 if I2C_EEPROM
 
