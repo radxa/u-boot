@@ -10,5 +10,43 @@
 #include "rk3528-rock-2a.dts"
 
 / {
-    model = "Radxa ROCK 2 Series";
+	model = "Radxa ROCK 2 Series";
+
+	vcc5v0_sys: vcc5v0-sys {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_sys";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+
+	vcc3v3_pcie: vcc3v3-pcie {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_pcie";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		startup-delay-us = <5000>;
+		enable-active-high;
+		gpio = <&gpio4 RK_PC6 GPIO_ACTIVE_HIGH>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+};
+
+&gpio4 {
+	u-boot,dm-spl;
+};
+
+&combphy_pu {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&pcie2x1 {
+	u-boot,dm-pre-reloc;
+	reset-gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_HIGH>;
+	vpcie3v3-supply = <&vcc3v3_pcie>;
+	status = "okay";
 };
