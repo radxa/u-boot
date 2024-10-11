@@ -1059,6 +1059,9 @@ int arch_cpu_init(void)
 	secure_reg &= 0xffff0000;
 	writel(secure_reg, FIREWALL_SYSMEM_BASE + FW_SYSM_MST27_REG);
 #else /* U-Boot */
+	/* Increase MMU600PHP QOS from 0 to 4 */
+	writel(QOS_PRIORITY_LEVEL(4, 4), QOS_MMU600PHP_TBU_BASE);
+	writel(QOS_PRIORITY_LEVEL(4, 4), QOS_MMU600PHP_TCU_BASE);
 	/* uboot: config iomux */
 #ifdef CONFIG_ROCKCHIP_EMMC_IOMUX
 	/* Set emmc iomux for good extention if the emmc is not the boot device */
@@ -1099,10 +1102,6 @@ int arch_cpu_init(void)
 
 	/* Select usb otg0 phy status to 0 that make rockusb can work at high-speed */
 	writel(0x00080008, USBGRF_BASE + USB_GRF_USB3OTG0_CON1);
-
-	/* Increase MMU600PHP QOS from 0 to 4 */
-	writel(QOS_PRIORITY_LEVEL(4, 4), QOS_MMU600PHP_TBU_BASE);
-	writel(QOS_PRIORITY_LEVEL(4, 4), QOS_MMU600PHP_TCU_BASE);
 
 	return 0;
 }
