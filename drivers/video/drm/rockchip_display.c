@@ -1425,7 +1425,7 @@ static void *rockchip_logo_rotate(struct logo_info *logo, void *src)
 
 static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 {
-// #ifdef CONFIG_ROCKCHIP_RESOURCE_IMAGE
+#ifdef CONFIG_ROCKCHIP_RESOURCE_IMAGE
 	struct rockchip_logo_cache *logo_cache;
 	bmp_bitmap_callback_vt bitmap_callbacks = {
 		bitmap_create,
@@ -1460,10 +1460,8 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 
 #ifdef CONFIG_RADXA_IMG
 	len = radxa_read_bmp_file(bmp_data, bmp_name);
-#elif CONFIG_ROCKCHIP_RESOURCE_IMAGE
-	len = rockchip_read_resource_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
 #else
-	return -EINVAL;
+	len = rockchip_read_resource_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
 #endif
 
 	if (len < 0) {

@@ -11,7 +11,6 @@
 #include <asm/arch/radxa_img.h>
 
 int radxa_read_bmp_file(void *buf, const char *name) {
-
 	struct blk_desc *desc = rockchip_get_bootdev();
 	disk_partition_t part;
 	loff_t actread, len;
@@ -52,5 +51,5 @@ int radxa_read_bmp_file(void *buf, const char *name) {
 		return -EIO;
 	}
 
-    return len;
+	return len;
 }

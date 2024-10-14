@@ -18,5 +18,4 @@
 
 int radxa_read_bmp_file(void *buf, const char *name);
 
-
 #endif
