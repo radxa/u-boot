@@ -1528,6 +1528,9 @@ free_bmp_data:
 	free(bmp_data);
 
 	return ret;
+#else
+	return -EINVAL;
+#endif
 }
 
 void rockchip_show_fbbase(ulong fbbase)
