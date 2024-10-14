@@ -40,7 +40,7 @@ int radxa_read_bmp_file(void *buf, const char *name) {
 
 	if (!buf) {
 		printf("Failed to allocate memory for file\n");
-        free(buf);
+		free(buf);
 		return -ENOMEM;
 	}
 
