@@ -1458,11 +1458,14 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 
 	bmp_create(&bmp, &bitmap_callbacks);
 
-	len = (CONFIG_RADXA_IMG) ? radxa_read_bmp_file(bmp_data, bmp_name) : rockchip_read_resource_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
-
-	if (len < 0 && CONFIG_RADXA_IMG) {
+#ifdef CONFIG_RADXA_IMG
+	len = radxa_read_bmp_file(bmp_data, bmp_name);
+	if(len < 0) {
 		len = rockchip_read_resource_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
 	}
+#else
+	len = rockchip_read_resource_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
+#endif
 
 	if (len < 0) {
 		ret = -EINVAL;
