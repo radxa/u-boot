@@ -23,6 +23,7 @@
 #include <dm/device.h>
 #include <dm/uclass-internal.h>
 #include <asm/arch-rockchip/resource_img.h>
+#include <asm/arch-rockchip/radxa_img.h>
 #include <asm/arch-rockchip/cpu.h>
 
 #include "bmp_helper.h"
@@ -1457,7 +1458,14 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 
 	bmp_create(&bmp, &bitmap_callbacks);
 
-	len = rockchip_read_resource_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
+#ifdef CONFIG_RADXA_IMG
+	len = radxa_read_bmp_file(bmp_data, bmp_name);
+	if(len < 0) {
+#endif
+		len = rockchip_read_resource_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
+#ifdef CONFIG_RADXA_IMG
+	}
+#endif
 	if (len < 0) {
 		ret = -EINVAL;
 		goto free_bmp_data;
