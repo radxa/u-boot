@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2021 Rockchip Electronics Co., Ltd
+ *
+ */
+
+/dts-v1/;
+#include "rk3588.dtsi"
+#include "rk3588-u-boot.dtsi"
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "FxBlox RK1";
+	compatible = "Functionland,fxblox-rk1", "rockchip,rk3588";
+
+	chosen {
+		stdout-path = &uart2;
+		u-boot,spl-boot-order = &spi_nor, &sdmmc, &sdhci, &spi_nand;
+	};
+
+	vcc12v_dcin: vcc12v-dcin {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc12v_dcin";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+	};
+
+	vcc5v0_sys: vcc5v0-sys {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_sys";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		vin-supply = <&vcc12v_dcin>;
+	};
+
+	vcc3v3_pcie30: vcc3v3-pcie30 {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_pcie30";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&gpio1 RK_PA4 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
+	vcc5v0_host: vcc5v0-host-regulator {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_host";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vcc5v0_host_en>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
+	vbus5v0_typec: vbus5v0-typec {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vbus5v0_typec";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&gpio4 RK_PB6 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+		vin-supply = <&vcc5v0_sys>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&typec5v_pwren>;
+	};
+
+	led_red_reg: led-red-reg {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "led_red_reg";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&gpio4 RK_PB3 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_led_red>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
+	led_blue_reg: led-blue-reg {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "led_blue_reg";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&gpio4 RK_PB4 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_led_blue>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+};
+
+&pcie3x4 {
+	u-boot,dm-pre-reloc;
+	reset-gpios = <&gpio0 RK_PD0 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&pcie30phy {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&usb2phy2_grf {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	phy-supply = <&vcc5v0_host>;
+};
+
+&u2phy2 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	phy-supply = <&vcc5v0_host>;
+};
+
+&u2phy2_host {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	phy-supply = <&vcc5v0_host>;
+};
+
+&usb_host0_ehci {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	vbus-supply= <&vbus5v0_typec>;
+};
+
+&usb_host0_ohci {
+	u-boot,dm-pre-reloc;
+	vbus-supply= <&vbus5v0_typec>;
+	status = "okay";
+};
+
+&usb2phy0_grf {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	phy-supply = <&vbus5v0_typec>;
+};
+
+&u2phy0 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	phy-supply = <&vbus5v0_typec>;
+};
+
+&u2phy0_otg {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	phy-supply = <&vbus5v0_typec>;
+};
+
+&usbdp_phy0 {
+	u-boot,dm-pre-reloc;
+	status = "disable";
+	phy-supply = <&vbus5v0_typec>;
+};
+
+&usbdrd3_0 {
+	u-boot,dm-pre-reloc;
+	vbus-supply= <&vbus5v0_typec>;
+	status = "okay";
+};
+
+&usbdrd_dwc3_0 {
+	u-boot,dm-pre-reloc;
+	dr_mode = "host";
+	vbus-supply= <&vbus5v0_typec>;
+	status = "okay";
+};
+
+&pinctrl {
+	usb {
+		u-boot,dm-pre-reloc;
+		vcc5v0_host_en: vcc5v0-host-en {
+			u-boot,dm-pre-reloc;
+			rockchip,pins = <3 RK_PB7 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	usb-typec {
+		u-boot,dm-pre-reloc;
+		typec5v_pwren: typec5v-pwren {
+			u-boot,dm-pre-reloc;
+			rockchip,pins = <4 RK_PB6 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	gpio_led {
+		gpio_led_red: gpio-led-red {
+			rockchip,pins = <4 RK_PB3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		gpio_led_blue: gpio-led-blue {
+			rockchip,pins = <4 RK_PB4 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+};
