@@ -86,9 +86,11 @@ __weak void rockchip_stimer_init(void)
 	u32 reg = readl(CONFIG_ROCKCHIP_STIMER_BASE + 0x10);
 	if ( reg & 0x1 )
 		return;
+#ifdef COUNTER_FREQUENCY
 #ifndef CONFIG_ARM64
 	asm volatile("mcr p15, 0, %0, c14, c0, 0"
 		     : : "r"(COUNTER_FREQUENCY));
+#endif
 #endif
 	writel(0, CONFIG_ROCKCHIP_STIMER_BASE + 0x10);
 	writel(0xffffffff, CONFIG_ROCKCHIP_STIMER_BASE);
@@ -268,6 +270,12 @@ int board_fit_config_name_match(const char *name)
 int board_init_f_boot_flags(void)
 {
 	int boot_flags = 0;
+
+#ifdef CONFIG_ARM64
+	asm volatile("mrs %0, cntfrq_el0" : "=r" (gd->arch.timer_rate_hz));
+#else
+	asm volatile("mrc p15, 0, %0, c14, c0, 0" : "=r" (gd->arch.timer_rate_hz));
+#endif
 
 #if CONFIG_IS_ENABLED(FPGA_ROCKCHIP)
 	arch_fpga_init();

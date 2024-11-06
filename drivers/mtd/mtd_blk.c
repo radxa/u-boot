@@ -554,7 +554,7 @@ ulong mtd_dread(struct udevice *udev, lbaint_t start,
 #endif
 	}
 #ifdef MTD_BLK_VERBOSE
-	us = (get_ticks() - us) / 24UL;
+	us = (get_ticks() - us) / (gd->arch.timer_rate_hz / 1000000);
 	pr_err("mtd dread %s %lx %lx cost %ldus: %ldMB/s\n\n", mtd->name, start, blkcnt, us, (blkcnt / 2) / ((us + 999) / 1000));
 #else
 	pr_debug("mtd dread %s %lx %lx\n\n", mtd->name, start, blkcnt);
