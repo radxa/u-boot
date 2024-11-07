@@ -16,7 +16,7 @@
 	 chosen {
 		 stdout-path = &uart2;
 		 u-boot,spl-boot-order = &spi_nor, &sdmmc, &sdhci, &spi_nand; 
-	 };	
+	 };
  
 	 vcc12v_dcin: vcc12v-dcin {
 		 u-boot,dm-pre-reloc;
@@ -65,7 +65,7 @@
 		 pinctrl-names = "default";
 		 pinctrl-0 = <&vcc5v0_host_en>;
 		 vin-supply = <&vcc5v0_sys>;
-	 };	
+	 };
  
 	 vbus5v0_typec: vbus5v0-typec {
 		 u-boot,dm-pre-reloc;
@@ -95,7 +95,7 @@
 		 pinctrl-names = "default";
 		 pinctrl-0 = <&gpio_led_red>;
 		 vin-supply = <&vcc5v0_sys>;
-	 };		
+	 };
  
 	 led_blue_reg: led-blue-reg {
 		 u-boot,dm-pre-reloc;
@@ -110,76 +110,80 @@
 		 pinctrl-names = "default";
 		 pinctrl-0 = <&gpio_led_blue>;
 		 vin-supply = <&vcc5v0_sys>;
-	 };			
- 
+	 };
  };
- 
  
  &pcie3x4 {
 	 u-boot,dm-pre-reloc;
 	 reset-gpios = <&gpio0 RK_PD0 GPIO_ACTIVE_HIGH>;
 	 status = "okay";
- 
  };
  
  &pcie30phy {
 	 u-boot,dm-pre-reloc;
 	 status = "okay";
  };
- 
- 
+  
  &usb2phy2_grf {
 	 u-boot,dm-pre-reloc;
 	 status = "okay";
 	 phy-supply = <&vcc5v0_host>;
  };
+
  &u2phy2 {
 	 u-boot,dm-pre-reloc;
 	 status = "okay";
 	 phy-supply = <&vcc5v0_host>;
  };
+
  &u2phy2_host {
 	 u-boot,dm-pre-reloc;
 	 status = "okay";
 	 phy-supply = <&vcc5v0_host>;
  };
+
  &usb_host0_ehci {
 	 u-boot,dm-pre-reloc;
 	 status = "okay";
 	 vbus-supply= <&vbus5v0_typec>;
  };
+
  &usb_host0_ohci {
 	 u-boot,dm-pre-reloc;
 	 vbus-supply= <&vbus5v0_typec>;
 	 status = "okay";
  };
  
- 
  &usb2phy0_grf {
 	 u-boot,dm-pre-reloc;
 	 status = "okay";
 	 phy-supply = <&vbus5v0_typec>;
  };
+
  &u2phy0 {
 	 u-boot,dm-pre-reloc;
 	 status = "okay";
 	 phy-supply = <&vbus5v0_typec>;
  };
+
  &u2phy0_otg {
 	 u-boot,dm-pre-reloc;
 	 status = "okay";
 	 phy-supply = <&vbus5v0_typec>;
  };
+
  &usbdp_phy0{
 	 u-boot,dm-pre-reloc;
 	 status = "disable";
 	 phy-supply = <&vbus5v0_typec>;
  };
+
  &usbdrd3_0{
 	 u-boot,dm-pre-reloc;
 	 vbus-supply= <&vbus5v0_typec>;
 	 status = "okay";
  };
+
  &usbdrd_dwc3_0{
 	 u-boot,dm-pre-reloc;
 	 dr_mode = "host";
@@ -187,16 +191,13 @@
 	 status = "okay";
  };
  
- 
  &pinctrl {
- 
 	usb {
 		u-boot,dm-pre-reloc;
 		vcc5v0_host_en: vcc5v0-host-en {
 			u-boot,dm-pre-reloc;
 			rockchip,pins = <3 RK_PB7 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
- 
 	};
  
 	usb-typec {
@@ -216,6 +217,5 @@
 			rockchip,pins = <4 RK_PB4 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
-	 
  };
  
