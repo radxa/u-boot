@@ -15,7 +15,6 @@
 
 	chosen {
 		stdout-path = &uart2;
-		u-boot,spl-boot-order = &spi_nor, &sdmmc, &sdhci, &spi_nand;
 	};
 
 	vcc12v_dcin: vcc12v-dcin {
