@@ -1,0 +1,16 @@
+/*
+ * (C) Copyright 2016 Rockchip Electronics Co., Ltd
+ * (C) Copyright 2024 Radxa Computer (Shenzhen) Co., Ltd.
+ *
+ * SPDX-License-Identifier:     GPL-2.0+
+ */
+
+/dts-v1/;
+
+#include "rk3399-rock-pi-4-core.dtsi"
+
+/ {
+	model = "Radxa ROCK Pi 4 Core IO Board";
+	compatible = "radxa,rock-pi-4-core-io", "rockchip,rk3399",
+		     "google,rk3399evb-rev2";
+};
