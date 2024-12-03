@@ -1,0 +1,280 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2024 Rockchip Electronics Co., Ltd.
+ * Copyright (c) 2024 Radxa Computer (Shenzhen) Co., Ltd.
+ *
+ */
+
+#include "rk3588s-radxa-cm5-u-boot.dtsi"
+
+&vcc12v_dcin {
+	u-boot,dm-pre-reloc;
+};
+
+&vcc5v0_sys {
+	u-boot,dm-pre-reloc;
+};
+
+&vbus5v0_typec {
+	u-boot,dm-pre-reloc;
+};
+
+&vcc_1v1_nldo_s3 {
+	u-boot,dm-pre-reloc;
+};
+
+&hdmi0_sound {
+	u-boot,dm-pre-reloc;
+};
+
+&dp0_sound {
+	u-boot,dm-pre-reloc;
+};
+
+&vcc3v3_sys {
+	u-boot,dm-pre-reloc;
+};
+
+&vcc5v0_host {
+	u-boot,dm-pre-reloc;
+};
+
+&vcc3v3_pcie2x1l0 {
+	u-boot,dm-pre-reloc;
+};
+
+&i2c6 {
+	u-boot,dm-pre-reloc;
+};
+
+&usbc0 {
+	u-boot,dm-pre-reloc;
+};
+
+&usbc0_role_sw {
+	u-boot,dm-pre-reloc;
+};
+
+&usb_con {
+	u-boot,dm-pre-reloc;
+};
+
+&usbc0_orien_sw {
+	u-boot,dm-pre-reloc;
+};
+
+&dp_altmode_mux {
+	u-boot,dm-pre-reloc;
+};
+
+&hym8563 {
+	u-boot,dm-pre-reloc;
+};
+
+&usbdp_phy0 {
+	u-boot,dm-pre-reloc;
+};
+
+&usbdp_phy0_orientation_switch {
+	u-boot,dm-pre-reloc;
+};
+
+&usbdp_phy0_dp_altmode_mux {
+	u-boot,dm-pre-reloc;
+};
+
+&dp0 {
+	u-boot,dm-pre-reloc;
+};
+
+&dp0_in_vp2 {
+	u-boot,dm-pre-reloc;
+};
+
+&sdhci {
+	u-boot,dm-spl;
+};
+
+&hdmi0 {
+	u-boot,dm-pre-reloc;
+};
+
+&hdmi0_in_vp0 {
+	u-boot,dm-pre-reloc;
+};
+
+&route_hdmi0 {
+	u-boot,dm-pre-reloc;
+};
+
+&spdif_tx2 {
+	u-boot,dm-pre-reloc;
+};
+
+&hdptxphy_hdmi0 {
+	u-boot,dm-pre-reloc;
+};
+
+&i2s5_8ch {
+	u-boot,dm-pre-reloc;
+};
+
+&vop {
+	u-boot,dm-pre-reloc;
+};
+
+&vop_mmu {
+	u-boot,dm-pre-reloc;
+};
+
+&vp0 {
+	u-boot,dm-pre-reloc;
+};
+
+&vp1 {
+	u-boot,dm-pre-reloc;
+};
+
+&vp2 {
+	u-boot,dm-pre-reloc;
+};
+
+&vp3 {
+	u-boot,dm-pre-reloc;
+};
+
+&display_subsystem {
+	u-boot,dm-pre-reloc;
+};
+
+&hdptxphy_hdmi0 {
+	u-boot,dm-pre-reloc;
+};
+
+&vcc5v0_host_en {
+	u-boot,dm-pre-reloc;
+};
+
+&vbus5v0_typec_en {
+	u-boot,dm-pre-reloc;
+};
+
+&usbc0_int {
+	u-boot,dm-pre-reloc;
+};
+
+&rtc_int {
+	u-boot,dm-pre-reloc;
+};
+
+&pcie2x1l2 {
+	u-boot,dm-pre-reloc;
+};
+
+&combphy0_ps {
+	u-boot,dm-pre-reloc;
+};
+
+&combphy2_psu {
+	u-boot,dm-pre-reloc;
+};
+
+&u2phy0 {
+	u-boot,dm-pre-reloc;
+};
+
+&u2phy2 {
+	u-boot,dm-pre-reloc;
+};
+
+&u2phy3 {
+	u-boot,dm-pre-reloc;
+};
+
+&u2phy0_otg {
+	u-boot,dm-pre-reloc;
+};
+
+&u2phy2_host {
+	u-boot,dm-pre-reloc;
+};
+
+&u2phy3_host {
+	u-boot,dm-pre-reloc;
+};
+
+&usb_host0_ehci {
+	u-boot,dm-pre-reloc;
+};
+
+&usb_host0_ohci {
+	u-boot,dm-pre-reloc;
+};
+
+&usb_host1_ehci {
+	u-boot,dm-pre-reloc;
+};
+
+&usb_host1_ohci {
+	u-boot,dm-pre-reloc;
+};
+
+&usbdp_phy0_dp {
+	u-boot,dm-pre-reloc;
+};
+
+&usbdp_phy0_u3 {
+	u-boot,dm-pre-reloc;
+};
+
+&usbdrd3_0 {
+	u-boot,dm-pre-reloc;
+};
+
+&usbdrd_dwc3_0 {
+	u-boot,dm-pre-reloc;
+};
+
+&dwc3_0_role_switch {
+	u-boot,dm-pre-reloc;
+};
+
+&usbhost3_0 {
+	u-boot,dm-pre-reloc;
+};
+
+&usbhost_dwc3_0 {
+	u-boot,dm-pre-reloc;
+};
+
+&sdmmc {
+	u-boot,dm-spl;
+};
+
+&sdmmc_bus4 {
+	u-boot,dm-pre-reloc;
+};
+
+&sdmmc_clk {
+	u-boot,dm-pre-reloc;
+};
+
+&sdmmc_cmd {
+	u-boot,dm-pre-reloc;
+};
+
+&sdmmc_det {
+	u-boot,dm-pre-reloc;
+};
+
+&vcc_3v3_s3 {
+	u-boot,dm-pre-reloc;
+};
+
+&vccio_sd_s0 {
+	u-boot,dm-pre-reloc;
+};
+
+&vcc_1v8_s0 {
+	u-boot,dm-pre-reloc;
+};
