@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 /*
  * Copyright (c) 2021 Rockchip Electronics Co. Ltd.
  * Author: Elaine Zhang <zhangqing@rock-chips.com>
@@ -631,7 +631,7 @@
 #define CLK_DSIHOST1			635
 #define CLK_VOP_PMU			636
 #define ACLK_VOP_DOBY			637
-#define ACLK_VOP_SUB_SRC		638
+#define ACLK_VOP_DIV2_SRC		638
 #define CLK_USBDP_PHY0_IMMORTAL		639
 #define CLK_USBDP_PHY1_IMMORTAL		640
 #define CLK_PMU0			641
@@ -711,8 +711,12 @@
 #define CLK_CORE_LITCORE_PVTM		715
 #define CLK_AUX16M_0			716
 #define CLK_AUX16M_1			717
+#define CLK_PHY0_REF_ALT_P		718
+#define CLK_PHY0_REF_ALT_M		719
+#define CLK_PHY1_REF_ALT_P		720
+#define CLK_PHY1_REF_ALT_M		721
 
-#define CLK_NR_CLKS			(CLK_AUX16M_1 + 1)
+#define CLK_NR_CLKS			(CLK_PHY1_REF_ALT_M + 1)
 
 /********Name=SOFTRST_CON01,Offset=0xA04********/
 #define SRST_A_TOP_BIU			19
@@ -1215,6 +1219,7 @@
 #define SRST_M_SPDIF5_DP1		923
 /********Name=SOFTRST_CON59,Offset=0xAEC********/
 #define SRST_A_HDCP1_BIU		950
+#define SRST_A_HDMIRX_BIU		951
 #define SRST_A_VO1_BIU			952
 #define SRST_H_VOP1_BIU			953
 #define SRST_H_VOP1_S_BIU		954
