@@ -81,8 +81,6 @@
 
 #define CONFIG_MISC_INIT_R
 
-#define CONFIG_ID_EEPROM
-
 #ifdef CONFIG_ARM64
 #define ENV_MEM_LAYOUT_SETTINGS \
 	"scriptaddr=0x00c00000\0" \
