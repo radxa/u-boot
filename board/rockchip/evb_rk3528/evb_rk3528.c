@@ -108,6 +108,7 @@ static struct variant_def variants[] = {
 	{"radxa,rock-2a",   320, 380, 0, -1, "rockchip/rk3528-radxa-e20c.dtb"},
 	{"radxa,rock-2a",   430, 490, 0, -1, "rockchip/rk3528-medge-io.dtb"},
 	{"radxa,rock-2a",   530, 710, 0, -1, "rockchip/rk3528-rock-2f.dtb"},
+	{"radxa,rock-2a",   760, 810, 0, -1, "rockchip/rk3528-radxa-e24c.dtb"},
 };
 
 static void set_fdtfile(void)
