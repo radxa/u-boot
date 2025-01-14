@@ -745,7 +745,7 @@ static const struct sdhci_data rk3576_data = {
 	.hs200_txclk_tapnum = DLL_TXCLK_TAPNUM_DEFAULT,
 	.hs400_txclk_tapnum = 0x7,
 	.hs400_cmd_tapnum = 0x7,
-	.hs400_strbin_tapnum = 0x5,
+	.hs400_strbin_tapnum = 0x7,
 	.ddr50_strbin_delay_num = 10,
 	.set_enhanced_strobe = rk3568_sdhci_set_enhanced_strobe,
 };
