@@ -215,6 +215,18 @@
 	status = "okay";
 };
 
+&combphy0_ps {
+	u-boot,dm-pre-reloc;
+};
+
+&pcie2x1l2 {
+	u-boot,dm-pre-reloc;
+};
+
+&pcie2x1l2_intc {
+	u-boot,dm-pre-reloc;
+};
+
 /* Support SPL-PINCTRL:
  * 1. ioc
  * 2. pinctrl(sdmmc)

@@ -14,3 +14,13 @@
 	model = "Radxa E54C";
 	compatible = "radxa,e54c", "rockchip,rk3588";
 };
+
+/* M.2 M-KEY PCIe */
+&combphy0_ps {
+	status = "okay";
+};
+
+&pcie2x1l2 {
+	status = "okay";
+	reset-gpios = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
+};
