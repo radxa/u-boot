@@ -78,6 +78,8 @@
 #define CONFIG_USB_FUNCTION_MASS_STORAGE
 #define CONFIG_ROCKUSB_G_DNL_PID	0x350e
 
+#define CONFIG_MISC_INIT_R
+
 /*
  * DDR layout mainly follow rk3588 Soc
  */
