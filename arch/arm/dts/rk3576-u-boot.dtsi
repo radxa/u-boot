@@ -24,6 +24,10 @@
 	};
 };
 
+&otp {
+	u-boot,dm-spl;
+};
+
 &firmware {
 	u-boot,dm-pre-reloc;
 };
