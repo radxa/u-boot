@@ -697,7 +697,7 @@ static int nvme_blk_probe(struct udevice *udev)
 	sprintf(desc->vendor, "0x%.4x", pplat->vendor);
 	memcpy(desc->product, ndev->serial, sizeof(ndev->serial));
 	memcpy(desc->revision, ndev->firmware_rev, sizeof(ndev->firmware_rev));
-	part_init(desc);
+	// part_init(desc);
 
 	free(id);
 	return 0;
