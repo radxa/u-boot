@@ -14,6 +14,7 @@
 #include <asm/arch/clock.h>
 #include <sunxi_power/axp.h>
 #include <dm.h>
+#include <sys_config.h>
 
 extern struct sunxi_pcie_port pcie_port;
 struct sunxi_pcie pci;
