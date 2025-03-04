@@ -13,31 +13,6 @@
 	model = "ROCK 4D";
 	compatible = "radxa,rock-4d", "rockchip,rk3576";
 
-	vcc_sys: vcc5v0-sys {
-		u-boot,dm-pre-reloc;
-		compatible = "regulator-fixed";
-		regulator-name = "vcc_sys";
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-	};
-
-	vcc5v0_host: vcc5v0-host {
-		u-boot,dm-pre-reloc;
-		compatible = "regulator-fixed";
-		regulator-name = "vcc5v0_host";
-		regulator-boot-on;
-		regulator-always-on;
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		enable-active-high;
-		gpio = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&usb_host_pwren>;
-		vin-supply = <&vcc_sys>;
-	};
-
 	vcc3v3_pcie: vcc3v3-pcie {
 		u-boot,dm-pre-reloc;
 		compatible = "regulator-fixed";
@@ -68,31 +43,6 @@
 	};
 };
 
-&u2phy1 {
-	u-boot,dm-pre-reloc;
-	status = "okay";
-};
-
-&u2phy1_otg {
-	u-boot,dm-pre-reloc;
-	phy-supply = <&vcc5v0_host>;
-	status = "okay";
-};
-
-&usb_drd1_dwc3 {
-	u-boot,dm-pre-reloc;
-	maximum-speed = "high-speed";
-	phys = <&u2phy1_otg>, <&combphy1_psu PHY_TYPE_USB3>;
-	phy-names = "usb2-phy", "usb3-phy";
-	dr_mode = "host";
-	status = "okay";
-};
-
-&combphy1_psu {
-	u-boot,dm-pre-reloc;
-	status = "okay";
-};
-
 &combphy0_ps {
 	u-boot,dm-pre-reloc;
 	status = "okay";
@@ -117,14 +67,6 @@
 		pcie_pwr_en: pcie-pwr-en {
 			u-boot,dm-pre-reloc;
 			rockchip,pins = <2 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-	};
-
-	usb {
-		u-boot,dm-pre-reloc;
-		usb_host_pwren: usb-host-pwren {
-			u-boot,dm-pre-reloc;
-			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };
