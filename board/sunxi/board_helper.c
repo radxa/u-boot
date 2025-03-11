@@ -1048,7 +1048,7 @@ int sunxi_update_fdt_para_for_kernel(void)
 	struct mmc *mmc = NULL;
 	int dev_num = 0;
 #endif
-
+	int fdtnode = 0;
 	storage_type = get_boot_storage_type_ext();
 
 #ifdef CONFIG_SUNXI_SDMMC
@@ -1142,6 +1142,10 @@ int sunxi_update_fdt_para_for_kernel(void)
 		ret = fdt_enable_node("sunxi-mmc0", 1);
 		if (ret)
 			fdt_enable_node("mmc0", 1);
+		fdtnode = fdt_path_offset(working_fdt, "sunxi-mmc2");
+		fdt_delprop(working_fdt, fdtnode, "mmc-hs400-1_8v");
+		fdt_setprop_string(working_fdt, fdtnode, "compatible", "allwinner,sunxi-mmc-v5p3x");
+		fdt_setprop_string(working_fdt, fdtnode, "execute_tuning_in_kernel", NULL);
 		{
 			uint32_t dragonboard_test	 = 0;
 			uint32_t uboot_dragon_board_test = 0;
