@@ -1,0 +1,14 @@
+/*
+ * SPDX-License-Identifier:     GPL-2.0+
+ *
+ * (C) Copyright 2020 Rockchip Electronics Co., Ltd
+ * (C) Copyright 2024 Radxa Limited
+ *
+ */
+
+/dts-v1/;
+#include "rk3576-rock-4d.dts"
+
+/ {
+	model = "Radxa ROCK 4 RK3576 Series";
+};
