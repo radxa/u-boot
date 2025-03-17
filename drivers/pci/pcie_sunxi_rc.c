@@ -374,7 +374,6 @@ static void sunxi_pcie_host_init(struct udevice *dev)
 	gpio_set_value(pcie_power_gpio, 1);
 
 	pcie_reset_gpio = sunxi_name_to_gpio(CONFIG_PCIE_PERST_GPIO);
-
 	if (pcie_reset_gpio == -1) {
 		printf("pcie requesst perst gpio failed\r\n");
 	}

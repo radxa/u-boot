@@ -274,7 +274,6 @@ void sunxi_pcie_plat_set_rate(struct sunxi_pcie *pci)
 	sunxi_pcie_writel_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL, val);
 }
 
-
 static int sunxi_pcie_plat_power_on(struct sunxi_pcie *pci)
 {
 	if (pci->pcie1v8_supply)

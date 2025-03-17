@@ -37,7 +37,7 @@ static int do_nvme(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		}
 	}
 
-	return aw_blk_common_cmd(argc, argv, IF_TYPE_NVME, &nvme_curr_dev);
+	return blk_common_cmd(argc, argv, IF_TYPE_NVME, &nvme_curr_dev);
 }
 
 U_BOOT_CMD(
