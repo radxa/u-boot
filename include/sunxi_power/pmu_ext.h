@@ -38,6 +38,7 @@ int pmu_set_dcdc_mode_ext(const char *name, int mode);
 int pmu_ext_get_type(void);
 int pmu_ext_set_voltage(char *name, uint vol_value, uint onoff);
 int pmu_ext_get_voltage(char *name);
+const char *pmu_ext_get_name(void);
 
 extern const char *const pmu_ext_reg[];
 extern const char *const pmu_ext[];

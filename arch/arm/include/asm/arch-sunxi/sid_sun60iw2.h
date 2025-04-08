@@ -28,14 +28,16 @@
 #define SID_OP_LOCK  (0xAC)
 
 /* write protect */
-#define EFUSE_WRITE_PROTECT     (0x80) /* 0x40-0x43, 32bits */
+#define EFUSE_WRITE_PROTECT     (0x7C) /* 0x40-0x43, 32bits */
 /* read  protect */
-#define EFUSE_READ_PROTECT      (0x84) /* 0x44-0x47, 32bits */
+#define EFUSE_READ_PROTECT      (0x80) /* 0x44-0x47, 32bits */
 /* jtag security */
-#define EFUSE_LCJS              (0x88)
+#define EFUSE_LCJS              (0x84)
+
+#define SECURE_BIT_OFFSET	0
 
 /*efuse power ctl*/
-#define EFUSE_HV_SWITCH			(SUNXI_RTC_BASE + 0x204)
-#define EFUSE_ROTPK            (0xB4)
+#define EFUSE_HV_SWITCH		(SUNXI_RTC_BASE + 0x204)
+#define EFUSE_ROTPK            (0xB8)
 #define EFUSE_CHIPID           (0x0)
 #endif    /*  #ifndef __SID_H__  */

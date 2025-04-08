@@ -47,6 +47,10 @@ extern sunxi_flash_desc sunxi_sdmmc_desc;
 extern sunxi_flash_desc sunxi_spinor_desc;
 
 extern sunxi_flash_desc sunxi_sdmmcs_desc;
+extern sunxi_flash_desc sunxi_ufs_desc;
+extern sunxi_flash_desc sunxi_ufss_desc;
+extern sunxi_flash_desc sunxi_ufs_blk_desc;
+
 
 
 #endif

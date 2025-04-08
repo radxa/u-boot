@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Allwinner SoCs grallocator.
  *
@@ -11,6 +12,7 @@
 #include <common.h>
 #include <malloc.h>
 #include <grallocator.h>
+#include <pram_mem_alloc.h>
 
 
 int graphic_buffer_alloc(unsigned int w, unsigned h, unsigned int bpp,
@@ -41,7 +43,11 @@ int graphic_buffer_alloc(unsigned int w, unsigned h, unsigned int bpp,
 #endif
 
 	} else {
+#if IS_ENABLED(CONFIG_SUNXI_PRAM_MEM)
+		addr = (void *)pram_memalign(PAGE_SIZE, size);
+#else
 		addr = (void *)memalign(PAGE_SIZE, size);
+#endif
 	}
 
 

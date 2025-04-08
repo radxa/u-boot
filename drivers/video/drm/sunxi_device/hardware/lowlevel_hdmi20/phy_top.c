@@ -10,21 +10,19 @@
  * warranty of any kind, whether express or implied.
  ******************************************************************************/
 #include <linux/delay.h>
+#include <asm/arch/clock.h>
 
 #include "dw_dev.h"
 #include "phy_top.h"
 
 //static DECLARE_WAIT_QUEUE_HEAD(top_phy_wq);
-#if IS_ENABLED(CONFIG_MACH_SUN55IW6)
-extern u32 get_hosc_type(void);
-#endif
 
-#define PHY_DCXO_24M	(0x0)
-#define PHY_DCXO_19_2M	(0x1)
-#define PHY_DCXO_26M	(0x2)
+#define PHY_DCXO_24M	(24000000)
+#define PHY_DCXO_19_2M	(19200000)
+#define PHY_DCXO_26M	(26000000)
 
 struct top_phy_pll_s {
-	u32 tmds_clock; /* KHZ */
+	u32 ref_clk; /* KHZ */
 	u32 pll_value;
 	u32 ldo_value;
 	u32 pll_patern0;
@@ -32,32 +30,78 @@ struct top_phy_pll_s {
 };
 
 struct top_phy_pll_s sun60i_phypll_26m[] = {
-	{ 27000, 0xE8595C00, 0x00035000, 0x80000000, 0xCB10EFED},
-	{ 74250, 0xE81F5A00, 0x00035000, 0x80000000, 0xCB10C4EC},
-	{148500, 0xE80F5A00, 0x00035000, 0x80000000, 0xCB10C8ED},
+	{ 13500, 0xE8673500, 0x00035000, 0x00000000, 0x30000000},
+	{ 27000, 0xE8595C00, 0x00035000, 0x80000000, 0x30000000},
+	{ 54000, 0xE80C1A00, 0x00035000, 0x80000000, 0x30000000},
+	{ 74250, 0xE81F5A00, 0x00035000, 0x80000000, 0x30000000},
+	{148500, 0xE80F5A00, 0x00035000, 0x80000000, 0x30000000},
+	{185625, 0xE80F5A00, 0x00035000, 0x80000000, 0x30000000},
 	{297000, 0xE807B602, 0x00035000, 0x00000000, 0x30000000},
+	{371250, 0xE807B602, 0x00035000, 0x00000000, 0x30000000},
 	{594000, 0xE803B602, 0x00035000, 0x00000000, 0x30000000},
 };
 
 struct top_phy_pll_s sun60i_phypll_24m[] = {
-	{ 27000, 0xE81F1100, 0x00035000, 0x80000000, 0xCB10EFED},
-	{ 74250, 0xE81F6200, 0x00035000, 0x80000000, 0xCB10C4EC},
-	{148500, 0xE80F6200, 0x00035000, 0x80000000, 0xCB10C8ED},
+	{ 13500, 0xE85F3500, 0x00035000, 0x00000000, 0x30000000},
+	{ 27000, 0xE8576200, 0x00035000, 0x80000000, 0x30000000},
+	{ 54000, 0xE82B6200, 0x00035000, 0x80000000, 0x30000000},
+	{ 74250, 0xE81F6200, 0x00035000, 0x80000000, 0x30000000},
+	{148500, 0xE80F6200, 0x00035000, 0x80000000, 0x30000000},
+	{185625, 0xE80F6200, 0x00035000, 0x80000000, 0x30000000},
 	{297000, 0xE8076200, 0x00035000, 0x00000000, 0x30000000},
+	{371250, 0xE8076200, 0x00035000, 0x00000000, 0x30000000},
 	{594000, 0xE8036200, 0x00035000, 0x00000000, 0x30000000},
 };
 
 struct top_phy_s {
-	top_phy_power_t					power_type;
-	unsigned int                    dcxo_rate;
-	unsigned int					pll_size;
-	struct top_phy_pll_s			*pll_data;
-
-	uintptr_t	     offset;
+	char *rate_name;
+	u32  offset;
+	u32  pll_size;
+	struct top_phy_pll_s  *pll_data;
 	volatile struct top_phy_regs	*phy_addr;
 };
 
-static struct top_phy_s			top_phy;
+static struct top_phy_s   top_phy;
+
+struct tphy_plat_s {
+	u8   plat_id;
+	u32  offset;
+	struct {
+		char name[10];
+		u32 rate;
+		u32 size;
+		struct top_phy_pll_s  *mpll;
+	} mpll_table[3];
+};
+
+struct tphy_plat_s  sun60i_plat = {
+	.plat_id  = HDMI_SUN60I_W2_P1,
+	.offset   = 0xE0000,
+	.mpll_table = {
+		{
+			.name = "24M",
+			.rate = PHY_DCXO_24M,
+			.mpll = sun60i_phypll_24m,
+			.size = ARRAY_SIZE(sun60i_phypll_24m),
+		},
+		{
+			.name = "26M",
+			.rate = PHY_DCXO_26M,
+			.mpll = sun60i_phypll_26m,
+			.size = ARRAY_SIZE(sun60i_phypll_26m),
+		},
+		{
+			.name = "19.2M",
+			.rate = PHY_DCXO_19_2M,
+			.mpll = NULL,
+			.size = 0,
+		}
+	},
+};
+
+static struct tphy_plat_s *sunxi_plat[] = {
+	&sun60i_plat,
+};
 
 void top_phy_write(u32 offset, u32 data)
 {
@@ -126,7 +170,7 @@ int top_phy_config(void)
 	struct dw_hdmi_dev_s *hdmi = dw_get_hdmi();
 	struct top_phy_pll_s *pll_cfg = top_phy.pll_data;
 	volatile struct top_phy_regs *phy_reg = top_phy.phy_addr;
-	u32 raw_clk = hdmi->tmds_clk;
+	u32 clock = hdmi->pixel_repeat ? hdmi->pixel_clk : hdmi->tmds_clk;
 	u32 size = top_phy.pll_size;
 	u8 index = 0;
 
@@ -138,26 +182,26 @@ int top_phy_config(void)
 	}
 
 	/* check min clock */
-	if (raw_clk < pll_cfg[0].tmds_clock) {
+	if (clock < pll_cfg[0].ref_clk) {
 		index = 0;
 		goto cfg_pll;
 	}
 
-	if (raw_clk > pll_cfg[size - 1].tmds_clock) {
+	if (clock > pll_cfg[size - 1].ref_clk) {
 		index = size - 1;
 		goto cfg_pll;
 	}
 
 	for (i = 0; i < size; i++) {
-		if (raw_clk == pll_cfg[i].tmds_clock) {
+		if (clock == pll_cfg[i].ref_clk) {
 			index = i;
 			goto cfg_pll;
 		}
 
-		if (raw_clk > pll_cfg[i].tmds_clock &&
-				raw_clk < pll_cfg[i + 1].tmds_clock) {
-			if ((pll_cfg[i + 1].tmds_clock - raw_clk) >
-					(raw_clk - pll_cfg[i].tmds_clock))
+		if (clock > pll_cfg[i].ref_clk &&
+				clock < pll_cfg[i + 1].ref_clk) {
+			if ((pll_cfg[i + 1].ref_clk - clock) >
+					(clock - pll_cfg[i].ref_clk))
 				index = i;
 			else
 				index = i + 1;
@@ -198,6 +242,11 @@ cfg_pll:
 
 	/* enable lock check */
 	phy_reg->reg_0020.sun60i.lock_enable = 0x1;
+
+	hdmi_inf("[top phy]\n");
+	hdmi_inf(" - %dKHz, %s clock\n", clock, hdmi->pixel_repeat ? "pixel" : "tmds");
+	hdmi_inf("   - pll: 0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
+		pll_cfg[index].pll_value, pll_cfg[index].ldo_value, pll_cfg[index].pll_patern0, pll_cfg[index].pll_patern1);
 
 	/* wait top phy pll lock */
 	ret = dw_hdmi_wait_event_timeout(top_phy_pll_get_lock, 20);
@@ -242,69 +291,46 @@ void top_phy_power(top_phy_power_t type)
 	break;
 	}
 
-	top_phy.power_type = type;
 	hdmi_trace("top phy power: %s\n", power_type[type]);
 }
 
-ssize_t top_phy_dump(char *buf)
+static int _top_phy_match_plat(u8 plat_id)
 {
-	ssize_t n = 0;
-	char *power_type[] = {"on", "off", "low"};
-	volatile struct top_phy_regs *phy_reg = top_phy.phy_addr;
+	int i = 0, j = 0;
+	u32 dcxo_rate = get_hosc();
 
-	n += sprintf(buf + n, "[top phy]\n");
-	n += sprintf(buf + n, " - power mode  : %s\n",
-			power_type[top_phy.power_type]);
-	n += sprintf(buf + n, " - dcxo rate   : %dHz\n",
-			top_phy.dcxo_rate);
-	n += sprintf(buf + n, " - clock source: %s\n",
-			top_phy_get_clock_select() ? "ccmu" : "phypll");
-	n += sprintf(buf + n, " - pll state   : %s\n",
-			top_phy_pll_get_lock() ? "lock" : "unlock");
-	n += sprintf(buf + n, " - output gate : %s\n",
-			phy_reg->reg_0020.sun60i.pll_output_gate ? "enable" : "disable");
-
-	return n;
+	for (i = 0; i < ARRAY_SIZE(sunxi_plat); i++) {
+		if (sunxi_plat[i]->plat_id != plat_id)
+			continue;
+		/* match plat id and start get data */
+		top_phy.offset = sunxi_plat[i]->offset;
+		for (j = 0; j < ARRAY_SIZE(sunxi_plat[i]->mpll_table); j++) {
+			if (sunxi_plat[i]->mpll_table[j].rate != dcxo_rate)
+				continue;
+			top_phy.rate_name = sunxi_plat[i]->mpll_table[j].name;
+			top_phy.pll_data  = sunxi_plat[i]->mpll_table[j].mpll;
+			top_phy.pll_size  = sunxi_plat[i]->mpll_table[j].size;
+			return 0;
+		}
+	}
+	return -1;
 }
 
 int top_phy_init(void)
 {
 	struct dw_hdmi_dev_s *hdmi = dw_get_hdmi();
-	struct udevice *dev = hdmi->dev;
-	int dcxo_rate = 0;
+	int ret = 0;
 
-	if (IS_ERR_OR_NULL(dev)) {
-		shdmi_err(dev);
+	ret = _top_phy_match_plat(hdmi->plat_id);
+	if (ret != 0) {
+		hdmi_err("top phy get plat id [%d] data failed\n", hdmi->plat_id);
 		return -1;
 	}
 
-#if IS_ENABLED(CONFIG_MACH_SUN55IW6)
-	dcxo_rate = get_hosc_type();
-#endif
-
-	if (hdmi->plat_id == HDMI_SUN60I_W2_P1) {
-		top_phy.offset    = 0xE0000;
-		top_phy.dcxo_rate = dcxo_rate;
-		if (dcxo_rate == PHY_DCXO_24M) {
-			top_phy.pll_data = sun60i_phypll_24m;
-			top_phy.pll_size = ARRAY_SIZE(sun60i_phypll_24m);
-			hdmi_trace("top phy get sun60i use 24M dcxo\n");
-		} else if (dcxo_rate == PHY_DCXO_26M) {
-			top_phy.pll_data = sun60i_phypll_26m;
-			top_phy.pll_size = ARRAY_SIZE(sun60i_phypll_26m);
-			hdmi_trace("top phy get sun60i use 26M dcxo\n");
-		} else {
-			top_phy.pll_data = sun60i_phypll_24m;
-			top_phy.pll_size = ARRAY_SIZE(sun60i_phypll_24m);
-			hdmi_inf("top phy get sun60i dcxo: %d is unsupport, use 24M\n",
-				dcxo_rate);
-		}
-	} else {
-		hdmi_inf("top phy unsupport plat id %d\n", hdmi->plat_id);
-		return 0;
-	}
-
 	top_phy.phy_addr = (struct top_phy_regs *)(hdmi->addr + top_phy.offset);
+
+	if (hdmi->sw_init)
+		return 0;
 
 	top_phy_power(SUNXI_TOP_PHY_POWER_ON);
 
@@ -315,3 +341,27 @@ int top_phy_init(void)
 	return 0;
 }
 
+ssize_t top_phy_dump(char *buf)
+{
+	ssize_t n = 0;
+	volatile struct top_phy_regs *phy_reg = top_phy.phy_addr;
+
+	n += sprintf(buf + n, "\n[top phy]\n");
+
+	if (top_phy_get_clock_select()) {
+		n += sprintf(buf + n, " - ccmu mode\n");
+		goto exit;
+	}
+
+	n += sprintf(buf + n, "| name  | ref clk | output | state |\n");
+	n += sprintf(buf + n, "|-------+---------+--------+-------|\n");
+	n += sprintf(buf + n, "| state |  %-5s  |   %-3s  | %-6s|\n",
+		top_phy.rate_name,
+		phy_reg->reg_0020.sun60i.pll_output_gate ? "on" : "off",
+		top_phy_pll_get_lock() ? "lock" : "unlock");
+	n += sprintf(buf + n, " - pll: 0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
+		phy_reg->reg_0020.dwval, phy_reg->reg_0028.dwval,
+		phy_reg->reg_002C.dwval, phy_reg->reg_0030.dwval);
+exit:
+	return n;
+}

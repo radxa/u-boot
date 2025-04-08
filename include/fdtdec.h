@@ -888,6 +888,10 @@ enum display_flags {
 	DISPLAY_FLAGS_INTERLACED	= 1 << 8,
 	DISPLAY_FLAGS_DOUBLESCAN	= 1 << 9,
 	DISPLAY_FLAGS_DOUBLECLK		= 1 << 10,
+	/* drive sync on pos. edge */
+	DISPLAY_FLAGS_SYNC_POSEDGE	= 1 << 11,
+	/* drive sync on neg. edge */
+	DISPLAY_FLAGS_SYNC_NEGEDGE	= 1 << 12,
 };
 
 /*

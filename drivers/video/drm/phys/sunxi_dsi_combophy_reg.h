@@ -15,12 +15,14 @@
  * Detail information of registers
  */
 #include <linux/types.h>
+#include <drm/drm_print.h>
 #include <compiler.h>
 #include "../sunxi_drm_phy.h"
 
 struct sunxi_dphy_lcd {
 	int dphy_index;
 	volatile struct dphy_lcd_reg *reg;
+	struct combophy_config *phy_config;
 };
 
 union dphy_ctl_reg_t {
@@ -176,20 +178,15 @@ union dphy_rx_time3_reg_t {
 union dphy_ana0_reg_t {
 	u32 dwval;
 	struct {
-		u32 reg_selsck:1;
-		u32 reg_rsd:1;
-		u32 reg_sfb:2;
-		u32 reg_plr:4;
-		u32 reg_den:4;
-		u32 reg_slv:3;
-		u32 reg_sdiv2:1;
-		u32 reg_srxck:4;
-		u32 reg_srxdt:4;
-		u32 reg_dmpd:4;
-		u32 reg_dmpc:1;
-		u32 reg_pwenc:1;
-		u32 reg_pwend:1;
-		u32 reg_pws:1;
+		u32 reg_lptx_setr:3;
+		u32 res0:1;
+		u32 reg_lptx_setc:3;
+		u32 res1:1;
+		u32 reg_preemph3:4;
+		u32 reg_preemph2:4;
+		u32 reg_preemph1:4;
+		u32 reg_preemph0:4;
+		u32 res2:8;
 	} bits;
 };
 
@@ -258,22 +255,23 @@ union dphy_ana3_reg_t {
 union dphy_ana4_reg_t {
 	u32 dwval;
 	struct {
-		u32 reg_txpusd:2;
-		u32 reg_txpusc:2;
-		u32 reg_txdnsd:2;
-		u32 reg_txdnsc:2;
-		u32 reg_tmsd:2;
-		u32 reg_tmsc:2;
-		u32 reg_ckdv:5;
+		u32 reg_soft_rcal:5;
+		u32 en_soft_rcal:1;
+		u32 on_rescal:1;
+		u32 en_rescal:1;
+		u32 reg_vlv_set:3;
+		u32 res0:1;
+		u32 reg_vlptx_set:3;
+		u32 res1:1;
 		u32 reg_vtt_set:3;
-		u32 reg_dmplvd:4;
-		u32 reg_dmplvc:1;
-		u32 reg_ib:2;
-		u32 res4:1;
+		u32 res2:1;
+		u32 reg_vres_set:3;
+		u32 reg_vref_source:1;
+		u32 reg_ib:3;
+		u32 res3:1;
 		u32 reg_comtest:2;
 		u32 en_comtest:1;
 		u32 en_mipi:1;
-
 	} bits;
 };
 
@@ -446,7 +444,8 @@ union dphy_dbg0_reg_t {
 		u32 res4:5;
 		u32 rcal_flag:1;
 		u32 rcal_cmpo:1;
-		u32 res5:2;
+		u32 lock:1;
+		u32 res5:1;
 		u32 direction:1;
 		u32 res6:3;
 	} bits;
@@ -591,8 +590,8 @@ union dphy_pll_reg0_t {
 		__u32 en_lvs                  :  1 ;    /* default: 0x1; */
 		__u32 ldo_en                  :  1 ;    /* default: 0x1; */
 		__u32 cp36_en                 :  1 ;    /* default: 0x1; */
-		__u32 post_div1_clk_ls	      :  4 ;
-		__u32 post_div0_clk_ls	      :  2 ;
+		__u32 m3                      :  4 ;
+		__u32 m2                      :  2 ;
 		__u32 res0                    :  1 ;    /* default: 0; */
 		__u32 reg_update	      :  1 ;
 	} bits;
@@ -610,7 +609,10 @@ union dphy_pll_reg1_t {
 		__u32 lockdet_en               :  1 ;    /* default: 0; */
 		__u32 lockmdsel                :  1 ;    /* default: 0; */
 		__u32 unlock_mdsel             :  2 ;    /* default: 0; */
-		__u32 res0                     : 16 ;    /* default: 0; */
+		__u32 pll_cp                   :  5 ;
+		__u32 ls_gating                :  1 ;
+		__u32 hs_gating                :  1 ;
+		__u32 res0                     :  9 ;    /* default: 0; */
 	} bits;
 };
 
@@ -752,7 +754,23 @@ struct __disp_dsi_dphy_timing_t {
 	unsigned int hstx_ana0;
 	unsigned int hstx_ana1;
 };
+
+struct freq_range {
+	unsigned long lvl_min;
+	unsigned long lvl_max;
+};
+
+struct combophy_config {
+	struct freq_range               freq_lvl;
+	union dphy_tx_time0_reg_t       dphy_tx_time0;
+	union dphy_ana0_reg_t           dphy_ana0;
+	union dphy_ana4_reg_t           dphy_ana4;
+	union combo_phy_reg0_t          combo_phy_reg0;
+	union combo_phy_reg1_t          combo_phy_reg1;
+};
+
 int sunxi_dsi_combo_phy_set_reg_base(struct sunxi_dphy_lcd *dphy, uintptr_t base);
 int sunxi_dsi_combophy_configure_dsi(struct sunxi_dphy_lcd *dphy, enum phy_mode mode, struct phy_configure_opts_mipi_dphy *config);
+int sunxi_dsi_combophy_print(struct sunxi_dphy_lcd *dphy);
 int sunxi_dsi_combophy_set_dsi_mode(struct sunxi_dphy_lcd *dphy, int mode);
 int sunxi_dsi_combophy_set_lvds_mode(struct sunxi_dphy_lcd *dphy, bool enable);

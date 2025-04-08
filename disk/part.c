@@ -154,6 +154,12 @@ void dev_print (struct blk_desc *dev_desc)
 			dev_desc->revision,
 			dev_desc->product);
 		break;
+	case IF_TYPE_SUNXI_FLASH_UFS:
+		printf ("Vendor: %s Rev: %s Prod: %s\n",
+			dev_desc->vendor,
+			dev_desc->revision,
+			dev_desc->product);
+		break;
 	case IF_TYPE_DOC:
 		puts("device type DOC\n");
 		return;

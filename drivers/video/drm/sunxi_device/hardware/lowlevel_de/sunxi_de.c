@@ -77,6 +77,7 @@ struct sunxi_de_out {
 	struct de_rcq_mem_info rcq_info_test0;
 	struct de_rcq_mem_info rcq_info_test1;
 	struct de_output_info output_info;
+	unsigned int pixel_mode;
 };
 
 struct sunxi_display_engine {
@@ -534,6 +535,7 @@ static int rtmx_start(struct sunxi_display_engine *engine, unsigned int id, unsi
 	struct de_rcq_mem_info *rcq_info = &hwde->rcq_info;
 	unsigned int w = hwde->output_info.width;
 	unsigned int h = hwde->output_info.height;
+	unsigned int pixel_mode = hwde->pixel_mode;
 	bool use_rcq = engine->match_data->update_mode == RCQ_MODE;
 /*	struct offline_cfg offline;
 	offline.enable = true;
@@ -545,6 +547,7 @@ static int rtmx_start(struct sunxi_display_engine *engine, unsigned int id, unsi
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.display_id = id;
 	cfg.enable = 1;
+	cfg.pixel_mode = pixel_mode;
 	cfg.w = w;
 	cfg.h = h;
 	cfg.device_index = hwdev_index;
@@ -565,7 +568,7 @@ static int rtmx_start(struct sunxi_display_engine *engine, unsigned int id, unsi
 		port = de_top_set_chn_mux(engine->top_hdl, id, port, ch->type_hw_id, ch->is_video);
 	}
 
-	de_bld_output_set_attr(hwde->bld_hdl, w, h, hwde->output_info.px_fmt_space == DE_FORMAT_SPACE_RGB ? 0 : 1);
+	de_bld_output_set_attr(hwde->bld_hdl, w, h, hwde->output_info.px_fmt_space == DE_FORMAT_SPACE_RGB ? 0 : 1, true);
 	return 0;
 }
 
@@ -598,6 +601,7 @@ int sunxi_de_enable(struct sunxi_de_out *hwde,
 	hwde->output_info.color_space = cfg->color_space;
 	hwde->output_info.color_range = cfg->color_range;
 	hwde->output_info.data_bits = cfg->data_bits;
+	hwde->pixel_mode = cfg->pixel_mode;
 
 	rtmx_start(engine, hwde->id, cfg->hwdev_index);
 	DRM_INFO("%s finish sw_en=%d\n", __FUNCTION__, cfg->sw_enable);
@@ -628,6 +632,8 @@ void sunxi_de_disable(struct sunxi_de_out *hwde)
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.display_id = id;
 	cfg.enable = 0;
+	/* pixel_mode: 0:1pixel 1:1pixel 2:2pixel 4:4pixel */
+	cfg.pixel_mode = 0;
 	de_top_display_config(engine->top_hdl, &cfg);
 	sunxi_clk_disable(clks, ARRAY_SIZE(clks));
 
@@ -844,9 +850,9 @@ static int sunxi_de_get_disp_sys(struct sunxi_display_engine *engine)
 					  topnode,
 					  &top_dev);
 	if (top_dev == NULL)
-		DRM_ERROR("%s:Get top udevice fail!\n", __func__);
+		DRM_DEBUG("%s:Get top udevice fail!\n", __func__);
 	else
-		DRM_INFO("Get top module %s successfully!\n", ofnode_get_name(dev_ofnode(top_dev)));
+		DRM_DEBUG("Get top module %s successfully!\n", ofnode_get_name(dev_ofnode(top_dev)));
 
 	engine->disp_sys = top_dev;
 	return 0;
@@ -859,6 +865,7 @@ static int sunxi_de_probe(struct udevice *dev)
 	struct sunxi_de_out *display_out;
 	struct de_channel_handle *ch_hdl;
 	struct module_create_info cinfo;
+	unsigned int err_create = 0;
 
 	ret = sunxi_display_engine_init(dev);
 	if (ret)
@@ -892,9 +899,23 @@ static int sunxi_de_probe(struct udevice *dev)
 		display_out->port = sunxi_of_graph_get_port_by_id(dev_ofnode(dev), i);
 
 		cinfo.id = display_out->id;
-		display_out->bld_hdl = de_blender_create(&cinfo);
+		display_out->bld_hdl = de_blender_create(&cinfo, engine->chn_cfg_mode);
+		if (!display_out->bld_hdl) {
+			if (engine->display_out_cnt - (++err_create) == 0) {
+				ret = -EINVAL;
+				DRM_ERROR("[SUNXI-DE] display_out_cnt %d, and can not create any bld\n", engine->display_out_cnt);
+				goto OUT;
+			}
+			continue;
+		}
+
 		cinfo.reg_offset = display_out->bld_hdl->disp_reg_base;
 		display_out->backend_hdl = de_backend_create(&cinfo);
+	}
+	if (err_create) {
+		DRM_INFO("[SUNXI-DE] display_out_cnt %d, create display_cnt(bld_cnt) %d\n",
+			  engine->display_out_cnt, engine->display_out_cnt - err_create);
+		engine->display_out_cnt -= err_create;
 	}
 
 	//create channel

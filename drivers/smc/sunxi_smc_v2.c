@@ -230,9 +230,6 @@ int arm_svc_efuse_read(void *key_buf, void *read_buf)
 #endif
 }
 
-#ifdef CONFIG_SUNXI_SET_EFUSE_POWER
-extern int set_efuse_voltage(int vol);
-#endif
 int arm_svc_efuse_write(void *key_buf)
 {
 	int ret = -1;

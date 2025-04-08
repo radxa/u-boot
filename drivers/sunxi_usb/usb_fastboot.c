@@ -1507,6 +1507,10 @@ static void __continue(void)
 	if (storage_type == STORAGE_EMMC || storage_type == STORAGE_SD
 			|| storage_type == STORAGE_EMMC0) {
 		env_set("bootcmd", "run setargs_mmc boot_normal");
+#ifdef CONFIG_SUNXI_UFS
+	} else if (storage_type == STORAGE_UFS) {
+		env_set("bootcmd", "run setargs_ufs boot_normal");
+#endif
 	} else if (storage_type == STORAGE_NAND) {
 		env_set("bootcmd", "run setargs_nand boot_normal");
 	}

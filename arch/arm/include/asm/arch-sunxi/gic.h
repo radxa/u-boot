@@ -343,7 +343,7 @@
 #elif defined(CONFIG_MACH_SUN60IW2)
 #define GIC_DIST_BASE        (SUNXI_GIC600_BASE)
 #define GIC_IROUTR(_n)       (GIC_DIST_BASE + 0x80 + 4 * (_n))
-#define GICR_LPI_BASE(n)     (GIC_DIST_BASE + 0x80000 + n*0x20000)
+#define GICR_LPI_BASE(n)     (GIC_DIST_BASE + 0x60000 + n*0x20000)
 #define GICR_WAKER(m)        (GICR_LPI_BASE(m) + 0x0014)
 #define GICR_PWRR(m)         (GICR_LPI_BASE(m) + 0x0024)
 #define put_wvalue(addr, v)  (*((volatile int *)(addr)) = (unsigned int)(v))

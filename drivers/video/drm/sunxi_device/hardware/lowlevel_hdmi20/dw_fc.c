@@ -884,8 +884,8 @@ int dw_infoframe_packet(void)
 	struct dw_video_s   *video = &hdmi->video_dev;
 
 	if (video->mHdmi != DW_TMDS_MODE_HDMI) {
-		hdmi_inf("packet not config when dvi mode\n");
-		return -1;
+		hdmi_inf("dw packet unset when dvi mode\n");
+		return 0;
 	}
 
 	_dw_packet_vsi_config();

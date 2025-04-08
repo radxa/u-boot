@@ -89,7 +89,7 @@ static int auto_update_firmware_probe(char *name)
 	return 0;
 }
 
-loff_t fat_fs_read(const char *filename, void *buf, int offset, int len)
+loff_t fat_fs_read(const char *filename, void *buf, uint offset, int len)
 {
 	loff_t len_read;
 

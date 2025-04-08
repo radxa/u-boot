@@ -113,17 +113,17 @@ __attribute__((section(".data"))) axp_contrl_info pmu_axp8191_ctrl_tbl[] = {
 	{ "dldo6", 500, 3400, AXP8191_DLDO6OUT_VOL, 0x1f, 100, 0, 0,
 	  AXP8191_LDO_POWER_ON_OFF_CTL3, 5 },
 
-	{ "eldo1", 500, 1500, AXP8191_ELDO1OUT_VOL, 0x3f, 100, 0, 0,
+	{ "eldo1", 500, 1500, AXP8191_ELDO1OUT_VOL, 0x3f, 25, 0, 0,
 	  AXP8191_LDO_POWER_ON_OFF_CTL3, 6 },
-	{ "eldo2", 500, 1500, AXP8191_ELDO2OUT_VOL, 0x3f, 100, 0, 0,
+	{ "eldo2", 500, 1500, AXP8191_ELDO2OUT_VOL, 0x3f, 25, 0, 0,
 	  AXP8191_LDO_POWER_ON_OFF_CTL3, 7 },
-	{ "eldo3", 500, 1500, AXP8191_ELDO3OUT_VOL, 0x3f, 100, 0, 0,
+	{ "eldo3", 500, 1500, AXP8191_ELDO3OUT_VOL, 0x3f, 25, 0, 0,
 	  AXP8191_LDO_POWER_ON_OFF_CTL4, 0 },
-	{ "eldo4", 500, 1500, AXP8191_ELDO4OUT_VOL, 0x3f, 100, 0, 0,
+	{ "eldo4", 500, 1500, AXP8191_ELDO4OUT_VOL, 0x3f, 25, 0, 0,
 	  AXP8191_LDO_POWER_ON_OFF_CTL4, 1 },
-	{ "eldo5", 500, 1500, AXP8191_ELDO5OUT_VOL, 0x3f, 100, 0, 0,
+	{ "eldo5", 500, 1500, AXP8191_ELDO5OUT_VOL, 0x3f, 25, 0, 0,
 	  AXP8191_LDO_POWER_ON_OFF_CTL4, 2 },
-	{ "eldo6", 500, 1500, AXP8191_ELDO6OUT_VOL, 0x3f, 100, 0, 0,
+	{ "eldo6", 500, 1500, AXP8191_ELDO6OUT_VOL, 0x3f, 25, 0, 0,
 	  AXP8191_LDO_POWER_ON_OFF_CTL4, 3 },
 
 	{ "dc1sw1", 1000, 3800, AXP8191_DC1OUT_VOL, 0x1f, 100, 0, 0,
@@ -166,9 +166,32 @@ static int pmu_axp8191_ap_reset_enable(void)
 	return 0;
 }
 
+static void pmu_axp8191_set_necessary_reg(void)
+{
+	u8 reg_value;
+
+	pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_WRITE_LOCK_F1, 0x06);
+	pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_EFUSE_CTL, 0x04);
+	pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_REG_ADD_EXT, 0x01);
+
+	pmic_bus_read(AXP8191_RUNTIME_ADDR, AXP8191_EXT_CFG(AXP8191_COMMOM_CFG1), &reg_value);
+	if (!(reg_value & BIT(6)))
+		pmic_bus_setbits(AXP8191_RUNTIME_ADDR, AXP8191_EXT_CFG(AXP8191_COMMOM_CFG1), BIT(6));
+
+	pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_REG_ADD_EXT, 0);
+	pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_EFUSE_CTL, 0);
+	pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_WRITE_LOCK_F1, 0);
+}
+
 static int pmu_axp8191_probe(void)
 {
 	u8 pmu_chip_id;
+
+	if (pmic_bus_init(AXP8191_DEVICE_ADDR, AXP8191_RUNTIME_ADDR)) {
+		tick_printf("%s pmic_bus_init fail\n", __func__);
+		return -1;
+	}
+
 	if (pmic_bus_read(AXP8191_RUNTIME_ADDR, AXP8191_CHIP_ID, &pmu_chip_id)) {
 		tick_printf("%s pmic_bus_read fail\n", __func__);
 		return -1;
@@ -177,6 +200,7 @@ static int pmu_axp8191_probe(void)
 	pmu_chip_id &= 0XFF;
 	if (pmu_chip_id == 0x03) {
 		/*pmu type AXP21*/
+		pmu_axp8191_set_necessary_reg();
 		pmu_axp8191_ap_reset_enable();
 		tick_printf("PMU: AXP8191\n");
 
@@ -392,21 +416,50 @@ static int pmu_axp8191_set_power_off(void)
 	return 0;
 }
 
+static int pmu_axp8191_set_sys_mode(int status)
+{
+
+	if (pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_BUFFER0,
+			   (u8)status)) {
+		return -1;
+	}
+
+	return 0;
+}
+
+static int pmu_axp8191_get_sys_mode(void)
+{
+
+	u8 reg_value;
+	if (pmic_bus_read(AXP8191_RUNTIME_ADDR, AXP8191_BUFFER0, &reg_value)) {
+		return -1;
+	}
+
+	tick_printf("[AXP8191] charge/reboot status:0x%x\n", reg_value);
+
+	if (reg_value & 0x01) {
+		reg_value = SUNXI_REBOOT_FLAG;
+	} else if (reg_value & 0x08) {
+		reg_value = SUNXI_CHARGING_FLAG;
+	}
+
+	return reg_value;
+}
 
 static int pmu_axp8191_get_key_irq(void)
 {
 	u8 reg_value;
-	if (pmic_bus_read(AXP8191_RUNTIME_ADDR, AXP8191_IRQ_ENABLE2, &reg_value)) {
+	if (pmic_bus_read(AXP8191_RUNTIME_ADDR, AXP8191_IRQ_STATUS2, &reg_value)) {
 		return -1;
 	}
-	reg_value &= (0x03 << 5);
+	reg_value &= (0x03 << 3);
 	if (reg_value) {
-		if (pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_IRQ_ENABLE2,
+		if (pmic_bus_write(AXP8191_RUNTIME_ADDR, AXP8191_IRQ_STATUS2,
 				   reg_value)) {
 			return -1;
 		}
 	}
-	return (reg_value >> 5) & 3;
+	return (reg_value >> 3) & 3;
 }
 
 static int pmu_axp8191_set_dcdc_mode(const char *name, int mode)
@@ -479,7 +532,45 @@ int pmu_axp8191_reg_debug(void)
 	}
 	tick_printf("[AXP8191] onoff status: 0x%x = 0x%x, 0x%x = 0x%x\n", AXP8191_POWER_ON_OFF_SOURCE_INDIVATION, reg_value[0], AXP8191_POWER_OFF_SOURCE_INDIVATION, reg_value[1]);
 
+	if (pmic_bus_read(AXP8191_RUNTIME_ADDR, AXP8191_BUFFER0, &reg_value[1])) {
+		return -1;
+	}
+	tick_printf("[AXP8191] charge status: 0x%x = 0x%x\n", AXP8191_BUFFER0, reg_value[1]);
+
 	return 0;
+}
+
+
+int pmu_axp8191_get_poweron_source(void)
+{
+	uchar reg_value;
+	int reboot_mode;
+
+	reboot_mode = pmu_get_sys_mode();
+
+	if (reboot_mode == SUNXI_REBOOT_FLAG) {
+		pmu_set_sys_mode(0);
+		return -1;
+	}
+
+	if (reboot_mode == SUNXI_CHARGING_FLAG) {
+		pmu_set_sys_mode(0);
+		return AXP_BOOT_SOURCE_CHARGER;
+	}
+
+	if (pmic_bus_read(AXP8191_RUNTIME_ADDR, AXP8191_POWER_ON_OFF_SOURCE_INDIVATION, &reg_value)) {
+		return -1;
+	}
+
+	reg_value &= 0x07;
+
+	switch (reg_value) {
+	case (1 << 0): return AXP_BOOT_SOURCE_PS_L_TO_H;
+	case (1 << 1): return AXP_BOOT_SOURCE_BUTTON;
+	case (1 << 2): return AXP_BOOT_SOURCE_IRQ_LOW;
+	default: return -1;
+	}
+
 }
 
 U_BOOT_AXP_PMU_INIT(pmu_axp8191) = {
@@ -488,12 +579,13 @@ U_BOOT_AXP_PMU_INIT(pmu_axp8191) = {
 	.set_voltage       = pmu_axp8191_set_voltage,
 	.get_voltage       = pmu_axp8191_get_voltage,
 	.set_power_off     = pmu_axp8191_set_power_off,
-	/*.set_sys_mode      = pmu_axp8191_set_sys_mode,*/
-	/*.get_sys_mode      = pmu_axp8191_get_sys_mode,*/
+	.set_sys_mode      = pmu_axp8191_set_sys_mode,
+	.get_sys_mode      = pmu_axp8191_get_sys_mode,
 	.get_key_irq       = pmu_axp8191_get_key_irq,
 	/*.set_bus_vol_limit = pmu_axp8191_set_bus_vol_limit,*/
 	.set_dcdc_mode     = pmu_axp8191_set_dcdc_mode,
 	.get_reg_value	   = pmu_axp8191_get_reg_value,
 	.set_reg_value	   = pmu_axp8191_set_reg_value,
 	.reg_debug = pmu_axp8191_reg_debug,
+	.get_poweron_source     = pmu_axp8191_get_poweron_source,
 };

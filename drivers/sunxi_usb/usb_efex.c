@@ -1185,7 +1185,8 @@ static int __sunxi_usb_efex_op_cmd(u8 *cmd_buffer)
 					printf("upload boot0 flash: start 0x%x, sectors 0x%x\n", trans_data.flash_start, trans_data.flash_sectors);
 					if (get_boot_storage_type() == STORAGE_EMMC ||
 							get_boot_storage_type() == STORAGE_EMMC3 ||
-							get_boot_storage_type() == STORAGE_EMMC0) {
+							get_boot_storage_type() == STORAGE_EMMC0 ||
+							get_boot_storage_type() == STORAGE_UFS) {
 						if (!sunxi_sprite_phyread(trans_data.flash_start, trans_data.flash_sectors, (void *)trans_data.act_send_buffer)) {
 							printf("flash read err: start 0x%x, sectors 0x%x\n", trans_data.flash_start, trans_data.flash_sectors);
 							trans_data.last_err      = -1;
@@ -1204,7 +1205,8 @@ static int __sunxi_usb_efex_op_cmd(u8 *cmd_buffer)
 					sunxi_usb_dbg("upload boot1 flash: start 0x%x, sectors 0x%x\n", trans_data.flash_start, trans_data.flash_sectors);
 					if (get_boot_storage_type() == STORAGE_EMMC ||
 							get_boot_storage_type() == STORAGE_EMMC3 ||
-							get_boot_storage_type() == STORAGE_EMMC0) {
+							get_boot_storage_type() == STORAGE_EMMC0 ||
+							(get_boot_storage_type() == STORAGE_UFS)) {
 						if (!sunxi_sprite_phyread(trans_data.flash_start, trans_data.flash_sectors, trans_data.act_send_buffer)) {
 							trans_data.last_err      = -1;
 						}
@@ -1791,6 +1793,7 @@ static void dram_data_recv_finish(uint data_type)
 		    {       //烧录mbr
                         printf("SUNXI_EFEX_MBR_TAG\n");
                         printf("mbr size = 0x%x\n", trans_data.to_be_recved_size);
+
 #ifndef CONFIG_DISABLE_SUNXI_PART_DOWNLOAD
                         trans_data.last_err = sunxi_sprite_download_mbr((void *)trans_data.base_recv_buffer, trans_data.to_be_recved_size);
 #else

@@ -58,7 +58,8 @@ int sunxi_sprite_store_part_data(void *buffer)
 			int storage_type = get_boot_storage_type();
 			int logic_offset;
 			if (storage_type == STORAGE_EMMC || storage_type == STORAGE_EMMC3
-				|| storage_type == STORAGE_SD || storage_type == STORAGE_EMMC0) {
+				|| storage_type == STORAGE_SD || storage_type == STORAGE_EMMC0
+				|| (storage_type == STORAGE_UFS)) {
 				logic_offset = 40960;
 			} else {
 				logic_offset = 0;
@@ -139,7 +140,8 @@ int sunxi_sprite_restore_part_data(void *buffer)
 			int storage_type = get_boot_storage_type();
 			int logic_offset;
 			if (storage_type == STORAGE_EMMC || storage_type == STORAGE_EMMC3
-				|| storage_type == STORAGE_SD || storage_type == STORAGE_EMMC0) {
+				|| storage_type == STORAGE_SD || storage_type == STORAGE_EMMC0
+				|| (storage_type == STORAGE_UFS)) {
 				logic_offset = 40960;
 			} else {
 				logic_offset = 0;

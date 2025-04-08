@@ -24,11 +24,11 @@ struct de_bld_handle {
 	struct de_bld_private *private;
 };
 
-int de_bld_output_set_attr(struct de_bld_handle *hdl, u32 width, u32 height, u32 fmt_space);
+int de_bld_output_set_attr(struct de_bld_handle *hdl, u32 width, u32 height, u32 fmt_space, bool apply);
 int de_bld_pipe_reset(struct de_bld_handle *hdl, unsigned int pipe_id, int port_id);
 int de_bld_get_chn_mux_port(struct de_bld_handle *hdl, unsigned int chn_mode, bool is_video, unsigned int type_id);
 int de_bld_pipe_set_attr(struct de_bld_handle *hdl, unsigned int pipe_id, unsigned int port_id, const struct drm_rect *rect, bool is_premul);
-struct de_bld_handle *de_blender_create(struct module_create_info *info);
+struct de_bld_handle *de_blender_create(struct module_create_info *info,  unsigned int chn_mode);
 
 void dump_bld_state(struct drm_printer *p, struct de_bld_handle *hdl);
 

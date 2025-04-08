@@ -11,6 +11,7 @@
 #include <sunxi_power/bmu_axp2202.h>
 #include <sunxi_power/axp.h>
 #include <asm/arch/pmic_bus.h>
+#include <asm/arch/rtc.h>
 #include <sys_config.h>
 #include <sunxi_power/power_manage.h>
 
@@ -23,8 +24,19 @@ int bmu_axp2202_get_battery_probe_check(void)
 	if (ret < 0)
 		bat_exist = 1;
 
-	if (!bat_exist)
+	if (!bat_exist) {
+		if (AXP2202_RUNTIME_ADDR == 0x34) {
+			pmic_bus_clrbits(AXP2202_RUNTIME_ADDR, AXP2202_BAT_DET, BIT(0));
+			pmic_bus_clrbits(AXP2202_RUNTIME_ADDR, AXP2202_MODULE_EN, BIT(1));
+			pmic_bus_clrbits(AXP2202_RUNTIME_ADDR, AXP2202_CLK_EN, BIT(2));
+			if (pmic_bus_read(AXP2202_RUNTIME_ADDR, AXP2202_VBUS_VOL_SET, &reg_value))
+				return -1;
+			reg_value &= ~(0xf);
+			if (pmic_bus_write(AXP2202_RUNTIME_ADDR, AXP2202_VBUS_VOL_SET, reg_value))
+				return -1;
+		}
 		return 0;
+	}
 
 	if (pmic_bus_read(AXP2202_RUNTIME_ADDR, AXP2202_COMM_STATUS0, &reg_value)) {
 		return -1;
@@ -149,15 +161,22 @@ int bmu_axp2202_reset_capacity(void)
 
 int bmu_axp2202_get_sys_mode(void)
 {
-
+	int work_mode = get_boot_work_mode();
+#ifndef CONFIG_BOOTCMD_SKIP_RTC
+	u8 bootmode_flag = rtc_get_bootmode_flag();
+#else
+	u8 bootmode_flag = 0;
+#endif
 	u8 reg_value;
+
 	if (pmic_bus_read(AXP2202_RUNTIME_ADDR, AXP2202_DATA_BUFFER3, &reg_value)) {
 		return -1;
 	}
 
 	reg_value &= 0x01;
 
-	pmic_bus_clrbits(AXP2202_RUNTIME_ADDR, AXP2202_DATA_BUFFER3, BIT(0));
+	if ((work_mode == WORK_MODE_BOOT) && (bootmode_flag != SUNXI_EFEX_CMD_FLAG))
+		pmic_bus_clrbits(AXP2202_RUNTIME_ADDR, AXP2202_DATA_BUFFER3, BIT(0));
 
 	return reg_value;
 }
@@ -260,7 +279,7 @@ int bmu_axp2202_get_axp_bus_exist(void)
 	return 0;
 }
 
-int bmu_axp2202_get_battery_vol(void)
+int _bmu_axp2202_get_battery_vol(void)
 {
 	u8 reg_value_h = 0, reg_value_l = 0;
 	int i, vtemp[3];
@@ -295,6 +314,46 @@ int bmu_axp2202_get_battery_vol(void)
 	return vtemp[1];
 }
 
+int bmu_axp2202_get_battery_vol(void)
+{
+	int bat_vol;
+
+	bat_vol = _bmu_axp2202_get_battery_vol();
+
+	if (bat_vol < 3300) {
+		printk("bat_vol(%d) is too low, need delay 1s to check.\n", bat_vol);
+		mdelay(1000);
+		bat_vol = _bmu_axp2202_get_battery_vol();
+	}
+	return bat_vol;
+}
+
+int bmu_axp2202_get_charge_status(void)
+{
+	u8 reg_value, charge_status;
+
+#ifdef CONFIG_SUNXI_BMU_EXT
+	return bmu_ext_get_charge();
+#endif
+
+	pmic_bus_read(AXP2202_RUNTIME_ADDR, AXP2202_MODE_CHGSTATUS, &reg_value);
+	reg_value &= 0x7;
+
+	/* chg_stat = bit[2:0] */
+	switch (reg_value) {
+	case 1:
+	case 2:
+	case 3:
+		charge_status = 1;
+		break;
+	default:
+		charge_status = 0;
+		break;
+	}
+
+	return charge_status;
+
+}
 int bmu_axp2202_battery_check(int ratio)
 {
 	int bat_vol, dcin_exist;
@@ -304,13 +363,7 @@ int bmu_axp2202_battery_check(int ratio)
 	dcin_exist = bmu_get_axp_bus_exist();
 
 	if (!ratio) {
-		if ((dcin_exist != AXP_VBUS_EXIST) && (bat_vol > 3700)) {
-			pmic_bus_setbits(AXP2202_RUNTIME_ADDR, AXP2202_RESET_CFG, BIT(2));
-			pmic_bus_clrbits(AXP2202_RUNTIME_ADDR, AXP2202_RESET_CFG, BIT(2));
-			tick_printf("%s only battery reset gauge: soc = 0\n", __func__);
-			return -1;
-		}
-		if (dcin_exist == AXP_VBUS_EXIST) {
+		if (bmu_axp2202_get_charge_status() > 0) {
 #ifdef CONFIG_SUNXI_BMU_EXT
 			bmu_ext_set_discharge();
 #endif
@@ -331,8 +384,8 @@ int bmu_axp2202_battery_check(int ratio)
 		}
 	}
 
-	if (ratio > 60) {
-		if (bat_vol < 3500) {
+	if ((ratio > 60) && (bat_vol < 3500)) {
+		if (dcin_exist == AXP_VBUS_EXIST) {
 #ifdef CONFIG_SUNXI_BMU_EXT
 			bmu_ext_set_discharge();
 #endif
@@ -346,6 +399,9 @@ int bmu_axp2202_battery_check(int ratio)
 			bmu_ext_set_charge();
 #endif
 			tick_printf("%s adapt reset gauge: soc > 60% , bat_vol < 3500\n", __func__);
+			pmic_bus_write(AXP2202_RUNTIME_ADDR, AXP2202_CURVE_CHECK, 0x81);
+			pmic_bus_read(AXP2202_RUNTIME_ADDR, AXP2202_CURVE_CHECK, &reg_value);
+			tick_printf("AXP2202_CURVE_CHECK:%x\n\n", reg_value);
 			return -1;
 		}
 	}
@@ -389,6 +445,23 @@ int bmu_axp2202_get_battery_capacity(void)
 int bmu_axp2202_get_battery_probe(void)
 {
 	u8 reg_value;
+	int ret = 0, bat_exist = 0;
+	int work_mode = get_boot_work_mode();
+#ifndef CONFIG_BOOTCMD_SKIP_RTC
+	u8 bootmode_flag = rtc_get_bootmode_flag();
+#else
+	u8 bootmode_flag = 0;
+#endif
+
+	if ((work_mode != WORK_MODE_BOOT) || (bootmode_flag == SUNXI_EFEX_CMD_FLAG))
+		return BATTERY_NONE;
+
+	ret = script_parser_fetch(FDT_PATH_POWER_SPLY, "battery_exist", &bat_exist, 1);
+	if (ret < 0)
+		bat_exist = 1;
+
+	if (!bat_exist)
+		return -1;
 
 	if (pmic_bus_read(AXP2202_RUNTIME_ADDR, AXP2202_COMM_STATUS0, &reg_value)) {
 		return -1;
@@ -628,10 +701,9 @@ static int axp_vts_to_temp(int data, int param[16])
 	return temp;
 }
 
-int bmu_axp2202_get_ntc_temp(int param[16])
+static int _bmu_axp2202_get_ntc_adc(void)
 {
 	unsigned char reg_value[2];
-	int temp, tmp;
 
 	if (pmic_bus_read(AXP2202_RUNTIME_ADDR, AXP2202_ADC_DATA_H, &reg_value[0])) {
 			return -1;
@@ -640,7 +712,33 @@ int bmu_axp2202_get_ntc_temp(int param[16])
 			return -1;
 	}
 
-	temp = (((reg_value[0] & GENMASK(5, 0)) << 0x08) | (reg_value[1]));
+	return (((reg_value[0] & GENMASK(5, 0)) << 8) | (reg_value[1]));
+}
+
+static int bmu_axp2202_get_ntc_adc(void)
+{
+	int i, temp;
+
+	temp = _bmu_axp2202_get_ntc_adc();
+
+	if ((temp > 0) && (temp < 0x1FFF))
+		return temp;
+
+	for (i = 0; i < 3; i++) {
+		mdelay(100);
+		temp = _bmu_axp2202_get_ntc_adc();
+		if ((temp > 0) && (temp < 0x1FFF))
+			break;
+	}
+
+	return temp;
+}
+
+int bmu_axp2202_get_ntc_temp(int param[16])
+{
+	int temp, tmp;
+
+	temp = bmu_axp2202_get_ntc_adc();
 	tmp = temp * 500 / 1000;
 	temp = axp_vts_to_temp(tmp, (int *)param);
 

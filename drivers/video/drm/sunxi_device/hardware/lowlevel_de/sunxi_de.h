@@ -50,6 +50,8 @@ struct sunxi_de_out_cfg {
 	unsigned int hwdev_index;
 	unsigned int width, height;
 	unsigned int device_fps;
+	unsigned int max_device_fps;
+	unsigned int pixel_mode;
 	enum de_format_space px_fmt_space;
 	enum de_yuv_sampling yuv_sampling;
 	enum de_eotf eotf;

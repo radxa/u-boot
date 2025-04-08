@@ -27,7 +27,7 @@
 #include <sys_config.h>
 #include <fdt_support.h>
 #include <asm/arch-sunxi/gpio.h>
-
+#include <sunxi_sys_config_gpio.h>
 DECLARE_GLOBAL_DATA_PTR;
 
 
@@ -38,41 +38,6 @@ DECLARE_GLOBAL_DATA_PTR;
 #define GPIO_REG_WRITE(reg, value)      writel((value), (reg))
 /* #define GPIO_REG_WRITE(reg, value)      {tick_printf("line:%d %s reg:0x%x value:0x%x\n", __LINE__, __func__, reg, value);  writel((value), (reg));} */
 
-
-/**#############################################################################################################
- *
- *                           GPIO(PIN) Operations
- *
--##############################################################################################################*/
-#ifdef CONFIG_SUNXI_GPIO_V2
-#define PIOC_REG_o_CFG0                 (0x00)
-#define PIOC_REG_o_CFG1                 (0x04)
-#define PIOC_REG_o_CFG2                 (0x08)
-#define PIOC_REG_o_CFG3                 (0x0C)
-#define PIOC_REG_o_DATA                 (0x10)
-#define PIOC_REG_o_DRV0                 (0x14)
-#define PIOC_REG_o_DRV1                 (0x18)
-#define PIOC_REG_o_DRV2                 (0x1C)
-#define PIOC_REG_o_DRV3                 (0x20)
-#define PIOC_REG_o_PUL0                 (0x24)
-#define PIOC_REG_o_PUL1                 (0x28)
-#define PIOC_o_OFFSET										(0x30)
-#define PIOC_o_DLEVEL			(8)
-#define PIO_CFG_MASK			(0x0f)
-#else
-#define PIOC_REG_o_CFG0                 (0x00)
-#define PIOC_REG_o_CFG1                 (0x04)
-#define PIOC_REG_o_CFG2                 (0x08)
-#define PIOC_REG_o_CFG3                 (0x0C)
-#define PIOC_REG_o_DATA                 (0x10)
-#define PIOC_REG_o_DRV0                 (0x14)
-#define PIOC_REG_o_DRV1                 (0x18)
-#define PIOC_REG_o_PUL0                 (0x1C)
-#define PIOC_REG_o_PUL1                 (0x20)
-#define PIO_CFG_MASK			(0x07)
-#define PIOC_o_OFFSET										(0x24)
-#define PIOC_o_DLEVEL			(16)
-#endif
 
 #ifdef CONFIG_MACH_SUN55IW3
 #define SUNXI_PK_BASE	0x2000500
@@ -109,6 +74,32 @@ DECLARE_GLOBAL_DATA_PTR;
 		readl(IOMEM_ADDR((unsigned long)_PIO_REG_BASE(n) + PIOC_REG_o_DATA))
 
 #ifdef SUNXI_R_PIO_BASE
+
+#if CONFIG_IS_ENABLED(AW_GPIO_V4) || CONFIG_IS_ENABLED(AW_GPIO_V3)  // AW_GPIO_V4 Support sun65iw1  AW_GPIO_V3 Support sun60iw2 and sun55iw6
+#define _R_PIO_REG_CFG(n, i)                                                   \
+	((volatile unsigned int *)((unsigned long)SUNXI_R_PIO_BASE + ((n)-12) * R_PIOC_o_OFFSET +        \
+				   ((i) << 2) + R_PIOC_REG_o_CFG0))
+#define _R_PIO_REG_DLEVEL(n, i)                                                \
+	((volatile unsigned int *)((unsigned long)SUNXI_R_PIO_BASE + ((n)-12) * R_PIOC_o_OFFSET +        \
+				   ((i) << 2) + R_PIOC_REG_o_DRV0))
+#define _R_PIO_REG_PULL(n, i)                                                  \
+	((volatile unsigned int *)((unsigned long)SUNXI_R_PIO_BASE + ((n)-12) * R_PIOC_o_OFFSET +        \
+				   ((i) << 2) + R_PIOC_REG_o_PUL0))
+#define _R_PIO_REG_DATA(n)                                                     \
+	((volatile unsigned int *)((unsigned long)SUNXI_R_PIO_BASE + ((n)-12) * R_PIOC_o_OFFSET + R_PIOC_REG_o_DATA))
+
+#define _R_PIO_REG_CFG_VALUE(n, i)                                             \
+		readl(IOMEM_ADDR(SUNXI_R_PIO_BASE + ((n)-12) * R_PIOC_o_OFFSET + ((i) << 2) + R_PIOC_REG_o_CFG0))
+#define _R_PIO_REG_DLEVEL_VALUE(n, i)                                          \
+		readl(IOMEM_ADDR(SUNXI_R_PIO_BASE + ((n)-12) * R_PIOC_o_OFFSET + ((i) << 2) + R_PIOC_REG_o_DRV0))
+#define _R_PIO_REG_PULL_VALUE(n, i)                                            \
+		readl(IOMEM_ADDR(SUNXI_R_PIO_BASE + ((n)-12) * R_PIOC_o_OFFSET + ((i) << 2) + R_PIOC_REG_o_PUL0))
+#define _R_PIO_REG_DATA_VALUE(n)                                               \
+		readl(IOMEM_ADDR(SUNXI_R_PIO_BASE + ((n)-12) * R_PIOC_o_OFFSET + R_PIOC_REG_o_DATA))
+#define _R_PIO_REG_BASE(n)                                                     \
+		((volatile unsigned int *)((unsigned long)SUNXI_R_PIO_BASE + R_PIOC_REG_o_CFG0 + ((n)-12) * R_PIOC_o_OFFSET))
+
+#else
 #define _R_PIO_REG_CFG(n, i)                                                   \
 	((volatile unsigned int *)((unsigned long)SUNXI_R_PIO_BASE + ((n)-12) * PIOC_o_OFFSET +        \
 				   ((i) << 2) + PIOC_REG_o_CFG0))
@@ -131,6 +122,8 @@ DECLARE_GLOBAL_DATA_PTR;
 		readl(IOMEM_ADDR(SUNXI_R_PIO_BASE + ((n)-12) * PIOC_o_OFFSET + PIOC_REG_o_DATA))
 #define _R_PIO_REG_BASE(n)                                                     \
 		((volatile unsigned int *)((unsigned long)SUNXI_R_PIO_BASE + ((n)-12) * PIOC_o_OFFSET))
+
+#endif
 
 volatile void* PIO_REG_CFG(int port, int port_num)
 {

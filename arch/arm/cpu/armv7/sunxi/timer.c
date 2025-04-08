@@ -354,10 +354,17 @@ void init_timer(struct timer_list *timer)
     return ;
 }
 
+__weak int clock_gate_rate(int timernum)
+{
+	pr_info("__weak %s...%d\n", __func__, __LINE__);
+	return 0;
+}
+
 void  add_timer(struct timer_list *timer)
 {
 	u32 reg_val;
 	int timer_num;
+	int clk_rate = 0;
 	struct sunxi_timer     *timer_tcontrol;
 	struct sunxi_timer_reg *timer_reg;
 
@@ -388,6 +395,7 @@ void  add_timer(struct timer_list *timer)
 #if defined(CONFIG_MACH_SUN50IW12) || defined(CONFIG_MACH_SUN55IW3) || defined(CONFIG_MACH_SUN55IW5) ||         \
 	defined(CONFIG_MACH_SUN60IW1) || defined(CONFIG_MACH_SUN60IW2)
 	clock_open_timer(timer_num);
+	clk_rate = clock_gate_rate(timer_num);
 #endif
 	timer->timer_num = timer_num;
 	timer_reg      =   (struct sunxi_timer_reg *)SUNXI_TIMER_BASE;
@@ -407,9 +415,15 @@ void  add_timer(struct timer_list *timer)
 #endif
 	timer_tcontrol->ctl = reg_val;
 #ifndef FPGA_PLATFORM
-	timer_tcontrol->inter = timer->expires * (24000 / 32);
+	if (clk_rate)
+		timer_tcontrol->inter = timer->expires * (clk_rate / 1000);
+	else
+		timer_tcontrol->inter = timer->expires * 24000 / 32;
 #else
-	timer_tcontrol->inter = timer->expires * 1000/32;
+	if (clk_rate)
+		timer_tcontrol->inter = timer->expires * (clk_rate / 1000);
+	else
+		timer_tcontrol->inter = timer->expires * 1000/32;
 #endif
 	timer_callback[timer_num].func_back = timer->function;
 	timer_callback[timer_num].data      = timer->data;

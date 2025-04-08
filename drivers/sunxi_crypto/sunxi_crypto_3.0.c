@@ -56,7 +56,7 @@ int sunxi_sha_calc_with_software(char *algo_name, u8 *dst_addr, u32 dst_len, u8 
 
 __attribute__((weak)) int sunxi_get_crypte_type(void)
 {
-	printf("call weak fun: %s\n", __func__);
+	pr_debug("call weak fun: %s\n", __func__);
 	return SUNXI_CRYPT_HW;
 }
 
@@ -101,6 +101,10 @@ int sunxi_md5_calc(u8 *dst_addr, u32 dst_len, u8 *src_addr, u32 src_len)
 	/* sha256  2word, sha512 4word*/
 	ALLOC_CACHE_ALIGN_BUFFER(u8, p_sign, CACHE_LINE_SIZE);
 
+	if ((unsigned long)src_addr & (CACHE_LINE_SIZE - 1)) {
+		printf("%s cache misaligned\n", __func__);
+	}
+
 	memset(p_sign, 0, CACHE_LINE_SIZE);
 
 	/* CE2.0 */
@@ -118,9 +122,9 @@ int sunxi_md5_calc(u8 *dst_addr, u32 dst_len, u8 *src_addr, u32 src_len)
 	memcpy(task0.sg[0].dest_addr, &p_sign, 4);
 	task0.sg[0].dest_len = dst_len;
 
-	flush_cache((u32)&task0, sizeof(task0));
+	flush_cache((u32)&task0, ALIGN(sizeof(task0), CACHE_LINE_SIZE));
 	flush_cache((u32)p_sign, CACHE_LINE_SIZE);
-	flush_cache((u32)src_addr, src_align_len);
+	flush_cache((u32)src_addr, ALIGN(src_align_len, CACHE_LINE_SIZE));
 
 	ss_set_drq((u32)&task0);
 	ss_irq_enable(CHANNEL_0);
@@ -150,6 +154,10 @@ int sunxi_hash_test(u8 *dst_addr, u32 dst_len, u8 *src_addr, u32 src_len,
 	ALLOC_CACHE_ALIGN_BUFFER(u8, p_sign, CACHE_LINE_SIZE);
 	u32 md_size = dst_len;
 	memset(p_sign, 0, CACHE_LINE_SIZE);
+
+	if ((unsigned long)src_addr & (CACHE_LINE_SIZE - 1)) {
+		printf("%s cache misaligned\n", __func__);
+	}
 
 	memset((void *)&task0, 0x00, sizeof(task0));
 	total_bit_len = src_len * 8;
@@ -186,6 +194,15 @@ int sunxi_hash_test(u8 *dst_addr, u32 dst_len, u8 *src_addr, u32 src_len,
 	return 0;
 }
 
+#ifdef SUNXI_CE_MULTI_HASH
+// Platform descriptors that support multihash have changed
+void ss_hash_all_data_len_set(int len, struct hash_task_descriptor *task)
+{
+	memcpy(task->reserve + 2, &len, 4);
+	//printf("task->reserve + 2=0x%x\n", *(task->reserve + 2));
+}
+#endif
+
 int sunxi_sha_calc_with_hardware(u8 *dst_addr, u32 dst_len, u8 *src_addr, u32 src_len)
 {
 	u32 total_bit_len					     = 0;
@@ -195,6 +212,10 @@ int sunxi_sha_calc_with_hardware(u8 *dst_addr, u32 dst_len, u8 *src_addr, u32 sr
 	u32 md_size = 32;
 	int ret = -1;
 
+	if ((unsigned long)src_addr & (CACHE_LINE_SIZE - 1)) {
+		pr_debug("%s cache misaligned\n", __func__);
+	}
+
 	memset(p_sign, 0, CACHE_LINE_SIZE);
 
 	memset((void *)&task0, 0x00, sizeof(task0));
@@ -202,6 +223,11 @@ int sunxi_sha_calc_with_hardware(u8 *dst_addr, u32 dst_len, u8 *src_addr, u32 sr
 	task0.ctrl    = (CHANNEL_2 << CHN) | (0x1 << LPKG) | (0x0 << DLAV) |
 		     (0x1 << IE);
 	task0.cmd = (SUNXI_SHA256 << 0);
+#ifdef SUNXI_CE_MULTI_HASH
+	//printf("file:%s,line:%d\n", __FILE__, __LINE__);
+	//printf("total_bit_len = 0x%x\n", total_bit_len);
+	ss_hash_all_data_len_set(total_bit_len, &task0);
+#endif
 	memcpy(task0.data_toal_len_addr, &total_bit_len, 4);
 	memcpy(task0.sg[0].source_addr, &src_addr, 4);
 	task0.sg[0].source_len = src_len;
@@ -210,7 +236,8 @@ int sunxi_sha_calc_with_hardware(u8 *dst_addr, u32 dst_len, u8 *src_addr, u32 sr
 
 	flush_cache(((u32)&task0), ALIGN(sizeof(task0), CACHE_LINE_SIZE));
 	flush_cache((u32)p_sign, CACHE_LINE_SIZE);
-	flush_cache(((u32)src_addr), ALIGN(src_len, CACHE_LINE_SIZE));
+	flush_cache(ALIGN_DOWN((u32)src_addr, CACHE_LINE_SIZE),
+			(ALIGN(src_len, CACHE_LINE_SIZE) + CACHE_LINE_SIZE));
 
 	ss_set_drq((u32)&task0);
 	ss_irq_enable(CHANNEL_2);
@@ -964,7 +991,7 @@ s32 sunxi_sm2_sign_verify_test(struct sunxi_sm2_ctx_t *sm2_ctx)
 s32 sunxi_normal_rsa(u8 *n_addr, u32 n_len, u8 *e_addr, u32 e_len, u8 *dst_addr,
 		     u32 dst_len, u8 *src_addr, u32 src_len)
 {
-	const u32 TEMP_BUFF_LEN = ((2048 >> 3) + CACHE_LINE_SIZE);
+	const u32 TEMP_BUFF_LEN = ALIGN((2048 >> 3), CACHE_LINE_SIZE);
 
 	u32 mod_bit_size	 = 2048;
 	u32 mod_size_len_inbytes = mod_bit_size / 8;
@@ -998,11 +1025,11 @@ s32 sunxi_normal_rsa(u8 *n_addr, u32 n_len, u8 *e_addr, u32 e_len, u8 *dst_addr,
 	memcpy(task0.sg[0].dest_addr, &p_dst, 4);
 	task0.sg[0].dest_len = mod_size_len_inbytes;
 
-	flush_cache((u32)&task0, sizeof(task0));
-	flush_cache((u32)p_n, mod_size_len_inbytes);
-	flush_cache((u32)p_e, mod_size_len_inbytes);
-	flush_cache((u32)p_src, mod_size_len_inbytes);
-	flush_cache((u32)p_dst, mod_size_len_inbytes);
+	flush_cache((u32)&task0, ALIGN(sizeof(task0), CACHE_LINE_SIZE));
+	flush_cache((u32)p_n, ALIGN(mod_size_len_inbytes, CACHE_LINE_SIZE));
+	flush_cache((u32)p_e, ALIGN(mod_size_len_inbytes, CACHE_LINE_SIZE));
+	flush_cache((u32)p_src, ALIGN(mod_size_len_inbytes, CACHE_LINE_SIZE));
+	flush_cache((u32)p_dst, ALIGN(mod_size_len_inbytes, CACHE_LINE_SIZE));
 
 	ss_set_drq((u32)&task0);
 	ss_irq_enable(task0.task_id);
@@ -1027,7 +1054,7 @@ s32 sunxi_normal_rsa(u8 *n_addr, u32 n_len, u8 *e_addr, u32 e_len, u8 *dst_addr,
 s32 sunxi_rsa_calc_with_hardware(u8 *n_addr, u32 n_len, u8 *e_addr, u32 e_len, u8 *dst_addr,
 		   u32 dst_len, u8 *src_addr, u32 src_len)
 {
-	const u32 TEMP_BUFF_LEN = ((2048 >> 3) + CACHE_LINE_SIZE);
+	const u32 TEMP_BUFF_LEN = ALIGN((2048 >> 3), CACHE_LINE_SIZE);
 
 	u32 mod_bit_size	 = 2048;
 	u32 mod_size_len_inbytes = mod_bit_size / 8;
@@ -1065,11 +1092,11 @@ s32 sunxi_rsa_calc_with_hardware(u8 *n_addr, u32 n_len, u8 *e_addr, u32 e_len, u
 	memcpy(task0.sg[0].dest_addr, &p_dst, 4);
 	task0.sg[0].dest_len = mod_size_len_inbytes;
 
-	flush_cache((u32)&task0, sizeof(task0));
-	flush_cache((u32)p_n, mod_size_len_inbytes);
-	flush_cache((u32)p_e, mod_size_len_inbytes);
-	flush_cache((u32)p_src, mod_size_len_inbytes);
-	flush_cache((u32)p_dst, mod_size_len_inbytes);
+	flush_cache((u32)&task0, ALIGN(sizeof(task0), CACHE_LINE_SIZE));
+	flush_cache((u32)p_n, ALIGN(mod_size_len_inbytes, CACHE_LINE_SIZE));
+	flush_cache((u32)p_e, ALIGN(mod_size_len_inbytes, CACHE_LINE_SIZE));
+	flush_cache((u32)p_src, ALIGN(mod_size_len_inbytes, CACHE_LINE_SIZE));
+	flush_cache((u32)p_dst, ALIGN(mod_size_len_inbytes, CACHE_LINE_SIZE));
 
 	ss_set_drq((u32)&task0);
 	ss_irq_enable(task0.task_id);
@@ -1112,12 +1139,12 @@ int sunxi_aes_with_hardware(uint8_t *dst_addr, uint8_t *src_addr, int len,
 			    uint8_t *key, uint32_t key_len,
 			    uint32_t symmetric_ctl, uint32_t c_ctl)
 {
-	uint8_t __aligned(64) iv[16]			 = { 0 };
-	struct other_task_descriptor task0 __aligned(64) = { 0 };
+	uint8_t __aligned(CACHE_LINE_SIZE) iv[16]			 = { 0 };
+	struct other_task_descriptor task0 __aligned(CACHE_LINE_SIZE) = { 0 };
 	uint32_t cts_size, destination_len;
-	ALLOC_CACHE_ALIGN_BUFFER(uint8_t, key_map, 64);
+	ALLOC_CACHE_ALIGN_BUFFER(uint8_t, key_map, CACHE_LINE_SIZE);
 
-	memset(key_map, 0, 64);
+	memset(key_map, 0, CACHE_LINE_SIZE);
 	if (key) {
 		memcpy(key_map, key, key_len);
 	}
@@ -1139,7 +1166,7 @@ int sunxi_aes_with_hardware(uint8_t *dst_addr, uint8_t *src_addr, int len,
 
 	//flush&clean cache
 	flush_cache((u32)iv, ALIGN(sizeof(iv), CACHE_LINE_SIZE));
-	flush_cache((u32)&task0, sizeof(task0));
+	flush_cache((u32)&task0, ALIGN(sizeof(task0), CACHE_LINE_SIZE));
 	flush_cache((u32)key_map, ALIGN(sizeof(key_map), CACHE_LINE_SIZE));
 	flush_cache((u32)src_addr, ALIGN(len, CACHE_LINE_SIZE));
 	flush_cache((u32)dst_addr, ALIGN(len, CACHE_LINE_SIZE));
@@ -1248,5 +1275,242 @@ int sunxi_do_aes_crypt(struct aes_crypt_info_t *aes_info)
 		return -3;
 	}
 
+	return 0;
+}
+
+s32 sunxi_ecc_format(struct ecc_verify_params *params, u32 key_byte_size,
+		     u8 *p_tmp, u8 *hash, u32 hash_byte_len)
+{
+	u8 all_zero[128] = { 0 };
+	u8 *tmp = p_tmp;
+	// dump sign
+	// printf("dump r(%d)\n", params->r_len);
+	// ndump(params->r, params->r_len);
+	// printf("dump s(%d)\n", params->s_len);
+	// ndump(params->s, params->s_len);
+	if (!memcmp(params->r, all_zero, params->r_len) ||
+	    !memcmp(params->s, all_zero, params->s_len) || params->r_len > 128 ||
+	    params->s_len > 128)
+		return -1;
+	//n
+	__rsa_padding(tmp, params->n, params->n_len, params->n_len);
+	tmp += key_byte_size;
+
+	//s
+	__rsa_padding(tmp, params->s, params->s_len, params->s_len);
+	tmp += key_byte_size;
+
+	//hash
+	__rsa_padding(tmp, hash, hash_byte_len, hash_byte_len);
+
+	tmp += key_byte_size;
+
+	//r
+	__rsa_padding(tmp, params->r, params->r_len, params->r_len);
+	tmp += key_byte_size;
+
+	//p
+	__rsa_padding(tmp, params->p, params->p_len, params->p_len);
+	tmp += key_byte_size;
+
+	//a
+	__rsa_padding(tmp, params->a, params->a_len, params->a_len);
+	tmp += key_byte_size;
+
+	//gx
+	__rsa_padding(tmp, params->gx, params->gx_len, params->gx_len);
+	tmp += key_byte_size;
+
+	//gy
+	__rsa_padding(tmp, params->gy, params->gy_len, params->gy_len);
+	tmp += key_byte_size;
+
+	//qx
+	__rsa_padding(tmp, params->qx, params->qx_len, params->qx_len);
+	tmp += key_byte_size;
+
+	//qy
+	__rsa_padding(tmp, params->qy, params->qy_len, params->qy_len);
+	tmp += key_byte_size;
+
+	//n
+	__rsa_padding(tmp, params->n, params->n_len, params->n_len);
+	tmp += key_byte_size;
+
+	//r
+	__rsa_padding(tmp, params->r, params->r_len, params->r_len);
+	tmp += key_byte_size;
+	return 0;
+}
+
+s32 sunxi_ecc_sign_check(struct ecc_verify_params *params, u32 key_byte_size,
+			 u8 *hash, u32 hash_byte_len)
+{
+//eccp521:521/8 + 3(word align)
+#define BUFF_LEN (68)
+
+	ALLOC_CACHE_ALIGN_BUFFER(u8, temp_src_addr, ALIGN(BUFF_LEN * 12, CACHE_LINE_SIZE)) ;
+	ALLOC_CACHE_ALIGN_BUFFER(u8, temp_dst_addr, ALIGN(BUFF_LEN, CACHE_LINE_SIZE));
+
+	u32 tmp_src, tmp_dst;
+	struct other_task_descriptor task0 __aligned(CACHE_LINE_SIZE) = { 0 };
+	u32 ret = 0;
+	u8 *p_tmp;
+
+	memset((void *)(&task0), 0, sizeof(task0));
+	memset((void *)(temp_src_addr), 0, BUFF_LEN * 12);
+	memset((void *)(temp_dst_addr), 0, BUFF_LEN);
+
+	tmp_src = (u32)temp_src_addr;
+	tmp_dst = (u32)temp_dst_addr;
+	p_tmp = temp_src_addr;
+
+	if (key_byte_size == 65) {
+		key_byte_size = 68;
+	}
+	if (params->sign_type != ALG_ECC) {
+		pr_err("unsupport sign_type:%d\n", params->sign_type);
+		return -1;
+	}
+
+	if (sunxi_ecc_format((struct ecc_verify_params *)params, key_byte_size,
+			     p_tmp, hash, hash_byte_len) < 0)
+		return -1;
+
+	task0.task_id = CHANNEL_0;
+	task0.common_ctl = (params->sign_type | (1U << 31));
+	task0.symmetric_ctl = 0;
+	task0.asymmetric_ctl =
+		((key_byte_size >> 2)) | (0x7 << 16); //width must be words
+
+	memcpy(task0.sg[0].source_addr, &tmp_src, 4);
+	task0.sg[0].source_len = (key_byte_size * 12);
+	task0.data_len = (key_byte_size * 12);
+
+	memcpy(task0.sg[0].dest_addr, &tmp_dst, 4);
+	task0.sg[0].dest_len = key_byte_size;
+
+	flush_cache((u32)&task0,  ALIGN(sizeof(task0), CACHE_LINE_SIZE));
+	flush_cache((u32)temp_src_addr, ALIGN(BUFF_LEN * 12, CACHE_LINE_SIZE));
+	flush_cache((u32)temp_dst_addr, ALIGN(BUFF_LEN, CACHE_LINE_SIZE));
+
+	//set descriptor address
+	ss_set_drq(((u32)&task0));
+
+	//enable channel 0 interrupt
+	ss_irq_enable(task0.task_id);
+
+	//load task descritor
+	ss_ctrl_start(CHANNEL_0, ASYM_TRPE);
+
+	//wait end
+	ss_wait_finish(task0.task_id);
+
+	//clear pending
+	ret = ss_pending_clear(task0.task_id);
+	if (ret == 0) {
+		invalidate_dcache_range((ulong)temp_dst_addr,
+					(ulong)temp_dst_addr + ALIGN(BUFF_LEN, CACHE_LINE_SIZE));
+		if (temp_dst_addr[0] == 1) {
+			return 0;
+		} else {
+			return 1;
+		}
+	} else {
+		return -1;
+	}
+}
+
+s32 sunxi_rsa_sign_check(u32 mod_bit_size, u8 *key_addr, u32 key_len,
+			 u8 *src_addr, u32 src_len, u8 *dest_addr, u32 want_len,
+			 u8 *mod_addr)
+{
+#define MAX_RSA_BUFF_LEN ((4096 >> 3) + 32)
+	//u32 reg_val = 0;
+
+	ALLOC_CACHE_ALIGN_BUFFER(u8, temp_key_addr, MAX_RSA_BUFF_LEN);
+	ALLOC_CACHE_ALIGN_BUFFER(u8, temp_src_addr, MAX_RSA_BUFF_LEN);
+	ALLOC_CACHE_ALIGN_BUFFER(u8, temp_dst_addr, MAX_RSA_BUFF_LEN);
+	ALLOC_CACHE_ALIGN_BUFFER(u8, temp_mod_addr, MAX_RSA_BUFF_LEN);
+	u32 mod_size_B_len = (mod_bit_size >> 3);
+	s32 i = 0;
+	u32 ret = 0;
+	u32 tmp_key = 0, tmp_src = 0, tmp_dst = 0, tmp_mod = 0;
+	struct other_task_descriptor task0 __aligned(CACHE_LINE_SIZE) = { 0 };
+
+	memset((void *)(&task0), 0, sizeof(task0));
+	tmp_key = (u32)temp_key_addr;
+	tmp_src = (u32)temp_src_addr;
+	tmp_dst = (u32)temp_dst_addr;
+	tmp_mod = (u32)temp_mod_addr;
+
+	//check
+	if ((mod_bit_size != 2048) && (mod_bit_size != 3072) &&
+	    (mod_bit_size != 4096)) {
+		//DMSG_PANIC("PANIC : SBRomHW_RSA_sign_check() : mod_bit_size error\n");
+		return -1;
+	}
+	// __rsa_padding(p_tmp, params->qx, params->qx_len, params->qx_len);
+	//align & padding
+	//copy & align & padding src
+	__rsa_padding((u8 *)temp_src_addr, (u8 *)src_addr, src_len, src_len);
+	__rsa_padding((u8 *)temp_mod_addr, (u8 *)mod_addr, mod_size_B_len,
+		      mod_size_B_len);
+	memset(temp_key_addr, 0, mod_size_B_len);
+	__rsa_padding((u8 *)temp_key_addr, (u8 *)key_addr, key_len, key_len);
+
+	task0.task_id = CHANNEL_0;
+	task0.common_ctl = (ALG_RSA | (1U << 31));
+	task0.symmetric_ctl = 0;
+	task0.asymmetric_ctl = (mod_bit_size >> 5); //width must be words
+
+	memcpy(task0.sg[0].source_addr, &tmp_key, 4);
+	task0.sg[0].source_len = mod_size_B_len;
+	memcpy(task0.sg[1].source_addr, &tmp_mod, 4);
+	task0.sg[1].source_len = mod_size_B_len;
+	memcpy(task0.sg[2].source_addr, &tmp_src, 4);
+	task0.sg[2].source_len = mod_size_B_len;
+
+	task0.data_len += task0.sg[0].source_len;
+	task0.data_len += task0.sg[1].source_len;
+	task0.data_len += task0.sg[2].source_len;
+	memcpy(task0.sg[0].dest_addr, &tmp_dst, 4);
+	task0.sg[0].dest_len = mod_size_B_len;
+
+	flush_cache((u32)&task0, ALIGN(sizeof(task0), CACHE_LINE_SIZE));
+	flush_cache((u32)temp_key_addr,
+		    ALIGN(MAX_RSA_BUFF_LEN, CACHE_LINE_SIZE));
+	flush_cache((u32)temp_src_addr,
+		    ALIGN(MAX_RSA_BUFF_LEN, CACHE_LINE_SIZE));
+	flush_cache((u32)temp_dst_addr,
+		    ALIGN(MAX_RSA_BUFF_LEN, CACHE_LINE_SIZE));
+	flush_cache((u32)temp_mod_addr,
+		    ALIGN(MAX_RSA_BUFF_LEN, CACHE_LINE_SIZE));
+
+	//set descriptor address
+	ss_set_drq(((u32)&task0));
+
+	//enable channel 0 interrupt
+	ss_irq_enable(CHANNEL_0);
+
+	//load task descritor
+	ss_ctrl_start(CHANNEL_0, ASYM_TRPE);
+
+	//wait end
+	ss_wait_finish(CHANNEL_0);
+	//clear pending
+	ret = ss_pending_clear(task0.task_id);
+	if (ret == 0) {
+		for (i = 0; i < want_len; i++) {
+			invalidate_dcache_range((ulong)temp_dst_addr,
+						(ulong)temp_dst_addr +
+							ALIGN(MAX_RSA_BUFF_LEN,
+							      CACHE_LINE_SIZE));
+			((u8 *)dest_addr)[i] =
+				((u8 *)temp_dst_addr)[want_len - 1 - i];
+		}
+	} else {
+		return -1;
+	}
 	return 0;
 }

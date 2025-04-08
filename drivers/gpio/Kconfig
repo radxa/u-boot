@@ -327,7 +327,18 @@ config SUNXI_GPIO_V1
 config SUNXI_GPIO_V2
 	bool "sunxi gpio v2"
 
+config AW_GPIO_V3
+	bool "sunxi gpio v3"
+
+config AW_GPIO_V4
+	bool "sunxi gpio v4"
 endchoice
 endif
+
+config SUNXI_GPIOLED
+	bool "LED support for sunxi GPIO-connected LEDs"
+	help
+	  Enable support for LEDs which are connected to GPIO lines. These
+	  GPIOs may be on the SoC or some other device which provides GPIOs.
 endmenu
 

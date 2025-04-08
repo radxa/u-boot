@@ -79,6 +79,8 @@ struct de_top_desc {
 	u8 support_mbus_reset;
 	u8 support_channel_clk;
 	u8 support_rcq_gate;
+	u8 support_mbus_auto_clk;
+	u8 support_pixel_mode;
 	/* register info
 	   size: differnent reg offset
 	   shift: reg bit shift */
@@ -209,6 +211,7 @@ static struct de_top_desc de355 = {
 	.support_rcq_fifo = 1,
 	.support_mbus_reset = 1,
 	.support_channel_clk = 1,
+	.support_mbus_auto_clk = 1,
 	.de_reset_offset = DE_RESET_OFFSET,
 	.de_clk_offset = DE_CLK_OFFSET,
 	.disp_clk_shift = 4,
@@ -239,6 +242,7 @@ static struct de_top_desc de352 = {
 	.support_channel_mux = 1,
 	.support_mbus_reset = 1,
 	.support_channel_clk = 1,
+	.support_pixel_mode = 1,
 	.de_reset_offset = DE_RESET_OFFSET,
 	.de_clk_offset = DE_CLK_OFFSET,
 	.disp_clk_shift = 4,
@@ -352,6 +356,22 @@ static int __de_mod_clk_enable(struct de_top_handle *hdl, enum de_clk_id clk_no,
 	return 0;
 }
 
+static int de_top_set_mbus_auto_clock_gate_enable(struct de_top_handle *hdl, bool en)
+{
+	u8 __iomem *reg_base;
+	u32 reg_val;
+	u32 width = 1;
+	u32 shift = 8;
+
+	if (hdl->private->dsc->support_mbus_auto_clk) {
+		reg_base = hdl->cinfo.de_reg_base + hdl->private->dsc->mbus_clk_offset;
+		reg_val = readl(reg_base);
+		reg_val = DE_SET_BITS(shift, width, reg_val, en & 0x1);
+		writel(reg_val, reg_base);
+	}
+	return 0;
+}
+
 static int de_top_set_clk_enable(struct de_top_handle *hdl, enum de_clk_id clk_no, u8 en)
 {
 	s32 count = 0;
@@ -373,9 +393,13 @@ static int de_top_set_clk_enable(struct de_top_handle *hdl, enum de_clk_id clk_n
 		DRM_ERROR("invalid clk ref cnt\n");
 	}
 
+
+	de_top_set_mbus_auto_clock_gate_enable(hdl, 1);
+
 	return 0;
 }
 
+__attribute__((unused))
 static int de_top_channel_clk_enable(struct de_top_handle *hdl, u32 chn_type_id, bool is_video)
 {
 	u8 __iomem *reg_base;
@@ -461,9 +485,30 @@ int de_top_set_chn_mux(struct de_top_handle *hdl, u32 disp, u32 port, u32 chn_ty
 	if (!hdl->private->dsc->support_channel_mux)
 		return 0;
 
-	de_top_channel_clk_enable(hdl, chn_type_id, is_video);
+	/* backdoor register, closed by default, use auto gating to save power */
+	/* de_top_channel_clk_enable(hdl, chn_type_id, is_video); */
 	de_top_set_port2chn_mux(hdl, disp, port, chn_type_id, is_video);
 	return hdl->private->dsc->set_chn2core_mux(hdl, disp, chn_type_id, is_video);
+}
+
+static bool de_top_check_another_rtmx_enabled(struct de_top_handle *hdl, u32 mdisp)
+{
+	u8 __iomem *de_base = hdl->cinfo.de_reg_base;
+	u8 __iomem *reg_base;
+	u32 offset;
+	bool en = false;
+	int i;
+
+	offset = hdl->private->dsc->glb_ctl_offset;
+	for (i = 0; i < 2; i++) {
+		if (mdisp == i)
+			continue;
+
+		reg_base = de_base + DE_REG_OFFSET(offset, i, 0x40);
+		en |= readl(reg_base) & 0x1;
+	}
+
+	return en;
 }
 
 static int de_top_set_rtmx_enable(struct de_top_handle *hdl, u32 disp, u8 en)
@@ -475,6 +520,8 @@ static int de_top_set_rtmx_enable(struct de_top_handle *hdl, u32 disp, u8 en)
 	u32 offset;
 	u32 size;
 	u32 shift;
+	bool is_dual = false;
+	int i;
 
 	if (hdl->private->dsc->version == 0x350) {
 		ic_ver = readl(0x03000024) & 0x00000007;
@@ -484,8 +531,26 @@ static int de_top_set_rtmx_enable(struct de_top_handle *hdl, u32 disp, u8 en)
 			writel(0x0, de_base + DE_ASYNC_BRIDGE_OFFSET);
 		if (disp == 0)
 			writel(0x6000, de_base + DE_REG_OFFSET(DE_BUF_DEPTH_OFFSET, disp, 0x4));
-	} else if (hdl->private->dsc->version == 0x352) {
-		writel(0x2000, de_base + DE_REG_OFFSET(DE_BUF_DEPTH_OFFSET, disp, 0x4));
+	} else if (hdl->private->dsc->version == 0x352 || hdl->private->dsc->version == 0x355) {
+		/*
+		 * sun60iw2 & sun65iw1 all linebufs have 0x3000, and the maximum size of a single de is 0x3000.
+		 * current policy: single display configuration 0x3000,
+		 * dual display config primary display 0x2000, secondary display 0x1000.
+		 */
+		if (de_top_check_another_rtmx_enabled(hdl, disp) && en)
+			is_dual = true;
+
+		/* assume that the devices are all turned off in the uboot stage */
+		if (is_dual) {
+			for (i = 0; i < 2; i++) {
+				if (i == 0)
+					writel(0x2000, de_base + DE_REG_OFFSET(DE_BUF_DEPTH_OFFSET, i, 0x4));
+				else if (i == 1)
+					writel(0x1000, de_base + DE_REG_OFFSET(DE_BUF_DEPTH_OFFSET, i, 0x4));
+			}
+		} else {
+			writel(0x3000, de_base + DE_REG_OFFSET(DE_BUF_DEPTH_OFFSET, disp, 0x4));
+		}
 	}
 /*
 	if (hdl->private->dsc->reserve_ctl_offset) {
@@ -529,6 +594,42 @@ static int de_top_set_out_size(struct de_top_handle *hdl, u32 disp, u32 width, u
 	writel(reg_val, reg_base);
 	return 0;
 }
+
+static int de_top_set_pixel_mode(struct de_top_handle *hdl, u32 disp, u32 pixel_mode)
+{
+	u8 __iomem *de_base = hdl->cinfo.de_reg_base;
+	u32 offset = hdl->private->dsc->glb_ctl_offset;
+	u8 __iomem *reg_base = de_base + DE_REG_OFFSET(offset, disp, 0x40);
+	u32 reg_val = 0;
+	u32 shift = 16;
+
+	if (hdl->private->dsc->support_pixel_mode) {
+		reg_val = readl(reg_base);
+		/* clear pixel mode bits first */
+		reg_val = DE_SET_BITS(shift, 2, reg_val, 0);
+
+		switch (pixel_mode) {
+		case 2:
+			reg_val |= (1 << shift);
+			break;
+		case 4:
+			reg_val |= (2 << shift);
+			break;
+		case 8:
+			reg_val |= (3 << shift);
+			break;
+		case 0:
+		case 1:
+		default:
+			reg_val |= (0 << shift);
+			break;
+		}
+
+		writel(reg_val, reg_base);
+	}
+	return 0;
+}
+
 
 static int de_top_set_rcq_head(struct de_top_handle *hdl, u32 disp, u64 addr, u32 len)
 {
@@ -595,6 +696,7 @@ static int de_top_display_config_v2(struct de_top_handle *hdl, const struct de_t
 	if (!cfg->enable)
 		return 0;
 	de_top_set_out_size(hdl, id, cfg->w, cfg->h);
+	de_top_set_pixel_mode(hdl, id, cfg->pixel_mode);
 	de_top_set_de2tcon_mux(hdl, id, cfg->device_index);
 	de_top_set_rcq_head(hdl, id, cfg->rcq_header_addr, cfg->rcq_header_byte);
 	return 0;

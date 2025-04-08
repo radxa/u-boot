@@ -24,6 +24,7 @@
 
 /* define AXP8191 REGISTER */
 #define   AXP8191_IC_TYPE                     (0x03)
+#define   AXP8191_BUFFER0                     (0x04)
 #define   AXP8191_CHIP_ID                     (0x0E)
 #define   AXP8191_CHIP_VER                    (0x0F)
 #define   AXP8191_DCDC_POWER_ON_OFF_CTL1      (0x10)
@@ -139,6 +140,9 @@
 #define    AXP8191_VREF                                  (0xF2)
 #define    AXP8191_SCL_SDA_CFG                           (0xF3)
 #define    AXP8191_REG_ADD_EXT                           (0xFF)
+
+#define    AXP8191_EXT_CFG_BASE                          (0x100)
+#define    AXP8191_EXT_CFG(n)                            ((n) - (AXP8191_EXT_CFG_BASE))
 
 #define    AXP8191_COMMOM_CFG1                           (0x100)
 #define    AXP8191_COMMOM_CFG2                           (0x101)

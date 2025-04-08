@@ -9,6 +9,7 @@
 #include <efuse_map.h>
 #include <sunxi_board.h>
 
+#ifndef SECURE_BIT_OFFSET
 #ifdef CONFIG_ARCH_SUN8IW12P1
 #define SECURE_BIT_OFFSET 31
 #elif CONFIG_MACH_SUN55IW3
@@ -17,6 +18,7 @@
 #define SECURE_BIT_OFFSET 0
 #else
 #define SECURE_BIT_OFFSET 11
+#endif
 #endif
 
 #define SBROM_ACCELERATION_ENABLE_BIT 29
@@ -228,6 +230,10 @@ static int uni_burn_key(uint key_index, uint key_value)
 	return 0;
 }
 
+#ifndef SECURE_BIT_VAL
+#define SECURE_BIT_VAL 1
+#endif
+
 int sid_set_security_mode(void)
 {
 #if defined(EFUSE_LCJS)
@@ -235,7 +241,7 @@ int sid_set_security_mode(void)
 	return uni_burn_key(EFUSE_LCJS, ((0x1 << SECURE_BIT_OFFSET) |
 				  (0x1 << SBROM_ACCELERATION_ENABLE_BIT)));
 #else
-	return uni_burn_key(EFUSE_LCJS, (0x1 << SECURE_BIT_OFFSET));
+	return uni_burn_key(EFUSE_LCJS, (SECURE_BIT_VAL << SECURE_BIT_OFFSET));
 #endif
 #elif defined(EFUSE_ANTI_BRUSH)
 	return uni_burn_key(EFUSE_ANTI_BRUSH, (0x1 << ANTI_BRUSH_BIT_OFFSET));
@@ -269,7 +275,7 @@ int sid_get_security_status(void)
 
 static void _set_cfg_flg(int efuse_cfg_base, int bit_offset)
 {
-	uni_burn_key(efuse_cfg_base, (1 << bit_offset));
+	uni_burn_key(efuse_cfg_base, (uint32_t)(1 << bit_offset));
 	return;
 }
 
@@ -583,7 +589,7 @@ int sunxi_efuse_get_soc_ver(void)
 	u32 mark = 0x7;
 	u32 ver_reg_offet = 0x24;
 
-	version = readl(SUNXI_SYSCTRL_BASE + ver_reg_offet) & mark;
+	version = readl(IOMEM_ADDR(SUNXI_SYSCTRL_BASE) + ver_reg_offet) & mark;
 	pr_debug("sunxi_batch_no is 0x%x \n", version);
 
 	return version;

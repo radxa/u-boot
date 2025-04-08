@@ -29,6 +29,7 @@ extern int sunxi_partition_get_partno_byname(const char *part_name);
 extern int disp_fat_load(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]);
 extern int do_fat_size(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]);
 
+#ifdef CONFIG_CMD_FAT
 static int __unload_file(struct file_info_t *file)
 {
 	if (file) {
@@ -128,7 +129,6 @@ OUT:
 	return NULL;
 }
 
-
 int write_file(char *name, char *part_name, void *buf_addr, unsigned int buf_size)
 {
 	int partno = -1;
@@ -159,3 +159,18 @@ OUT:
 	return -1;
 }
 
+#else
+
+struct file_info_t *load_file(char *name, char *part_name)
+{
+	pr_err("Can not load file %s from %s partition\n", name, part_name);
+	return NULL;
+}
+
+int write_file(char *name, char *part_name, void *buf_addr, unsigned int buf_size)
+{
+	pr_err("Can not write file %s to %s partition\n", name, part_name);
+	return -1;
+
+}
+#endif

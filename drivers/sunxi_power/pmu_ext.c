@@ -116,3 +116,15 @@ int pmu_ext_get_type(void)
 	axp_err("error pmu_ext type:%s\n", __func__);
 	return -1;
 }
+
+/*get pmu name*/
+const char *pmu_ext_get_name(void)
+{
+	if (!pmu_ext_get_exist())
+		return NULL;
+
+	if ((sunxi_pmu_ext_dev) && (sunxi_pmu_ext_dev->pmu_ext_name))
+		return sunxi_pmu_ext_dev->pmu_ext_name;
+
+	return NULL;
+}

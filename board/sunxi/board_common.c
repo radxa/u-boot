@@ -809,6 +809,9 @@ int board_late_init(void)
 #endif
 		sunxi_respond_ir_key_action();
 		sunxi_update_bootcmd();
+#ifdef CONFIG_PCIE_ALLWINNER_RC
+		pci_init();
+#endif
 #ifdef CONFIG_SUNXI_SERIAL
 		sunxi_set_serial_num();
 #endif
@@ -900,6 +903,9 @@ int sunxi_board_restart(int next_mode)
 {
 	rtc_set_bootmode_flag(next_mode);
 	sunxi_board_close_source();
+#ifdef CONFIG_SUNXI_PMU
+	pmu_set_reboot_flag();
+#endif
 	reset_cpu(0);
 
 	return 0;

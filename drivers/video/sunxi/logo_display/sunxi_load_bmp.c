@@ -52,7 +52,7 @@ int save_bmp_logo_to_kernel(void)
 	int node;
 	int ret = -1;
 
-	node = fdt_path_offset(working_fdt, "disp");
+	node = fdt_path_offset(working_fdt, FDT_DISP_PATH);
 	if (node < 0) {
 		pr_error("%s:disp_fdt_nodeoffset %s fail\n", __func__, "disp");
 		goto exit;

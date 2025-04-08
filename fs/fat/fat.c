@@ -1002,6 +1002,9 @@ int file_fat_detectfs(void)
 	case IF_TYPE_SUNXI_FLASH:
 		printf("SUNXI_FLASH");
 		break;
+	case IF_TYPE_SUNXI_FLASH_UFS:
+		printf("SUNXI_FLASH_UFS");
+		break;
 	default:
 		printf("Unknown");
 	}

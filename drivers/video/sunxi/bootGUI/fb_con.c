@@ -22,6 +22,7 @@
 #include "canvas_utils.h"
 #include "video_hal.h"
 #include "video_misc_hal.h"
+#include <pram_mem_alloc.h>
 
 static framebuffer_t s_fb_list[FRAMEBUFFER_NUM];
 
@@ -244,6 +245,9 @@ static int creat_framebuffer(framebuffer_t *fb, const fb_config_t *const fb_cfg)
 		printf("malloc buf_addr failed ! alloc size %d\n", buf_size * buf_num);
 		goto free_buf_list;
 	}
+#endif
+#if IS_ENABLED(CONFIG_SUNXI_PRAM_MEM)
+	pram_memalign_init();
 #endif
 	usage = get_usage_by_id(fb->fb_id);
 	if (graphic_buffer_alloc(fb->cv->width, fb->cv->height * buf_num, fb->cv->bpp,

@@ -113,7 +113,7 @@ s32 tcon_tv_close(struct sunxi_tcon_tv *tcon)
 s32 tcon_tv_cfg(struct sunxi_tcon_tv *tcon, struct disp_video_timings *timing)
 {
 	u32 start_delay;
-#if IS_ENABLED(CONFIG_MACH_SUN60IW2)
+#if (IS_ENABLED(CONFIG_MACH_SUN60IW2)) || (IS_ENABLED(CONFIG_MACH_SUN65IW1))
 	if (timing->vic == 39) {
 		tcon->reg->tcon_tv_basic1.bits.vic39 = 0x1;
 		tcon->reg->tcon_tv_basic1.bits.vt = timing->ver_total_time;
@@ -199,6 +199,17 @@ s32 tcon_tv_hdmi_color_remap(struct sunxi_tcon_tv *tcon, u32 onoff)
 	return 0;
 }
 
+s32 tcon_tv_set_pixel_mode(struct sunxi_tcon_tv *tcon, unsigned int pixel_mode)
+{
+	if (pixel_mode == 1)
+		tcon->reg->tcon_gctl.bits.pixel_mode = 0;
+	else if (pixel_mode == 2)
+		tcon->reg->tcon_gctl.bits.pixel_mode = 1;
+	else if (pixel_mode == 4)
+		tcon->reg->tcon_gctl.bits.pixel_mode = 2;
+
+	return 0;
+}
 
 s32 tcon_tv_set_timming(struct sunxi_tcon_tv *tcon, struct disp_video_timings *timming)
 {

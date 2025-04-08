@@ -10,6 +10,7 @@
  ******************************************************************************/
 #include <dm.h>
 #include <linux/delay.h>
+#include <asm/arch/efuse.h>
 
 #include "dw_dev.h"
 #include "dw_phy.h"
@@ -25,13 +26,9 @@ enum {
 	INNO_PHY_VERSION_2,
 };
 
-struct inno_phy_mpll_s {
-	u32 tmds_clk; /* tmds clock: unit:kHZ */
-
-	/* prepll_div = (prepll_fbdiv1 << 16) || (prepll_fbdiv0 << 8) || (prepll_prediv) */
-	u32 prepll_div;
-
-	/* prepll_clk_div = (prepll_tmdsclk_div << 16) || (prepll_linkclk_div << 8) || prepll_linktmdsclk_div */
+struct inno_phy_pll {
+	u32 tmds_clk;        /* tmds clock: unit:kHZ */
+	u32 prepll_div;      /* fbdiv1 << 16 || fbdiv0 << 8 || prediv*/
 	u32 prepll_clk_div;
 
 	/* prepll_clk_div1 = (prepll_auxclk_div << 8) || prepll_mainclk_div */
@@ -43,13 +40,11 @@ struct inno_phy_mpll_s {
 	/* prepll_fra = (prepll_fra_ctl << 24) || (prepll_fra_div0 << 16) || (prepll_fra_div1 << 8) || (prepll_fra_div2) */
 	u32 prepll_fra;
 
-	/* postpll = (postdiv_en << 24) || (postpll_fbdiv0 << 16) || (postpll_fbdiv1 << 8) || postpll_pred_div */
-	u32 postpll;
-
-	u8 postpll_postdiv ;
+	u32 postpll;         /* diven << 24 || fbdiv0 << 16 || fbdiv1 << 8 || preddiv */
+	u8 postpll_postdiv ; /* postdiv */
 };
 
-struct inno_phy_electric_s {
+struct inno_phy_drive {
 	u32 min_clk; /* min tmds clock, KHz */
 	u32 max_clk; /* max tmds clock, KHz */
 	u32 cur_bias;
@@ -58,28 +53,36 @@ struct inno_phy_electric_s {
 	u32 post_empl;
 };
 
-struct inno_phy_dev_s {
+struct inno_phy_s {
 	int version;
-	int elec_size;
-	struct inno_phy_electric_s *elec_data;
+	int drive_size;
+	struct inno_phy_drive *drive;
 };
 
-static struct inno_phy_dev_s phy_dev;
+static struct inno_phy_s inno_phy;
 //static DECLARE_WAIT_QUEUE_HEAD(phy_wq);
 
 static volatile struct __inno_phy_reg_t *phy_base;
 
-/**
- * @desc: default inno phy table. applicable to A/T527 A or B Board
- */
-static struct inno_phy_electric_s phy_elec_default[] = {
-	{ 25000, 165000, 0x01000102, 0x1c1c1c1c, 0x00000000, 0x00000000},
-	{165000, 340000, 0x01040506, 0x1c1c1c1c, 0x00000000, 0x03030300},
-	{340000, 600000, 0x010f0f0f, 0x1c1c1c1c, 0x00000000, 0x00000000},
+static struct inno_phy_drive drive_tab0[] = {
+	{ 25200, 160000, 0x00020202, 0x1c1c1c1c, 0x00000000, 0x00000000}, /* [ 25200, 160000) */
+	{160000, 300000, 0x02060708, 0x1c1c1c1c, 0x00000000, 0x03030300}, /* [160000, 300000) */
+	{300000, 600000, 0x020f0f0f, 0x1c1c1c1c, 0x00000000, 0x03030300}, /* [300000, 600000) */
 };
 
-static struct inno_phy_mpll_s phy_mpll[] = {
-/* tmds clk */
+static struct inno_phy_drive drive_tab1[] = {
+	{ 25200, 160000, 0x01000102, 0x1c1c1c1c, 0x00000000, 0x02020200}, /* [ 25200, 160000) */
+	{160000, 300000, 0x01040506, 0x1c1c1c1c, 0x00000000, 0x03030300}, /* [240000, 300000) */
+	{300000, 600000, 0x010f0f0f, 0x1c1c1c1c, 0x00000000, 0x00000000}, /* [300000, 600000) */
+};
+
+static struct inno_phy_drive drive_tab2[] = {
+	{ 25200, 160000, 0x01010102, 0x1c1c1c1c, 0x00000000, 0x00000000}, /* [ 25200, 160000) */
+	{160000, 300000, 0x01020304, 0x1c1c1c1c, 0x00000000, 0x05050500}, /* [160000, 300000) */
+	{300000, 600000, 0x010e0f0f, 0x1c1c1c1c, 0x00000000, 0x00000000}, /* [300000, 600000) */
+};
+
+static struct inno_phy_pll phy_mpll[] = {
 	{25200,  0x00002a01, 0x00010103, 0x00000103, 0x00000403, 0x03000000, 0x03280000, 0x03},
 	{27000,  0x00003601, 0x00020202, 0x00000603, 0x00000403, 0x03000000, 0x03280000, 0x03},
 	{33750,  0x00003601, 0x00020202, 0x00000603, 0x00000403, 0x03000000, 0x03280000, 0x03},
@@ -117,18 +120,22 @@ static struct inno_phy_mpll_s phy_mpll[] = {
 
 static void inno_phy_set_version(void)
 {
-	unsigned int id = 0;//sunxi_get_soc_markid();
-	unsigned int version = 0;//sunxi_get_soc_ver();
+	unsigned int id = sunxi_efuse_get_markid();
+	unsigned int version = sunxi_efuse_get_soc_ver();
 
-	if (id == 0x5700 && version == 2)
-		phy_dev.version = INNO_PHY_VERSION_1;	/* t - c */
-	else if (id == 0x5c00 || id == 0xff10)
-		phy_dev.version = INNO_PHY_VERSION_2;	/* a */
-	else
-		phy_dev.version = INNO_PHY_VERSION_0;	/* t - ab */
+	if (version < 0x2) {
+		inno_phy.version = INNO_PHY_VERSION_0; /* A/T - AB */
+	} else {
+		if ((id == 0x5000) || (id == 0x5100) || (id == 0x5500) || (id == 0x5700) ||
+			(id == 0x5f00) || (id == 0x5f10) || (id == 0x5f30)) {
+			inno_phy.version = INNO_PHY_VERSION_1; /* T - C */
+		} else {
+			inno_phy.version = INNO_PHY_VERSION_2; /* A/H - C */
+		}
+	}
 }
 
-static struct inno_phy_mpll_s *_inno_phy_get_mpll_params(void)
+static struct inno_phy_pll *_inno_phy_get_mpll_params(void)
 {
 	struct dw_hdmi_dev_s *hdmi = dw_get_hdmi();
 	int size = 0, index = 0;
@@ -238,12 +245,12 @@ static void _inno_turn_ldo_ctrl(u8 state)
 	phy_base->hdmi_phy_dr1_0.bits.ch1_LDO_en = state;
 	phy_base->hdmi_phy_dr1_0.bits.ch2_LDO_en = state;
 
-	if (phy_dev.version != INNO_PHY_VERSION_0) {
+	if (inno_phy.version != INNO_PHY_VERSION_0) {
 		phy_base->hdmi_phy_dr2_1.bits.ch0_LDO_cur = state;
 		phy_base->hdmi_phy_dr2_1.bits.ch1_LDO_cur = state;
 		phy_base->hdmi_phy_dr2_1.bits.ch2_LDO_cur = state;
 		hdmi_trace("inno phy turn %s LDO when phy version %d\n",
-			state ? "on" : "off", phy_dev.version);
+			state ? "on" : "off", inno_phy.version);
 	}
 }
 
@@ -282,8 +289,8 @@ static void _inno_turn_resistor_ctrl(u8 state)
 {
 	phy_base->hdmi_phy_dr0_0.bits.refres = state;
 
-	if (phy_dev.version != INNO_PHY_VERSION_0) {
-		// 0x00000100 off  0x00000033 on
+	if (inno_phy.version != INNO_PHY_VERSION_0) {
+		/* 0x00000100 off  0x00000033 on */
 		*((u32 *)((void *)phy_base + 0x8004)) = 0x00000100;
 	}
 }
@@ -310,8 +317,8 @@ void _inno_phy_config_4k60(void)
 	phy_base->hdmi_phy_dr5_2.bits.terrescal_clkdiv0 = 0xF0;
 	phy_base->hdmi_phy_dr5_1.bits.terrescal_clkdiv1 = 0x0;//24M/240 = 100K
 
-	if (phy_dev.version == INNO_PHY_VERSION_0) {
-		//config resistance_div
+	if (inno_phy.version == INNO_PHY_VERSION_0) {
+		/* config resistance_div */
 		phy_base->hdmi_phy_dr6_0.bits.clkterres_ndiv = 0x28;
 		phy_base->hdmi_phy_dr6_1.bits.ch2terres_ndiv = 0x28;
 		phy_base->hdmi_phy_dr6_2.bits.ch1terres_ndiv = 0x28;
@@ -335,19 +342,22 @@ void _inno_phy_config_4k60(void)
 
 void _inno_phy_config_4k30(void)
 {
-	// resence config
+	if (inno_phy.version != INNO_PHY_VERSION_1)
+		return;
+
+	/* resence config */
 	phy_base->hdmi_phy_dr5_2.bits.terrescal_clkdiv0 = 0xF0;
 	phy_base->hdmi_phy_dr5_1.bits.terrescal_clkdiv1 = 0x0;//24M/240 = 100K
 
-	//config resistance 200
+	/* config resistance 200 */
 	phy_base->hdmi_phy_dr5_3.bits.terres_val = 0x3;
 
-	//configure channel control register
+	/* configure channel control register */
 	phy_base->hdmi_phy_dr5_3.bits.ch2_terrescal = 0x1;
 	phy_base->hdmi_phy_dr5_3.bits.ch1_terrescal = 0x1;
 	phy_base->hdmi_phy_dr5_3.bits.ch0_terrescal = 0x1;
 
-	//config the calibration by pass
+	/* config the calibration by pass */
 	phy_base->hdmi_phy_dr5_1.bits.terrescal_bp = 0x1;
 	udelay(5);
 	phy_base->hdmi_phy_dr5_1.bits.terrescal_bp = 0x0;
@@ -355,7 +365,7 @@ void _inno_phy_config_4k30(void)
 
 static int _inno_phy_mpll_config(void)
 {
-	struct inno_phy_mpll_s *config = NULL;
+	struct inno_phy_pll *config = NULL;
 
 	config = _inno_phy_get_mpll_params();
 	if (!config) {
@@ -365,12 +375,8 @@ static int _inno_phy_mpll_config(void)
 
 	if (config->tmds_clk == 594000) {
 		_inno_phy_config_4k60();
-		hdmi_trace("inno phy individual config 4k60\n");
 	} else if (config->tmds_clk == 297000) {
-		if (phy_dev.version == INNO_PHY_VERSION_1) {
-			_inno_phy_config_4k30();
-			hdmi_trace("inno phy individual config 4k30 when phy version 1\n");
-		}
+		_inno_phy_config_4k30();
 	}
 
 	phy_base->hdmi_phy_pll0_1.bits.prepll_div =
@@ -493,44 +499,35 @@ static void _inno_phy_enable_data_sync(void)
 
 static int _inno_phy_config_drive(void)
 {
-	struct inno_phy_electric_s *elec_table = NULL;
+	struct inno_phy_drive *table = inno_phy.drive;
 	struct dw_hdmi_dev_s *hdmi = dw_get_hdmi();
 	u32 tmds_clk = hdmi->tmds_clk;
 	int i = 0;
-	int table_line = 0;
 
-	if (phy_dev.elec_size) {
-		elec_table = phy_dev.elec_data;
-		table_line = phy_dev.elec_size / 6;
-	} else {
-		elec_table = phy_elec_default;
-		table_line = ARRAY_SIZE(phy_elec_default);
-	}
-
-	for (i = 0; i < table_line; i++) {
-		if (elec_table[i].min_clk == elec_table[i].max_clk) {
-			if (tmds_clk != elec_table[i].min_clk)
+	for (i = 0; i < inno_phy.drive_size; i++) {
+		if (table[i].min_clk == table[i].max_clk) {
+			if (tmds_clk != table[i].min_clk)
 				continue;
 		} else {
-			if (tmds_clk < elec_table[i].min_clk)
+			if (tmds_clk < table[i].min_clk)
 				continue;
-			if (tmds_clk >= elec_table[i].max_clk)
+			if (tmds_clk >= table[i].max_clk)
 				continue;
 		}
 
 		hdmi_inf("inno phy tmds clock: %dKHz match in [%dKHz~%dKHz]\n",
-			tmds_clk, elec_table[i].min_clk, elec_table[i].max_clk);
+			tmds_clk, table[i].min_clk, table[i].max_clk);
 		hdmi_inf(" - drive use: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-			elec_table[i].cur_bias, elec_table[i].vlevel,
-			elec_table[i].pre_empl, elec_table[i].post_empl);
+			table[i].cur_bias, table[i].vlevel,
+			table[i].pre_empl, table[i].post_empl);
 
-		_inno_phy_cfg_cur_bias(elec_table[i].cur_bias);
+		_inno_phy_cfg_cur_bias(table[i].cur_bias);
 
-		_inno_phy_cfg_vlevel(elec_table[i].vlevel);
+		_inno_phy_cfg_vlevel(table[i].vlevel);
 
-		_inno_phy_cfg_pre_empl(elec_table[i].pre_empl);
+		_inno_phy_cfg_pre_empl(table[i].pre_empl);
 
-		_inno_phy_cfg_post_empl(elec_table[i].post_empl);
+		_inno_phy_cfg_post_empl(table[i].post_empl);
 
 		return 0;
 	}
@@ -597,11 +594,11 @@ static int _inno_phy_config_flow(void)
 
 static void _inno_phy_reset(void)
 {
-	dw_phy_svsret();
+	dw_phy_config_svsret();
 
-	dw_mc_reset_phy(0);
+	dw_mc_sw_reset(DW_MC_SWRST_PHY, 0x0);
 	udelay(5);
-	dw_mc_reset_phy(1);
+	dw_mc_sw_reset(DW_MC_SWRST_PHY, 0x1);
 
 	_inno_phy_analog_reset();
 
@@ -635,57 +632,60 @@ int inno_phy_read(u8 addr, void *data)
 
 int inno_phy_init(void)
 {
-	int ret = 0, i = 0;
+	int ret = 0, i = 0, read_size;
 	struct dw_hdmi_dev_s *hdmi = dw_get_hdmi();
 	u32 *tmp_buf;
 	ofnode hdmi_node = dev_ofnode(hdmi->dev);
+	char phy_name[20];
 
 	hdmi_trace("inno phy init\n");
 	phy_base = (struct __inno_phy_reg_t *)(hdmi->addr + INNO_PHY_REG_OFFSET);
 
 	inno_phy_set_version();
 
-	if (phy_dev.version == INNO_PHY_VERSION_0) {
-		hdmi_inf("inno phy param use default table - version 0\n");
-		goto reset;
-	}
-
+	sprintf(phy_name, "inno_phy%d", inno_phy.version);
 	/* parse dts */
-	ret = ofnode_read_size(hdmi_node, "inno_phy");
-	if (ret <= 0) {
+	read_size = ofnode_read_size(hdmi_node, phy_name);
+	if (read_size <= 0) {
 		hdmi_inf("inno phy not get table from dts, use default\n");
-		goto reset;
+		goto use_default;
 	}
 
-	phy_dev.elec_size = ret;
-	hdmi_inf("inno phy get dts config table size: %d\n", phy_dev.elec_size);
-
-	tmp_buf = kmalloc(phy_dev.elec_size, GFP_KERNEL | __GFP_ZERO);
+	inno_phy.drive_size = read_size / 6;
+	tmp_buf = kmalloc(inno_phy.drive_size * sizeof(struct inno_phy_drive), GFP_KERNEL | __GFP_ZERO);
 	if (!tmp_buf) {
 		hdmi_err("inno phy alloc buffer failed\n");
-		goto reset;
+		goto use_default;
 	}
 
-	ret = ofnode_read_u32_array(hdmi_node,
-			"inno_phy", tmp_buf, phy_dev.elec_size);
+	ret = ofnode_read_u32_array(hdmi_node, phy_name, tmp_buf, read_size);
 	if (ret < 0) {
 		hdmi_err("inno phy get dts table value failed\n");
-		goto reset;
+		goto use_default;
 	}
-	phy_dev.elec_data = (struct inno_phy_electric_s *)tmp_buf;
-
-	for (i = 0; i < (phy_dev.elec_size / 6); i++) {
-		hdmi_inf("line[%d], min_clk: %d, max_clk: %d, 0x%x, 0x%x, 0x%x, 0x%x\n",
-			i, phy_dev.elec_data[i].min_clk, phy_dev.elec_data[i].max_clk,
-			phy_dev.elec_data[i].cur_bias, phy_dev.elec_data[i].vlevel,
-			phy_dev.elec_data[i].pre_empl, phy_dev.elec_data[i].post_empl);
-	}
+	inno_phy.drive = (struct inno_phy_drive *)tmp_buf;
 	goto exit;
 
-reset:
-	phy_dev.elec_data = NULL;
-	phy_dev.elec_size = 0;
+use_default:
+	hdmi_wrn("inno phy use default table!\n");
+	if (inno_phy.version == INNO_PHY_VERSION_0) {
+		inno_phy.drive = drive_tab0;
+		inno_phy.drive_size = ARRAY_SIZE(drive_tab0);
+	} else if (inno_phy.version == INNO_PHY_VERSION_1) {
+		inno_phy.drive = drive_tab1;
+		inno_phy.drive_size = ARRAY_SIZE(drive_tab1);
+	} else {
+		inno_phy.drive = drive_tab2;
+		inno_phy.drive_size = ARRAY_SIZE(drive_tab2);
+	}
+
 exit:
+	for (i = 0; i < inno_phy.drive_size; i++) {
+		hdmi_inf(" - [%d - %d]: 0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
+			inno_phy.drive[i].min_clk, inno_phy.drive[i].max_clk,
+			inno_phy.drive[i].cur_bias, inno_phy.drive[i].vlevel,
+			inno_phy.drive[i].pre_empl, inno_phy.drive[i].post_empl);
+	}
 	return 0;
 }
 
@@ -711,7 +711,7 @@ ssize_t inno_phy_dump(char *buf)
 {
 	ssize_t n = 0;
 
-	n += sprintf(buf + n, "[inno phy]\n");
+	n += sprintf(buf + n, "[inno phy %d]\n", inno_phy.version);
 	n += sprintf(buf + n, " - link clock[%s]\n",
 		phy_base->hdmi_phy_pll3_1.bits.linkcolor ? "Pre-PLL" : "Post-PLL");
 	n += sprintf(buf + n, " - Pre-PLL : power[%s], status[%s] ssc[%s], mode[%s]\n",

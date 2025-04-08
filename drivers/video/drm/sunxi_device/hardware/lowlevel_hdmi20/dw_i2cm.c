@@ -260,3 +260,44 @@ int dw_i2cm_init(void)
 
 	return 0;
 }
+
+int dw_i2cm_get_rate(void)
+{
+	struct dw_i2cm_s *i2cm = dw_get_i2cm();
+
+	/* read hardware config count. default read standard modes */
+	u16 l_cnt = 0, h_cnt = 0, times = 0;
+	int rate = 0, l_times = 0, h_times = 0;
+
+	l_cnt  = (u16)(dw_read(I2CM_SS_SCL_LCNT_1_ADDR) << 8);
+	l_cnt |= (u16)(dw_read(I2CM_SS_SCL_LCNT_0_ADDR) << 0);
+
+	h_cnt  = (u16)(dw_read(I2CM_SS_SCL_HCNT_1_ADDR) << 8);
+	h_cnt |= (u16)(dw_read(I2CM_SS_SCL_HCNT_0_ADDR) << 0);
+
+	h_times = h_cnt * DW_I2CM_DIV_FACTOR / i2cm->sfrClock;
+	l_times = l_cnt * DW_I2CM_DIV_FACTOR / i2cm->sfrClock;
+	times = l_times + h_times + 1100;
+
+	rate = DW_I2CM_DIV_FACTOR * 100 / times;
+	return rate;
+}
+
+int dw_i2cm_set_ddc(u32 mode, u32 rate)
+{
+	struct dw_i2cm_s *i2cm = dw_get_i2cm();
+	u32 times = 0;
+
+	if (IS_ERR_OR_NULL(i2cm)) {
+		shdmi_err(i2cm);
+		return -1;
+	}
+
+	times = ((DW_I2CM_DIV_FACTOR * 100) / (rate * 10)) - 1100;
+
+	i2cm->mode = (mode == 0) ? DW_I2CM_MODE_STANDARD : DW_I2CM_MODE_FAST;
+	i2cm->ss_low_ckl  = times / 2 + 500;
+	i2cm->ss_high_ckl = times / 2 - 500;
+
+	return dw_i2cm_re_init();
+}

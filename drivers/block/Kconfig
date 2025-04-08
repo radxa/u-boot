@@ -10,6 +10,12 @@ config BLK
 	  be partitioned into several areas, called 'partitions' in U-Boot.
 	  A filesystem can be placed in each partition.
 
+config AW_BLK
+	bool "Allwinner Support block devices"
+	depends on DM
+	help
+	  Enable support for dedicated block devices, such as NVME.
+
 config HAVE_BLOCK_DEVICE
 	bool "Enable Legacy Block Device"
 	help

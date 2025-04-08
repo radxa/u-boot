@@ -305,6 +305,29 @@ int sunxi_drm_connector_post_disable(struct display_state *state)
 	return 0;
 }
 
+static int sunxi_drm_panel_path_post_disable(struct sunxi_drm_connector *conn,
+						struct display_state *state)
+{
+	if (conn->panel)
+		sunxi_drm_panel_uboot_reset(conn->panel);
+
+	return 0;
+}
+
+int sunxi_drm_panel_post_disable(struct display_state *state)
+{
+	struct sunxi_drm_connector *conn;
+
+	conn = state->conn_state.connector;
+	sunxi_drm_panel_path_post_disable(conn, state);
+	if (state->conn_state.secondary) {
+		conn = state->conn_state.secondary;
+		sunxi_drm_panel_path_post_disable(conn, state);
+	}
+
+	return 0;
+}
+
 static int sunxi_drm_connector_path_enable(struct sunxi_drm_connector *conn,
 					  struct display_state *state)
 {
@@ -314,7 +337,7 @@ static int sunxi_drm_connector_path_enable(struct sunxi_drm_connector *conn,
 	if (conn->bridge)
 		sunxi_drm_bridge_enable(conn->bridge);
 
-	if (conn->panel)
+	if (conn->panel && state->backlight)
 		sunxi_drm_panel_enable(conn->panel);
 
 	return 0;
@@ -406,6 +429,29 @@ int sunxi_drm_connector_deinit(struct display_state *state)
 	return 0;
 }
 
+static int sunxi_drm_connector_print(struct sunxi_drm_connector *conn,
+					      struct display_state *state)
+{
+	if (conn->funcs->print_conn)
+		conn->funcs->print_conn(conn, state);
+
+	return 0;
+}
+
+int sunxi_connector_print_state(struct display_state *state)
+{
+	struct sunxi_drm_connector *conn;
+
+	conn = state->conn_state.connector;
+	sunxi_drm_connector_print(conn, state);
+
+	if (state->conn_state.secondary) {
+		conn = state->conn_state.secondary;
+		sunxi_drm_connector_print(conn, state);
+	}
+
+	return 0;
+}
 
 int drm_mode_to_sunxi_video_timings(struct drm_display_mode *mode,
 				    struct disp_video_timings *timings)

@@ -50,6 +50,7 @@ struct sunxi_drm_edp {
 	struct sunxi_drm_connector connector;
 	struct drm_display_mode mode;
 	unsigned int tcon_id;
+	unsigned int tcon_top_id;
 	struct drm_panel *panel;
 	struct task_struct *edp_task;
 	bool bound;
@@ -66,6 +67,7 @@ struct sunxi_drm_edp {
 	struct clk *clk_bus;
 	struct clk *clk;
 	struct clk *clk_24m;
+	u32 use_inner_clk;
 #ifdef DRM_USE_DM_POWER
 	struct udevice *vdd_regulator;
 	struct udevice *vcc_regulator;

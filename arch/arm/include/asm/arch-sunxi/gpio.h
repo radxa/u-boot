@@ -57,7 +57,11 @@ enum pin_e {
  * You should fix up the padding in struct sunxi_gpio_reg below if you
  * change this.
  */
+#if CONFIG_IS_ENABLED(AW_GPIO_V4) || CONFIG_IS_ENABLED(AW_GPIO_V3) || CONFIG_IS_ENABLED(SUNXI_GPIO_V2)
 #define SUNXI_GPIO_BANKS 11
+#else
+#define SUNXI_GPIO_BANKS 9
+#endif
 
 /*
  * sun6i/sun8i and later SoCs have an additional GPIO controller (R_PIO)
@@ -76,7 +80,175 @@ enum pin_e {
 #define SUNXI_GPIO_M	12
 #define SUNXI_GPIO_N	13
 
-#ifdef CONFIG_SUNXI_GPIO_V2
+#if CONFIG_IS_ENABLED(AW_GPIO_V4)
+struct sunxi_gpio {
+	u32 cfg[4];
+	u32 dat;
+	u32 pad_until_0x14[3];
+	u32 drv[4];
+	u32 pull[2];
+	u32 pad_until_0x38[2];
+	u32 int_cfg[4];
+	u32 int_ctl;
+	u32 int_sta;
+	u32 int_deb;
+	u32 pad_until_0x5c[5];
+	u32 sec;
+	u32 pad_until_0x74[3];
+};
+
+struct sunxi_gpio_reg {
+	u32 pad_until_0x00[12];
+	u32 dbc_clk_set;
+	u32 dbc_bypass;
+	u32 pad_until_0x38[2];
+	u32 pow_mod_state;
+	u32 pad_until_0x44;
+	u32 pow_val;
+	u32 pad_until_0x4c[9];
+	u32 pow_val_set_ctl;
+	u32 pad_until_0x74;
+	u32 version_id;
+	u32 pad_until_0x7c;
+	struct sunxi_gpio gpio_bank[SUNXI_GPIO_BANKS];
+};
+
+struct sunxi_r_gpio {
+	u32 cfg[4];
+	u32 dat;
+	u32 pad_until_0x14[3];
+	u32 drv[4];
+	u32 pull[2];
+	u32 pad_until_0x38[2];
+	u32 int_cfg[4];
+	u32 int_ctl;
+	u32 int_sta;
+	u32 int_deb;		/* interrupt debounce */
+	u32 pad_until_0x5c[5];
+	u32 int_sec;
+	u32 pad_until_0x74[3];
+};
+
+struct sunxi_r_gpio_int {
+	u32 int_cfg[4];
+	u32 int_ctl;
+	u32 int_sta;
+	u32 int_deb;		/* interrupt debounce */
+	u32 pad_until_0x5c[5];
+	u32 int_sec;
+	u32 pad_until_0x74[3];
+};
+
+struct sunxi_r_gpio_reg {
+	u32 pad_until_0x00[12];
+	u32 s_dbc_clk_set;
+	u32 s_dbc_btpass;
+	u32 pad_until_0x38[2];
+	u32 s_pow_mod_state;
+	u32 pad_until_0x44;
+	u32 s_pow_val;
+	u32 pad_until_0x4c[11];
+	u32 s_version_id;
+	u32 pad_until_0x7c;
+	struct sunxi_r_gpio gpio_bank[2];
+};
+
+#define BANK_TO_GPIO(bank)	(((bank) < SUNXI_GPIO_L) ? \
+	(void *)&((struct sunxi_gpio_reg *)SUNXI_PIO_BASE)->gpio_bank[bank] : \
+	(void *)&((struct sunxi_r_gpio_reg *)SUNXI_R_PIO_BASE)->gpio_bank[(bank) - SUNXI_GPIO_L])
+
+#define GPIO_BANK(pin)		((pin) >> 5)
+#define GPIO_NUM(pin)		((pin) & 0x1f)
+
+#define GPIO_CFG_INDEX(pin)	(((pin) & 0x1f) >> 3)
+#define GPIO_CFG_OFFSET(pin)	((((pin) & 0x1f) & 0x7) << 2)
+
+#define GPIO_DRV_INDEX(pin)	(((pin) & 0x1f) >> 3)
+#define GPIO_DRV_OFFSET(pin)	((((pin) & 0x1f) & 0x7) << 2)
+
+#define GPIO_PULL_INDEX(pin)	(((pin) & 0x1f) >> 4)
+#define GPIO_PULL_OFFSET(pin)	((((pin) & 0x1f) & 0xf) << 1)
+
+#elif CONFIG_IS_ENABLED(AW_GPIO_V3)
+struct sunxi_gpio {
+	u32 cfg[4];
+	u32 dat;
+	u32 dat_set;
+	u32 dat_clr;
+	u32 pad_until_0xa0[1];
+	u32 drv[4];
+	u32 pull[2];
+	u32 pad_until_0xc0[2];
+	u32 int_cfg[4];
+	u32 int_ctl;
+	u32 int_sta;
+	u32 int_deb;
+	u32 pad_until_0xf0[5];
+	u32 sec;
+	u32 pad_until_0x100[3];
+};
+
+struct sunxi_gpio_reg {
+	u32 base_addr_cfg[SUNXI_GPIO_BANKS];
+	u32 pad_until_0x40[5];
+	u32 pow_mod_sel;
+	u32 pad_until_0x48[1];
+	u32 pow_val;
+	u32 pad_until_0x70[9];
+	u32 pow_val_set;
+	u32 pad_until_0x78[1];
+	u32 ver;
+	u32 pad_until_0x80[1];
+	struct sunxi_gpio gpio_bank[SUNXI_GPIO_BANKS];
+};
+
+struct sunxi_r_gpio {
+	u32 cfg[4];
+	u32 dat;
+	u32 drv[4];
+	u32 pull[2];
+	u32 pad_until_0x30[1];
+};
+
+struct sunxi_r_gpio_int {
+	u32 cfg[4];
+	u32 ctl;
+	u32 sta;
+	u32 deb;		/* interrupt debounce */
+	u32 pad_until_0x220[1];
+};
+
+struct sunxi_r_gpio_reg {
+	struct sunxi_r_gpio gpio_bank[2];
+	u32 pad_until_0x200[104];
+	struct sunxi_r_gpio_int gpio_int[2];
+	u32 pad_until_0x340[64];
+	u32 pow_mod_sel;
+	u32 pad_until_0x348[1];
+	u32 pow_val;
+	u32 pad_until_0x370[9];
+	u32 ver;
+	u32 pad_until_0x400[35];
+	u32 secure_bank[2];
+};
+
+#define BANK_TO_GPIO(bank)	(((bank) < SUNXI_GPIO_L) ? \
+	(void *)&((struct sunxi_gpio_reg *)SUNXI_PIO_BASE)->gpio_bank[bank] : \
+	(void *)&((struct sunxi_r_gpio_reg *)SUNXI_R_PIO_BASE)->gpio_bank[(bank) - SUNXI_GPIO_L])
+
+#define GPIO_BANK(pin)		((pin) >> 5)
+#define GPIO_NUM(pin)		((pin) & 0x1f)
+
+#define GPIO_CFG_INDEX(pin)	(((pin) & 0x1f) >> 3)
+#define GPIO_CFG_OFFSET(pin)	((((pin) & 0x1f) & 0x7) << 2)
+
+#define GPIO_DRV_INDEX(pin)	(((pin) & 0x1f) >> 3)
+#define GPIO_DRV_OFFSET(pin)	((((pin) & 0x1f) & 0x7) << 2)
+
+#define GPIO_PULL_INDEX(pin)	(((pin) & 0x1f) >> 4)
+#define GPIO_PULL_OFFSET(pin)	((((pin) & 0x1f) & 0xf) << 1)
+
+#elif CONFIG_IS_ENABLED(SUNXI_GPIO_V2)
 struct sunxi_gpio {
 	u32 cfg[4];
 	u32 dat;
@@ -307,17 +479,23 @@ enum sunxi_gpio_number {
 #define SUNXI_GPIO_AXP0_VBUS_ENABLE	5
 #define SUNXI_GPIO_AXP0_GPIO_COUNT	6
 
+#if CONFIG_IS_ENABLED(AW_GPIO_V3) || CONFIG_IS_ENABLED(AW_GPIO_V4)
+void sunxi_gpio_set_cfgbank(void *gpio, int bank_offset, u32 val);
+int sunxi_gpio_get_cfgbank(void *gpio, int bank_offset);
+#else
 void sunxi_gpio_set_cfgbank(struct sunxi_gpio *pio, int bank_offset, u32 val);
-void sunxi_gpio_set_cfgpin(u32 pin, u32 val);
 int sunxi_gpio_get_cfgbank(struct sunxi_gpio *pio, int bank_offset);
+#endif
+
+void sunxi_gpio_set_cfgpin(u32 pin, u32 val);
 int sunxi_gpio_get_cfgpin(u32 pin);
 int sunxi_gpio_set_drv(u32 pin, u32 val);
 int sunxi_gpio_set_pull(u32 pin, u32 val);
 int sunxi_name_to_gpio_bank(const char *name);
 int sunxi_name_to_gpio(const char *name);
 
-#if CONFIG_SUNXI_GPIO_POWER_VOL_MODE
 enum io_pow_mode_e io_get_volt_val(enum pin_e port_group);
+#if CONFIG_SUNXI_GPIO_POWER_VOL_MODE
 void sunxi_io_set_pow_mode_on_actual_val(enum pin_e port_group);
 void sunxi_io_set_pow_mode_to_default(enum pin_e port_group);
 #endif

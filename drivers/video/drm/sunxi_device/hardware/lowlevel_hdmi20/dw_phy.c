@@ -14,17 +14,18 @@
 #include "dw_mc.h"
 #include "dw_phy.h"
 
-#define PHY_TIMEOUT             200
-#define PHY_I2C_SLAVE_ADDR      0x69
+#define DWPHY_MAX_TIMES		(500)
+#define DWPHY_I2CM_ADDR		(0x69)
 
+#ifdef SUPPORT_PHY_JTAG
 #define JTAG_TAP_ADDR_CMD   0
 #define JTAG_TAP_WRITE_CMD  1
 #define JTAG_TAP_READ_CMD   3
+#endif
 
 dw_phy_access_t gPHY_interface = DW_PHY_ACCESS_NULL;
 
 #ifdef SUPPORT_PHY_JTAG
-
 static void _phy_jtag_send_data_pulse(u8 tms, u8 tdi)
 {
 	dw_write(JTAG_PHY_TAP_TCK, (u8) 0);
@@ -173,137 +174,137 @@ static int _phy_jtag_write(u16 addr,  u16 value)
 }
 #endif
 
-static void _dw_phy_power_down(u8 bit)
+static inline void _dw_phy_set_power_down(u8 bit)
 {
-	dw_write_mask(PHY_CONF0, PHY_CONF0_SPARES_2_MASK, (bit ? 1 : 0));
+	dw_write_mask(PHY_CONF0, PHY_CONF0_SPARES_2_MASK, bit);
 }
 
-static void _dw_phy_enable_tmds(u8 bit)
+static inline void _dw_phy_set_tmds_enable(u8 bit)
 {
-	dw_write_mask(PHY_CONF0, PHY_CONF0_SPARES_1_MASK, (bit ? 1 : 0));
+	dw_write_mask(PHY_CONF0, PHY_CONF0_SPARES_1_MASK, bit);
 }
 
-static void _dw_phy_data_enable_polarity(u8 bit)
+static inline void _dw_phy_set_data_enable_polarity(u8 bit)
 {
-	dw_write_mask(PHY_CONF0, PHY_CONF0_SELDATAENPOL_MASK, (bit ? 1 : 0));
+	dw_write_mask(PHY_CONF0, PHY_CONF0_SELDATAENPOL_MASK, bit);
 }
 
-static void _dw_phy_interface_control(u8 bit)
+static inline void _dw_phy_set_interface_control(u8 bit)
 {
-	dw_write_mask(PHY_CONF0, PHY_CONF0_SELDIPIF_MASK, (bit ? 1 : 0));
+	dw_write_mask(PHY_CONF0, PHY_CONF0_SELDIPIF_MASK, bit);
 }
 
-static int _dw_phy_lock_state(void)
+static inline void _dw_phy_set_interrupt_mask(u8 mask)
 {
-	return dw_read_mask((PHY_STAT0), PHY_STAT0_TX_PHY_LOCK_MASK);
+	dw_write(PHY_MASK0, mask);
 }
 
-static void _dw_phy_interrupt_mask(u8 mask)
+static inline void _dw_phy_set_hpdsense(u8 mode)
 {
-	dw_write_mask(PHY_MASK0, mask, 0xff);
+	dw_write_mask(PHY_CONF0, PHY_CONF0_ENHPDRXSENSE_MASK, mode);
 }
 
-static void _dw_phy_i2c_config(void)
+static inline u8 _dw_phy_get_hpdsense(void)
+{
+	return (u8)dw_read_mask(PHY_CONF0, PHY_CONF0_ENHPDRXSENSE_MASK);
+}
+
+static inline u8 _dw_phy_get_rxsense(void)
+{
+	return (u8)dw_read_mask(PHY_STAT0, PHY_STAT0_RX_SENSE_ALL_MASK);
+}
+
+static inline u8 _dw_phy_get_mpll_lock(void)
+{
+	return (u8)dw_read_mask(PHY_STAT0, PHY_STAT0_TX_PHY_LOCK_MASK);
+}
+
+static inline u8 _dw_phy_get_power_state(void)
+{
+	return (u8)dw_read_mask(PHY_CONF0, PHY_CONF0_TXPWRON_MASK);
+}
+
+static inline void _dw_phy_config_mode(void)
 {
 	dw_write(JTAG_PHY_CONFIG, JTAG_PHY_CONFIG_I2C_JTAGZ_MASK);
 }
 
-static void _dw_phy_i2c_mask_interrupts(int mask)
+static void _dw_phy_i2cm_set_interrupt_mask(int mask)
 {
-	dw_write_mask(PHY_I2CM_INT,
-			PHY_I2CM_INT_DONE_MASK_MASK, mask ? 1 : 0);
-	dw_write_mask(PHY_I2CM_CTLINT,
-			PHY_I2CM_CTLINT_ARBITRATION_MASK_MASK, mask ? 1 : 0);
-	dw_write_mask(PHY_I2CM_CTLINT,
-			PHY_I2CM_CTLINT_NACK_MASK_MASK, mask ? 1 : 0);
+	dw_write_mask(PHY_I2CM_INT, PHY_I2CM_INT_DONE_MASK_MASK, mask);
+	dw_write_mask(PHY_I2CM_CTLINT, PHY_I2CM_CTLINT_ARBITRATION_MASK_MASK, mask);
+	dw_write_mask(PHY_I2CM_CTLINT, PHY_I2CM_CTLINT_NACK_MASK_MASK, mask);
 }
 
-static void _dw_phy_i2c_mask_state(void)
+static u8 _dw_phy_i2cm_wait_irq_state(void)
 {
-	u8 mask = 0;
+	u8 state = 0;
+	int times = DWPHY_MAX_TIMES;
 
-	mask |= IH_I2CMPHY_STAT0_I2CMPHYERROR_MASK;
-	mask |= IH_I2CMPHY_STAT0_I2CMPHYDONE_MASK;
-	dw_write_mask(IH_I2CMPHY_STAT0, mask, 0);
+	/* max wait (10us * DWPHY_MAX_TIMES) */
+	do {
+		udelay(10);
+		state = dw_mc_irq_get_state(DW_MC_IRQ_PHYI2C);
+	} while ((state == 0) && (times--));
+	/* clear read state */
+	dw_mc_irq_clear_state(DW_MC_IRQ_PHYI2C, state);
+
+	return state;
 }
 
-static void _dw_phy_i2c_slave_address(u8 value)
+static int _dw_phy_i2cm_write(u8 addr, u16 data)
 {
-	dw_write_mask(PHY_I2CM_SLAVE,
-			PHY_I2CM_SLAVE_SLAVEADDR_MASK, value);
-}
-
-static int _dw_phy_i2c_write(u8 addr, u16 data)
-{
-	int timeout = PHY_TIMEOUT;
-	u32 status  = 0;
+	u8 status  = 0;
 
 	/* Set address */
 	dw_write(PHY_I2CM_ADDRESS, addr);
 
 	/* Set value */
-	dw_write(PHY_I2CM_DATAO_1, (u8) ((data >> 8) & 0xFF));
-	dw_write(PHY_I2CM_DATAO_0, (u8) (data & 0xFF));
+	dw_write(PHY_I2CM_DATAO_1, (u8)((data >> 8) & 0xFF));
+	dw_write(PHY_I2CM_DATAO_0, (u8)(data & 0xFF));
 
 	dw_write(PHY_I2CM_OPERATION, PHY_I2CM_OPERATION_WR_MASK);
 
-	do {
-		udelay(10);
-		status = dw_read_mask(IH_I2CMPHY_STAT0,
-				IH_I2CMPHY_STAT0_I2CMPHYERROR_MASK |
-				IH_I2CMPHY_STAT0_I2CMPHYDONE_MASK);
-	} while (status == 0 && (timeout--));
-
-	dw_write(IH_I2CMPHY_STAT0, status); /* clear read status */
+	status = _dw_phy_i2cm_wait_irq_state();
 
 	if (status & IH_I2CMPHY_STAT0_I2CMPHYERROR_MASK) {
-		hdmi_err("I2C PHY write failed\n");
+		hdmi_err("dw phy i2cm write has error!!!\n");
 		return -1;
 	}
 
 	if (status & IH_I2CMPHY_STAT0_I2CMPHYDONE_MASK)
 		return 0;
 
-	hdmi_wrn("ASSERT I2C Write timeout - check PHY - exiting\n");
+	hdmi_err("dw phy i2cm wait write done state timeout!!!\n");
 	return -1;
 }
 
-static int _dw_phy_i2c_read(u8 addr, u16 *value)
+static int _dw_phy_i2cm_read(u8 addr, u16 *value)
 {
-	int timeout = PHY_TIMEOUT;
-	u32 status  = 0;
+	u8 status  = 0;
 
 	/* Set address */
 	dw_write(PHY_I2CM_ADDRESS, addr);
 
 	dw_write(PHY_I2CM_OPERATION, PHY_I2CM_OPERATION_RD_MASK);
 
-	do {
-		udelay(10);
-		status = dw_read_mask(IH_I2CMPHY_STAT0,
-				IH_I2CMPHY_STAT0_I2CMPHYERROR_MASK |
-				IH_I2CMPHY_STAT0_I2CMPHYDONE_MASK);
-	} while (status == 0 && (timeout--));
-
-	dw_write(IH_I2CMPHY_STAT0, status); /* clear read status */
+	status = _dw_phy_i2cm_wait_irq_state();
 
 	if (status & IH_I2CMPHY_STAT0_I2CMPHYERROR_MASK) {
-		hdmi_inf(" I2C Read failed\n");
+		hdmi_inf("dw phy i2m read has error!!!\n");
 		return -1;
 	}
 
 	if (status & IH_I2CMPHY_STAT0_I2CMPHYDONE_MASK) {
-
-		*value = ((u16) (dw_read((PHY_I2CM_DATAI_1)) << 8)
-				| dw_read((PHY_I2CM_DATAI_0)));
+		*value = (u16)((dw_read(PHY_I2CM_DATAI_1) << 8) | dw_read(PHY_I2CM_DATAI_0));
 		return 0;
 	}
 
-	hdmi_inf(" ASSERT I2C Read timeout - check PHY - exiting\n");
+	hdmi_err("dw phy i2cm wait read done state timeout!!!\n");
 	return -1;
 }
 
-static int _dw_phy_set_slave_address(u8 value)
+static int _dw_phy_set_slave_addr(void)
 {
 	switch (gPHY_interface) {
 #ifdef SUPPORT_PHY_JTAG
@@ -312,7 +313,8 @@ static int _dw_phy_set_slave_address(u8 value)
 		return 0;
 #endif
 	case DW_PHY_ACCESS_I2C:
-		_dw_phy_i2c_slave_address(value);
+		dw_write_mask(PHY_I2CM_SLAVE,
+				PHY_I2CM_SLAVE_SLAVEADDR_MASK, DWPHY_I2CM_ADDR);
 		return 0;
 	default:
 		hdmi_err("PHY interface not defined");
@@ -322,61 +324,38 @@ static int _dw_phy_set_slave_address(u8 value)
 
 static int _dw_phy_set_interface(dw_phy_access_t interface)
 {
-	if (gPHY_interface == interface) {
-		hdmi_trace("dw phy set interface %s mode\n",
-				interface == DW_PHY_ACCESS_I2C ? "i2c" : "jtag");
-
-		(gPHY_interface == DW_PHY_ACCESS_I2C) ?
-				_dw_phy_set_slave_address(PHY_I2C_SLAVE_ADDR) : 0;
-
+	if (interface == gPHY_interface) {
+		if (interface == DW_PHY_ACCESS_I2C) {
+			hdmi_trace("dw phy continue config i2cm mode\n");
+			_dw_phy_set_slave_addr();
+		}
 		return 0;
 	}
 
-	switch (interface) {
-#ifdef SUPPORT_PHY_JTAG
-	case DW_PHY_ACCESS_JTAG:
-		_phy_jtag_init(0xD4);
-		break;
-#endif
-	case DW_PHY_ACCESS_I2C:
-		_dw_phy_i2c_config();
-		_dw_phy_set_slave_address(PHY_I2C_SLAVE_ADDR);
-		break;
-	default:
-		hdmi_err("dw phy interface %d not defined\n", interface);
-		return -1;
-	}
 	gPHY_interface = interface;
-	hdmi_trace("dw phy interface set to %s\n",
-			interface == DW_PHY_ACCESS_I2C ? "I2C" : "JTAG");
+	dw_phy_config_interface();
 	return 0;
 }
 
-void dw_phy_svsret(void)
+u8 dw_phy_get_hpd(void)
+{
+	return (u8)dw_read_mask(PHY_STAT0, PHY_STAT0_HPD_MASK);
+}
+
+void dw_phy_config_svsret(void)
 {
 	dw_write_mask(PHY_CONF0, PHY_CONF0_SVSRET_MASK, 0x0);
 	udelay(5);
 	dw_write_mask(PHY_CONF0, PHY_CONF0_SVSRET_MASK, 0x1);
 }
 
-void dw_phy_power_enable(u8 enable)
+void dw_phy_set_power(u8 state)
 {
-	dw_write_mask(PHY_CONF0, PHY_CONF0_PDDQ_MASK, !enable);
-	dw_write_mask(PHY_CONF0, PHY_CONF0_TXPWRON_MASK, enable);
+	dw_write_mask(PHY_CONF0, PHY_CONF0_PDDQ_MASK, !state);
+	dw_write_mask(PHY_CONF0, PHY_CONF0_TXPWRON_MASK, state);
 }
 
-void dw_phy_i2c_fast_mode(u8 bit)
-{
-	dw_write_mask(PHY_I2CM_DIV, PHY_I2CM_DIV_FAST_STD_MODE_MASK, bit);
-}
-
-void dw_phy_i2c_master_reset(void)
-{
-	dw_write_mask(PHY_I2CM_SOFTRSTZ,
-			PHY_I2CM_SOFTRSTZ_I2C_SOFTRSTZ_MASK, 1);
-}
-
-int dw_phy_reconfigure_interface(void)
+int dw_phy_config_interface(void)
 {
 	switch (gPHY_interface) {
 #ifdef SUPPORT_PHY_JTAG
@@ -385,17 +364,16 @@ int dw_phy_reconfigure_interface(void)
 		break;
 #endif
 	case DW_PHY_ACCESS_I2C:
-		_dw_phy_i2c_config();
-		_dw_phy_set_slave_address(PHY_I2C_SLAVE_ADDR);
+		_dw_phy_config_mode();
+		_dw_phy_set_slave_addr();
 		break;
 	default:
-		hdmi_err("PHY interface not defined");
+		hdmi_err("dw phy unsupport interface: %d\n", gPHY_interface);
 		return -1;
 	}
-	hdmi_trace("dw phy interface reconfiguration set to %s\n",
+	hdmi_trace("dw phy config interface: %s\n",
 		gPHY_interface == DW_PHY_ACCESS_I2C ? "i2c" : "jtag");
 	return 0;
-
 }
 
 int dw_phy_standby(void)
@@ -407,77 +385,25 @@ int dw_phy_standby(void)
 	phy_mask |= PHY_MASK0_RX_SENSE_1_MASK;
 	phy_mask |= PHY_MASK0_RX_SENSE_2_MASK;
 	phy_mask |= PHY_MASK0_RX_SENSE_3_MASK;
-	_dw_phy_interrupt_mask(phy_mask);
-	_dw_phy_enable_tmds(0);
-	_dw_phy_power_down(0);	/* disable PHY */
-	dw_phy_power_enable(0);
+	_dw_phy_set_interrupt_mask(phy_mask);
+	_dw_phy_set_tmds_enable(DW_HDMI_DISABLE);
+	_dw_phy_set_power_down(DW_HDMI_DISABLE);
+	dw_phy_set_power(DW_HDMI_DISABLE);
 
 	hdmi_trace("dw phy standby done\n");
 	return 0;
 }
 
-int dw_phy_enable_hpd_sense(void)
-{
-	dw_write_mask(PHY_CONF0, PHY_CONF0_ENHPDRXSENSE_MASK, 0x1);
-	return true;
-}
-
-int dw_phy_disable_hpd_sense(void)
-{
-	dw_write_mask(PHY_CONF0, PHY_CONF0_ENHPDRXSENSE_MASK, 0x0);
-	return true;
-}
-
-u8 dw_phy_get_hpd_rxsense(void)
-{
-	return dw_read_mask(PHY_CONF0, PHY_CONF0_ENHPDRXSENSE_MASK);
-}
-
-u8 dw_phy_hot_plug_state(void)
-{
-	return dw_read_mask((PHY_STAT0), PHY_STAT0_HPD_MASK);
-}
-
-u8 dw_phy_get_rxsense(void)
-{
-	return (u8)(dw_read_mask((PHY_STAT0), PHY_STAT0_RX_SENSE_0_MASK) |
-		dw_read_mask((PHY_STAT0), PHY_STAT0_RX_SENSE_1_MASK) |
-		dw_read_mask((PHY_STAT0), PHY_STAT0_RX_SENSE_2_MASK) |
-		dw_read_mask((PHY_STAT0), PHY_STAT0_RX_SENSE_3_MASK));
-}
-
-u8 dw_phy_rxsense_state(void)
-{
-	u8 state = 0;
-	state |= dw_read_mask((PHY_STAT0), PHY_STAT0_RX_SENSE_3_MASK) << 3;
-	state |= dw_read_mask((PHY_STAT0), PHY_STAT0_RX_SENSE_2_MASK) << 2;
-	state |= dw_read_mask((PHY_STAT0), PHY_STAT0_RX_SENSE_1_MASK) << 1;
-	state |= dw_read_mask((PHY_STAT0), PHY_STAT0_RX_SENSE_0_MASK) << 0;
-	return state;
-}
-
-u8 dw_phy_pll_lock_state(void)
-{
-	return dw_read_mask((PHY_STAT0), PHY_STAT0_TX_PHY_LOCK_MASK);
-}
-
-u8 dw_phy_power_state(void)
-{
-	return dw_read_mask(PHY_CONF0, PHY_CONF0_TXPWRON_MASK);
-}
-
-/* wait PHY_TIMEOUT no of cycles at most for the PLL lock signal to raise ~around 20us max */
-int dw_phy_wait_lock(void)
+u8 dw_phy_wait_lock(void)
 {
 	int i = 0;
 
-	for (i = 0; i < PHY_TIMEOUT; i++) {
+	for (i = 0; i < DWPHY_MAX_TIMES; i++) {
 		udelay(5);
-		if (_dw_phy_lock_state() & 0x1) {
-			return 1;
-		}
+		if (_dw_phy_get_mpll_lock())
+			return DW_HDMI_ENABLE;
 	}
-	return 0;
+	return DW_HDMI_DISABLE;
 }
 
 int dw_phy_write(u8 addr, u16 data)
@@ -488,7 +414,7 @@ int dw_phy_write(u8 addr, u16 data)
 		return _phy_jtag_write(addr, data);
 #endif
 	case DW_PHY_ACCESS_I2C:
-		return _dw_phy_i2c_write(addr, data);
+		return _dw_phy_i2cm_write(addr, data);
 	default:
 		hdmi_err("PHY interface not defined");
 	}
@@ -503,7 +429,7 @@ int dw_phy_read(u8 addr, u16 *value)
 		return _phy_jtag_read(addr, value);
 #endif
 	case DW_PHY_ACCESS_I2C:
-		return _dw_phy_i2c_read(addr, value);
+		return _dw_phy_i2cm_read(addr, value);
 	default:
 		hdmi_err("PHY interface not defined");
 	}
@@ -516,10 +442,10 @@ int dw_phy_initialize(void)
 
 	if (_dw_phy_set_interface(DW_PHY_ACCESS_I2C) < 0) {
 		hdmi_err("set phy interface i2c failed!\n");
-		return false;
+		return -1;
 	}
 
-	dw_phy_power_enable(1);
+	dw_phy_set_power(DW_HDMI_ENABLE);
 
 	phy_mask |= PHY_MASK0_TX_PHY_LOCK_MASK;
 	phy_mask |= PHY_STAT0_HPD_MASK;
@@ -527,21 +453,21 @@ int dw_phy_initialize(void)
 	phy_mask |= PHY_MASK0_RX_SENSE_1_MASK;
 	phy_mask |= PHY_MASK0_RX_SENSE_2_MASK;
 	phy_mask |= PHY_MASK0_RX_SENSE_3_MASK;
-	_dw_phy_interrupt_mask(phy_mask);
+	_dw_phy_set_interrupt_mask(phy_mask);
 
-	_dw_phy_data_enable_polarity(0x1);
+	_dw_phy_set_data_enable_polarity(DW_HDMI_ENABLE);
 
-	_dw_phy_interface_control(0);
+	_dw_phy_set_interface_control(DW_HDMI_DISABLE);
 
-	_dw_phy_enable_tmds(0);
+	_dw_phy_set_tmds_enable(DW_HDMI_DISABLE);
 
-	_dw_phy_power_down(0);	/* disable PHY */
+	_dw_phy_set_power_down(DW_HDMI_DISABLE);
 
-	_dw_phy_i2c_mask_interrupts(0);
+	_dw_phy_i2cm_set_interrupt_mask(DW_HDMI_DISABLE);
 
-	_dw_phy_i2c_mask_state();
+	dw_mc_irq_clear_state(DW_MC_IRQ_PHYI2C, 0x0);
 
-	return true;
+	return 0;
 }
 
 int dw_phy_init(void)
@@ -551,7 +477,7 @@ int dw_phy_init(void)
 	gPHY_interface = DW_PHY_ACCESS_I2C;
 
 	/* enable hpd exsense */
-	dw_phy_enable_hpd_sense();
+	_dw_phy_set_hpdsense(DW_HDMI_ENABLE);
 
 	if (hdmi->phy_ext->phy_init)
 		hdmi->phy_ext->phy_init();
@@ -563,17 +489,14 @@ ssize_t dw_phy_dump(char *buf)
 {
 	int n = 0;
 
-	n += sprintf(buf + n, "[dw phy]\n");
-	n += sprintf(buf + n, " - hpd state   : [%s]\n",
-			dw_phy_hot_plug_state() ? "detect" : "undetect");
-	n += sprintf(buf + n, " - hpd rxsense : [%s]\n",
-			dw_phy_get_hpd_rxsense() ? "enable" : "disable");
-	n += sprintf(buf + n, " - tmds rxsense: [0x%X]\n",
-			dw_phy_rxsense_state());
-	n += sprintf(buf + n, " - mpll state  : [%s]\n",
-			dw_phy_pll_lock_state() ? "lock" : "unlock");
-	n += sprintf(buf + n, " - power state : [%s]\n",
-			dw_phy_power_state() ? "enable" : "disable");
-
+	n += sprintf(buf + n, "\n[dw phy]\n");
+	n += sprintf(buf + n, "|  name |  mpll  | power | rxsense | hpd | hpd sense |\n");
+	n += sprintf(buf + n, "|-------+--------+--------+--------+-----+-----------|\n");
+	n += sprintf(buf + n, "| state | %-6s |  %-3s  |  0x%-4x | %-3s |   %-7s |",
+		_dw_phy_get_mpll_lock() ? "lock" : "unlock",
+		_dw_phy_get_power_state() ? "on" : "off",
+		_dw_phy_get_rxsense(),
+		dw_phy_get_hpd() ? "in" : "out",
+		_dw_phy_get_hpdsense() ? "enable" : "disable");
 	return n;
 }

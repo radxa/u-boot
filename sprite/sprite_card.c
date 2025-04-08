@@ -28,6 +28,7 @@
 #include <private_boot0.h>
 #include <sunxi_board.h>
 #include "sprite.h"
+#include "../../drivers/ufs/ufs_main.h"
 
 #ifdef CONFIG_SUNXI_DUAL_STORAGE
 #include <sunxi_dual_storage.h>
@@ -1296,6 +1297,24 @@ int card_erase_boot0(uint length, void *buffer, uint storage_type)
 			goto ERR_OUT;
 		}
 #endif
+	} else if (storage_type == STORAGE_UFS) {
+		printf("ufs  erase boot0 \n");
+		//write boot0 bankup copy firstly
+		ret = sunxi_sprite_phywrite(CONFIG_SUNXI_BOOT0_UFS_BACKUP_START_ADDR,
+					   length / 512, buffer);
+		if (!ret) {
+			debug("%s: write boot0 from %d fail\n", __func__,
+			       CONFIG_SUNXI_BOOT0_UFS_BACKUP_START_ADDR);
+			goto ERR_OUT;
+		}
+		ret = sunxi_sprite_phywrite(SUNXI_UFS_BOOT0_START_ADDRS, length / 512,
+					   buffer);
+		if (!ret) {
+			debug("%s: write boot0 from %d fail\n", __func__,
+			       SUNXI_UFS_BOOT0_START_ADDRS);
+			goto ERR_OUT;
+		}
+
 	} else {
 //for card3
 #ifdef PLATFORM_SUPPORT_EMMC3

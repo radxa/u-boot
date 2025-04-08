@@ -17,9 +17,21 @@
 #include "ehci.h"
 #include <sunxi_power/power_manage.h>
 
+#if IS_ENABLED(CONFIG_MACH_SUN300IW1)
+#define  USB_Readb(reg)                            (*(volatile unsigned char *)(reg))
+#define  USB_Readw(reg)                            (*(volatile unsigned short *)(reg))
+#define  USB_Readl(reg)                            (*(volatile unsigned long *)(reg))
+
+#define  USB_Writeb(value, reg)			   (*(volatile unsigned char *)(reg) = (value))
+#define  USB_Writew(value, reg)                    (*(volatile unsigned short *)(reg) = (value))
+#define  USB_Writel(value, reg)                    (*(volatile unsigned long *)(reg) = (value))
+#endif
+
 #define SUNXI_USB_CTRL		0x800
 #define SUNXI_USB_PHY_CTRL	0x810
 #define HOST_MAXNUM		5
+#define USB_REG_o_PHYCTL	0x410
+#define USB_REG_o_PHYSTATUS	0x0424
 
 static uintptr_t usb_vbase = SUNXI_EHCI0_BASE;
 unsigned int usb_drv_vbus_gpio = -1;
@@ -49,6 +61,75 @@ static ehci_config_t ehci_cfg[HOST_MAXNUM] = {
 #endif
 };
 
+/* This soc platform needs to operate phy pll,
+ * so an operation interface needs to be added here. */
+#if IS_ENABLED(CONFIG_MACH_SUN300IW1)
+__u32 usb_new_phyx_tp_read(__u32 regs, __u32 addr, __u32 len)
+{
+	int temp, i, j, ret = 0;
+
+	temp = USB_Readb(regs + USB_REG_o_PHYCTL);
+	temp |= (0x1 << 1);
+	USB_Writeb(temp, regs + USB_REG_o_PHYCTL);
+
+	for (j = len; j > 0; j--) {
+		USB_Writeb((addr + j - 1), regs + USB_REG_o_PHYCTL + 1);
+
+		for (i = 0; i < 0x4; i++)
+			;
+
+		temp = USB_Readb(regs + USB_REG_o_PHYSTATUS);
+		ret <<= 1;
+		ret |= (temp & 0x1);
+	}
+
+	temp = USB_Readb(regs + USB_REG_o_PHYCTL);
+	temp &= ~(0x1 << 1);
+	USB_Writeb(temp, regs + USB_REG_o_PHYCTL);
+
+	return ret;
+}
+
+int usb_new_phyx_tp_write(__u32 regs, int addr, int data, int len)
+{
+	int temp, j, dtmp = 0;
+
+	/* device: 0x410(phy_ctl) */
+	dtmp = data;
+
+	for (j = 0; j < len; j++) {
+
+		temp = USB_Readb(regs + USB_REG_o_PHYCTL);
+		temp |= (0x1 << 1);
+		USB_Writeb(temp, regs + USB_REG_o_PHYCTL);
+
+		USB_Writeb(addr + j, regs + USB_REG_o_PHYCTL + 1);
+
+		temp = USB_Readb(regs + USB_REG_o_PHYCTL);
+		temp &= ~(0x1 << 0);
+		USB_Writeb(temp, regs + USB_REG_o_PHYCTL);
+
+		temp = USB_Readb(regs + USB_REG_o_PHYCTL);
+		temp &= ~(0x1 << 7);
+		temp |= (dtmp & 0x1) << 7;
+		USB_Writeb(temp, regs + USB_REG_o_PHYCTL);
+
+		temp |= (0x1 << 0);
+		USB_Writeb(temp, regs + USB_REG_o_PHYCTL);
+
+		temp &= ~(0x1 << 0);
+		USB_Writeb(temp, regs + USB_REG_o_PHYCTL);
+
+		temp = USB_Readb(regs + USB_REG_o_PHYCTL);
+		temp &= ~(0x1 << 1);
+		USB_Writeb(temp, regs + USB_REG_o_PHYCTL);
+
+		dtmp >>= 1;
+	}
+
+	return 0;
+}
+#endif
 
 /*Port:port+num<fun><pull><drv><data>*/
 ulong config_usb_pin(int index)
@@ -111,7 +192,19 @@ u32 open_usb_clock(int index)
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
 
 	/* Bus reset and gating for ehci */
-#if IS_ENABLED(CONFIG_MACH_SUN55IW3)
+#if IS_ENABLED(CONFIG_MACH_SUN60IW2)
+	if (index == 0) {
+		reg_value = readl(&ccm->usb0_bgr_reg);
+		reg_value |= (1 << ehci_cfg[index].bus_soft_reset_ofs);
+		reg_value |= (1 << ehci_cfg[index].bus_clk_gating_ofs);
+		writel(reg_value, &ccm->usb0_bgr_reg);
+	} else {
+		reg_value = readl(&ccm->usb1_bgr_reg);
+		reg_value |= (1 << ehci_cfg[index].bus_soft_reset_ofs);
+		reg_value |= (1 << ehci_cfg[index].bus_clk_gating_ofs);
+		writel(reg_value, &ccm->usb1_bgr_reg);
+	}
+#elif IS_ENABLED(CONFIG_MACH_SUN55IW3)
 	reg_value = readl(&ccm->usb_bgr_reg);
 	reg_value |= (1 << ehci_cfg[index].bus_soft_reset_ofs);
 	reg_value |= (1 << ehci_cfg[index].bus_clk_gating_ofs);
@@ -124,6 +217,24 @@ u32 open_usb_clock(int index)
 	reg_value = readl(&ccm->ahb_gate0);
 	reg_value |= (1 << ehci_cfg[index].bus_clk_gating_ofs);
 	writel(reg_value, &ccm->ahb_gate0);
+#elif defined(CONFIG_MACH_SUN300IW1)
+	reg_value = readl(&ccm->ccu_app_clk_reg);
+	reg_value |= (1 << 3);
+	writel(reg_value, &ccm->ccu_app_clk_reg);
+
+	reg_value = readl(&ccm->bus_clk_gating0_reg);
+	reg_value |= (1 << 21);
+	reg_value |= (1 << 19);
+	writel(reg_value, &ccm->bus_clk_gating0_reg);
+
+	reg_value = readl(&ccm->bus_clk_gating1_reg);
+	reg_value |= (1 << 14);
+	writel(reg_value, &ccm->bus_clk_gating1_reg);
+
+	reg_value = readl(&ccm->bus_reset0_reg);
+	reg_value |= (1 << 21);
+	reg_value |= (1 << 19);
+	writel(reg_value, &ccm->bus_reset0_reg);
 #else
 	reg_value = readl(&ccm->usb_gate_reset);
 	reg_value |= (1 << ehci_cfg[index].bus_soft_reset_ofs);
@@ -165,7 +276,7 @@ u32 open_usb_clock(int index)
 #endif
 	/* open clk for usb phy */
 	if (index == 0) {
-#if	IS_ENABLED(CONFIG_MACH_SUN55IW3)
+#if IS_ENABLED(CONFIG_MACH_SUN55IW3) || IS_ENABLED(CONFIG_MACH_SUN60IW2)
 		reg_value = readl(&ccm->usb0_clk_reg);
 		reg_value |= (1 << ehci_cfg[index].phy_slk_gatimg_ofs);
 		reg_value |= (1 << ehci_cfg[index].phy_reset_ofs);
@@ -175,6 +286,10 @@ u32 open_usb_clock(int index)
 		reg_value |= (1 << ehci_cfg[index].phy_slk_gatimg_ofs);
 		reg_value |= (1 << ehci_cfg[index].phy_reset_ofs);
 		writel(reg_value, &ccm->usb_clk_cfg);
+#elif defined(CONFIG_MACH_SUN300IW1)
+		reg_value = readl(&ccm->bus_reset0_reg);
+		reg_value |= (1 << 23);
+		writel(reg_value, &ccm->bus_reset0_reg);
 #else
 		reg_value = readl(&ccm->usb0_clk_cfg);
 		reg_value |= (1 << ehci_cfg[index].phy_slk_gatimg_ofs);
@@ -183,7 +298,7 @@ u32 open_usb_clock(int index)
 #endif
 
 	} else if (index == 1) {
-#if IS_ENABLED(CONFIG_MACH_SUN55IW3)
+#if IS_ENABLED(CONFIG_MACH_SUN55IW3) || IS_ENABLED(CONFIG_MACH_SUN60IW2)
 		reg_value = readl(&ccm->usb1_clk_reg);
 		reg_value |= (1 << ehci_cfg[index].phy_slk_gatimg_ofs);
 		reg_value |= (1 << ehci_cfg[index].phy_reset_ofs);
@@ -194,10 +309,12 @@ u32 open_usb_clock(int index)
 		reg_value |= (1 << ehci_cfg[index].phy_reset_ofs);
 		writel(reg_value, &ccm->usb_clk_cfg);
 #else
+#if !IS_ENABLED(CONFIG_MACH_SUN300IW1)
 		reg_value = readl(&ccm->usb1_clk_cfg);
 		reg_value |= (1 << ehci_cfg[index].phy_slk_gatimg_ofs);
 		reg_value |= (1 << ehci_cfg[index].phy_reset_ofs);
 		writel(reg_value, &ccm->usb1_clk_cfg);
+#endif
 #endif
 	} else if (index == 2) {
 #if defined(CONFIG_MACH_SUN50IW9)
@@ -235,6 +352,15 @@ u32 open_usb_clock(int index)
 #endif
 	}
 	printf("config usb clk ok\n");
+
+	/* For 24Mhz crystal oscillator, you need to modify the phy pll
+	 * configuration, please refer to the spec.
+	 */
+#if IS_ENABLED(CONFIG_MACH_SUN300IW1)
+	if (24 == aw_get_hosc_freq())
+		usb_new_phyx_tp_write(SUNXI_USBOTG_BASE, 0xb, 20, 0x8);
+#endif
+
 	return 0;
 }
 
@@ -245,7 +371,19 @@ u32 close_usb_clock(int index)
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
 
 	/* Bus reset and gating for ehci */
-#if IS_ENABLED(CONFIG_MACH_SUN55IW3)
+#if IS_ENABLED(CONFIG_MACH_SUN60IW2)
+	if (index == 0) {
+		reg_value = readl(&ccm->usb0_bgr_reg);
+		reg_value &= ~(1 << ehci_cfg[index].bus_soft_reset_ofs);
+		reg_value &= ~(1 << ehci_cfg[index].bus_clk_gating_ofs);
+		writel(reg_value, &ccm->usb0_bgr_reg);
+	} else {
+		reg_value = readl(&ccm->usb1_bgr_reg);
+		reg_value &= ~(1 << ehci_cfg[index].bus_soft_reset_ofs);
+		reg_value &= ~(1 << ehci_cfg[index].bus_clk_gating_ofs);
+		writel(reg_value, &ccm->usb1_bgr_reg);
+	}
+#elif IS_ENABLED(CONFIG_MACH_SUN55IW3)
 	reg_value = readl(&ccm->usb_bgr_reg);
 	reg_value &= ~(1 << ehci_cfg[index].bus_soft_reset_ofs);
 	reg_value &= ~(1 << ehci_cfg[index].bus_clk_gating_ofs);
@@ -258,6 +396,24 @@ u32 close_usb_clock(int index)
 	reg_value = readl(&ccm->ahb_gate0);
 	reg_value &= ~(1 << ehci_cfg[index].bus_clk_gating_ofs);
 	writel(reg_value, &ccm->ahb_gate0);
+#elif defined(CONFIG_MACH_SUN300IW1)
+	reg_value = readl(&ccm->ccu_app_clk_reg);
+	reg_value &= ~(1 << 3);
+	writel(reg_value, &ccm->ccu_app_clk_reg);
+
+	reg_value = readl(&ccm->bus_clk_gating0_reg);
+	reg_value &= ~(1 << 21);
+	reg_value &= ~(1 << 19);
+	writel(reg_value, &ccm->bus_clk_gating0_reg);
+
+	reg_value = readl(&ccm->bus_clk_gating1_reg);
+	reg_value &= ~(1 << 14);
+	writel(reg_value, &ccm->bus_clk_gating1_reg);
+
+	reg_value = readl(&ccm->bus_reset0_reg);
+	reg_value &= ~(1 << 21);
+	reg_value &= ~(1 << 19);
+	writel(reg_value, &ccm->bus_reset0_reg);
 #else
 	reg_value = readl(&ccm->usb_gate_reset);
 	reg_value &= ~(1 << ehci_cfg[index].bus_soft_reset_ofs);
@@ -267,7 +423,7 @@ u32 close_usb_clock(int index)
 
 	/* close clk for usb phy */
 	if (index == 0) {
-#if IS_ENABLED(CONFIG_MACH_SUN55IW3)
+#if IS_ENABLED(CONFIG_MACH_SUN55IW3) || IS_ENABLED(CONFIG_MACH_SUN60IW2)
 		reg_value = readl(&ccm->usb0_clk_reg);
 		reg_value &= ~(1 << ehci_cfg[index].phy_slk_gatimg_ofs);
 		reg_value &= ~(1 << ehci_cfg[index].phy_reset_ofs);
@@ -277,6 +433,10 @@ u32 close_usb_clock(int index)
 		reg_value &= ~(1 << ehci_cfg[index].phy_slk_gatimg_ofs);
 		reg_value &= ~(1 << ehci_cfg[index].phy_reset_ofs);
 		writel(reg_value, &ccm->usb_clk_cfg);
+#elif defined(CONFIG_MACH_SUN300IW1)
+		reg_value = readl(&ccm->bus_reset0_reg);
+		reg_value &= ~(1 << 23);
+		writel(reg_value, &ccm->bus_reset0_reg);
 #else
 		reg_value = readl(&ccm->usb0_clk_cfg);
 		reg_value &= ~(1 << ehci_cfg[index].phy_slk_gatimg_ofs);
@@ -284,7 +444,7 @@ u32 close_usb_clock(int index)
 		writel(reg_value, &ccm->usb0_clk_cfg);
 #endif
 	} else if (index == 1) {
-#if IS_ENABLED(CONFIG_MACH_SUN55IW3)
+#if IS_ENABLED(CONFIG_MACH_SUN55IW3) || IS_ENABLED(CONFIG_MACH_SUN60IW2)
 		reg_value = readl(&ccm->usb1_clk_reg);
 		reg_value &= ~(1 << ehci_cfg[index].phy_slk_gatimg_ofs);
 		reg_value &= ~(1 << ehci_cfg[index].phy_reset_ofs);
@@ -295,10 +455,12 @@ u32 close_usb_clock(int index)
 		reg_value &= ~(1 << ehci_cfg[index].phy_reset_ofs);
 		writel(reg_value, &ccm->usb_clk_cfg);
 #else
+#if !IS_ENABLED(CONFIG_MACH_SUN300IW1)
 		reg_value = readl(&ccm->usb1_clk_cfg);
 		reg_value &= ~(1 << ehci_cfg[index].phy_slk_gatimg_ofs);
 		reg_value &= ~(1 << ehci_cfg[index].phy_reset_ofs);
 		writel(reg_value, &ccm->usb1_clk_cfg);
+#endif
 #endif
 	} else if (index == 2) {
 #if defined(CONFIG_MACH_SUN50IW9)
@@ -387,7 +549,7 @@ void usb_passby(int index, u32 enable)
 
 int sunxi_start_ehci(int index)
 {
-#if IS_ENABLED(CONFIG_MACH_SUN55IW3)
+#if IS_ENABLED(CONFIG_MACH_SUN55IW3) || IS_ENABLED(CONFIG_MACH_SUN60IW2)
 	unsigned long reg_value = 0;
 	struct sunxi_ccm_reg *const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
@@ -396,7 +558,7 @@ int sunxi_start_ehci(int index)
 	if(alloc_pin(index))
 		return -1;
 	open_usb_clock(index);
-#if IS_ENABLED(CONFIG_MACH_SUN55IW3)
+#if IS_ENABLED(CONFIG_MACH_SUN55IW3) || IS_ENABLED(CONFIG_MACH_SUN60IW2)
 #ifdef CONFIG_AIOT_DISP_PARAM_UPDATE
 	pmu_set_reg_value(0x80, 0xf);
 #endif
@@ -421,6 +583,7 @@ int sunxi_start_ehci(int index)
 		writel(reg_value, &ccm->usb1_clk_reg);
 	}
 #endif
+
 	usb_passby(index, 1);
 	sunxi_set_vbus(1);
 	mdelay(800);

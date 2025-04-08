@@ -140,7 +140,7 @@ void i2c_init_board(void)
 #else
 #if defined(CONFIG_MACH_SUN50IW9)
 	sprintf(fdt_node_str, "twi5");
-#elif defined(CONFIG_MACH_SUN50IW10) || defined(CONFIG_MACH_SUN55IW3)
+#elif defined(CONFIG_MACH_SUN50IW10) || defined(CONFIG_MACH_SUN55IW3) || defined(CONFIG_MACH_SUN60IW2)
 	sprintf(fdt_node_str, "twi6");
 #else
 	sprintf(fdt_node_str, "twi4");
@@ -171,7 +171,7 @@ void smp_init(void)
 {
     int cpu_status = 0;
 #if defined(CONFIG_SUNXI_NCAT) || defined(CONFIG_SUNXI_NCAT_V2)
-#ifdef CONFIG_MACH_SUN20IW5
+#ifdef CONFIG_MACH_SUN300IW1
     cpu_status = 1;
 #else
     cpu_status = readl(IOMEM_ADDR(SUNXI_CPUXCFG_BASE + 0x80));
@@ -239,6 +239,11 @@ int board_init(void)
 		pmu_ext_set_power_supply_output();
 	}
 #endif
+
+#ifdef CONFIG_SUNXI_PMU_GENERAL
+	pmu_general_probe();
+#endif
+
 	rtc_set_dcxo_off();
 
 	if ((work_mode == WORK_MODE_BOOT) ||

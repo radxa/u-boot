@@ -40,22 +40,6 @@ struct file_info_t *load_file(char *name, char *part_name);
 
 int write_file(char *name, char *part_name, void *buf_addr, unsigned int buf_size);
 
-#ifndef CONFIG_CMD_FAT
-struct file_info_t *load_file(char *name, char *part_name)
-{
-	pr_err("Can not load file %s from %s partition\n", name, part_name);
-	return NULL;
-}
-
-int write_file(char *name, char *part_name, void *buf_addr, unsigned int buf_size)
-{
-	pr_err("Can not write file %s to %s partition\n", name, part_name);
-	return NULL;
-
-}
-#endif
-
-
 #ifdef __cplusplus
 }
 #endif

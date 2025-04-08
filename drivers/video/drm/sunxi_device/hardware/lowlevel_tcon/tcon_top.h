@@ -19,6 +19,7 @@ enum __tv_set_t {
 	TV_CLK_F_CCU = 0,
 	TV_CLK_F_TVE = 1
 };
+void tcon_lcd_dsc_src_sel(void);
 s32 tcon_lcd_dsi_clk_source(u32 sel, u32 dual_dsi_flag);
 s32 tcon_lcd_rgb_src_sel(u32 src);
 s32 tcon_lcd_dsi_src_sel(u32 sel, u32 src);

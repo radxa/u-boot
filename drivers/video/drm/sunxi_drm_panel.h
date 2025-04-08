@@ -30,6 +30,7 @@ struct sunxi_drm_panel_funcs {
 	int (*disable)(struct sunxi_drm_panel *panel);
 	int (*get_mode)(struct sunxi_drm_panel *panel,
 			struct drm_display_mode *mode);
+	int (*uboot_reset)(struct sunxi_drm_panel *panel);
 };
 
 struct sunxi_drm_panel {
@@ -80,6 +81,14 @@ static inline void sunxi_drm_panel_enable(struct sunxi_drm_panel *panel)
 
 	if (panel->funcs && panel->funcs->enable)
 		panel->funcs->enable(panel);
+}
+static inline void sunxi_drm_panel_uboot_reset(struct sunxi_drm_panel *panel)
+{
+	if (!panel)
+		return;
+
+	if (panel->funcs && panel->funcs->uboot_reset)
+		panel->funcs->uboot_reset(panel);
 }
 
 static inline void sunxi_drm_panel_unprepare(struct sunxi_drm_panel *panel)

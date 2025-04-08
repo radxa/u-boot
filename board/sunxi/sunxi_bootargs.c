@@ -37,6 +37,10 @@ void check_user_data(void)
 	    (get_boot_storage_type() == STORAGE_EMMC) ||
 	    (get_boot_storage_type() == STORAGE_EMMC0)) {
 		command_p = env_get("setargs_mmc");
+#ifdef CONFIG_SUNXI_UFS
+	} else if (get_boot_storage_type() == STORAGE_UFS) {
+		command_p = env_get("setargs_ufs");
+#endif
 	} else {
 		command_p = env_get("setargs_nand");
 	}
@@ -135,6 +139,7 @@ static int get_key_from_private(int partno, char *filename, char *data_buf, int 
 	char part_info[16]  = { 0 }; /* format: "partno:0" */
 	char file_info[64]  = { 0 };
 	loff_t len_read;
+	int storage_type = get_boot_storage_type();
 
 	if (partno < 0)
 		return -1;
@@ -145,8 +150,13 @@ static int get_key_from_private(int partno, char *filename, char *data_buf, int 
 	sprintf(part_info, "0:%x", partno);
 	memset(data_buf, 0, *len);
 
-	if (fs_set_blk_dev("sunxi_flash", part_info, FS_TYPE_FAT))
-		return 1;
+	if (storage_type == STORAGE_UFS) {
+		if (fs_set_blk_dev("sunxi_flash_ufs", part_info, FS_TYPE_FAT))
+			return 1;
+	} else {
+		if (fs_set_blk_dev("sunxi_flash", part_info, FS_TYPE_FAT))
+			return 1;
+	}
 	if (fs_read(filename, (ulong)data_buf, 0, 0, &len_read) < 0)
 		return -1;
 	data_buf[*len] = 0;
@@ -259,7 +269,10 @@ void update_bootargs(void)
 	strncpy(cmdline, str, sizeof(cmdline) - 1);
 
 	if ((!strcmp(env_get("bootcmd"), "run setargs_mmc boot_normal")) ||
-	    !strcmp(env_get("bootcmd"), "run setargs_nand boot_normal")) {
+#ifdef CONFIG_SUNXI_UFS
+		(!strcmp(env_get("bootcmd"), "run setargs_ufs boot_normal")) ||
+#endif
+		!strcmp(env_get("bootcmd"), "run setargs_nand boot_normal")) {
 		if (gd->chargemode == 0) {
 			pr_msg("in boot normal mode,pass normal para to cmdline\n");
 			strncat(cmdline, " androidboot.mode=normal",

@@ -13,46 +13,48 @@
 
 #define EDID_BLOCK_SIZE		    (128)
 
-void dw_edid_sink_reset(void);
+void dw_edid_reset_sink(void);
 
 int dw_edid_read_extenal_block(int block, u8 *edid_buf);
 
 int dw_edid_parse_info(u8 *data);
 
-int dw_sink_is_hdmi20(void);
+int dw_sink_support_hdmi20(void);
 
-int dw_edid_check_only_yuv420(u32 vic);
+int dw_sink_support_only_yuv420(u32 vic);
 
-int dw_edid_check_yuv420_base(u32 vic);
+int dw_sink_support_yuv420(u32 vic);
 
-int dw_edid_check_yuv422_base(void);
+int dw_sink_support_yuv422(void);
 
-int dw_edid_check_yuv444_base(void);
+int dw_sink_support_yuv444(void);
 
-int dw_edid_check_rgb_dc(u8 bits);
+int dw_sink_support_rgb_dc(u8 bits);
 
-int dw_edid_check_yuv444_dc(u8 bits);
+int dw_sink_support_yuv444_dc(u8 bits);
 
-int dw_edid_check_yuv422_dc(u8 bits);
+int dw_sink_support_yuv422_dc(u8 bits);
 
-int dw_edid_check_yuv420_dc(u8 bits);
+int dw_sink_support_yuv420_dc(u8 bits);
 
-int dw_edid_check_hdr10(void);
+int dw_sink_support_sdr(void);
 
-int dw_edid_check_hlg(void);
+int dw_sink_support_hdr10(void);
 
-int dw_edid_check_max_tmds_clk(u32 clk);
+int dw_sink_support_hlg(void);
 
-bool dw_edid_check_hdmi_vic(u32 code);
+int dw_sink_support_max_tmdsclk(u32 clk);
 
-bool dw_edid_check_cea_vic(u32 code);
+int dw_sink_support_hdmi_vic(u32 code);
 
-bool dw_edid_check_scdc_support(void);
+int dw_sink_support_cea_vic(u32 code);
+
+bool dw_sink_support_scdc(void);
 
 int dw_edid_exit(void);
 
 int dw_edid_init(void);
 
-ssize_t dw_edid_dump(char *buf);
+ssize_t dw_sink_dump(char *buf);
 
 #endif	/* _DW_EDID_H */

@@ -138,6 +138,10 @@
 #define SS_AES_KEY_192BIT (1)
 #define SS_AES_KEY_256BIT (2)
 
+#if defined(CONFIG_MACH_SUN60IW2) || defined(CONFIG_MACH_SUN65IW1)
+#define SUNXI_CE_MULTI_HASH
+#endif
+
 #pragma pack(push, 1)
 struct sg {
 	u8 source_addr[5];

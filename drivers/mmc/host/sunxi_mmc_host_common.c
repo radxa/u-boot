@@ -41,6 +41,10 @@
 #include "sunxi_mmc_host_tm1.h"
 #include "sunxi_mmc_host_tm4.h"
 #include "sunxi_mmc_host_tm5.h"
+#include "sunxi_mmc_clk_origin.h"
+#include "sunxi_mmc_clk_common.h"
+#include "sunxi_mmc_clk_typ1.h"
+#include "sunxi_mmc_clk_fpga.h"
 
 extern char *spd_name[];
 extern struct sunxi_mmc_priv mmc_host[4];
@@ -48,7 +52,7 @@ extern struct sunxi_mmc_priv mmc_host[4];
 
 int sunxi_auto_pow_mode(unsigned int bit)
 {
-#if !defined CONFIG_MACH_SUN55IW3
+#if !defined CONFIG_MACH_SUN55IW3 && !defined CONFIG_MACH_SUN60IW2 && !defined CONFIG_MACH_SUN65IW1
 	int ret = 0, val = 0;
 
 	val = readl(IOMEM_ADDR(SUNXI_PIO_BASE + GPIO_POW_MODE_VAL_REG));
@@ -301,8 +305,9 @@ static int sunxi_mmc_host_init(int sdc_no)
 		{"tm5", sunxi_mmc_host_tm5_init}
 	};
 	int nodeoffset = 0;
-	int i, ret = 0;
+	int i, ret = 0, retv = -1;
 	char *tm_str = NULL;
+	struct sunxi_mmc_priv *mmcpriv = &mmc_host[sdc_no];
 
 	if (sdc_no == 0) {
 		nodeoffset =  fdt_path_offset(working_fdt, FDT_PATH_CARD0_BOOT_PARA);
@@ -347,12 +352,43 @@ static int sunxi_mmc_host_init(int sdc_no)
 		if (strcmp(host_str[i].tm_str, tm_str) == 0) {
 			MMCDBG("using the host of %s\n", host_str[i].tm_str);
 			host_str[i].sunxi_mmc_host_init_priv(sdc_no);
-			return 0;
+			retv = 0;
+			break;
 		}
 	}
 
-	MMCINFO("Can not find the proper host!\n");
-	return -1;
+#ifdef FPGA_PLATFORM
+	if ((sdc_no == 0) || (sdc_no == 1))
+		mmcpriv->sunxi_mmc_set_clk = sunxi_mmc_set_clk_fpga_tm1;
+	else if (sdc_no == 2)
+		mmcpriv->sunxi_mmc_set_clk = sunxi_mmc_set_clk_fpga_tm4;
+	mmcpriv->clk_mode = SUNXI_MMC_CLK_FPGA;
+#else
+	ret = fdt_getprop_string(working_fdt, nodeoffset, "clk_type", (char **)(&tm_str));
+	if (ret < 0 || !strcmp(tm_str, "orgn")) {
+		if (mmcpriv->timing_mode == SUNXI_MMC_TIMING_MODE_1) {
+			mmcpriv->sunxi_mmc_set_clk = sunxi_mmc_set_clk_origin_tm1;
+		} else if (mmcpriv->timing_mode == SUNXI_MMC_TIMING_MODE_4) {
+			mmcpriv->sunxi_mmc_set_clk = sunxi_mmc_set_clk_origin_tm4;
+		}
+		mmcpriv->clk_mode = SUNXI_MMC_CLK_ORGN;
+		tm_str = "orgn";
+	} else if (!strcmp(tm_str, "com")) {
+		mmcpriv->sunxi_mmc_set_clk = sunxi_mmc_set_clk_common;
+		mmcpriv->clk_mode = SUNXI_MMC_CLK_COM;
+	} else if (!strcmp(tm_str, "typ1")) {
+		mmcpriv->sunxi_mmc_set_clk = sunxi_mmc_set_clk_type1;
+		mmcpriv->clk_mode = SUNXI_MMC_CLK_TYP1;
+	} else {
+		MMCINFO("unknown clk type, please check clk_type!\n");
+		retv = -1;
+	}
+	MMCDBG("current host clk is %s\n", tm_str);
+#endif
+
+	if (retv == -1)
+		MMCINFO("Can not find the proper host!\n");
+	return retv;
 }
 
 static void mmc_get_para_from_fex(int sdc_no)
@@ -715,6 +751,7 @@ static void mmc_get_para_from_fex(int sdc_no)
 				cfg->tune_limit_kernel_timing = 0x1;
 			MMCDBG("get sdc0 sdc_kernel_no_limit 0x%x, limit 0x%x.\n", rval, cfg->tune_limit_kernel_timing);
 		}
+
 #if (!(defined(CONFIG_MACH_SUN50IW10) || defined(CONFIG_MACH_SUN50IW9)))
 		ret_p = (void *)fdt_getprop(working_fdt, nodeoffset, "clk_mmc", &rval);
 		if (ret_p == NULL || strlen(ret_p) > MMC_MAX_PLL_STRING_LEN) {
@@ -789,6 +826,17 @@ static void mmc_get_para_from_fex(int sdc_no)
 			} else {
 				MMCDBG("card2 try set io t 3V.\n");
 			}
+		}
+
+		ret = fdt_getprop_u32(working_fdt, nodeoffset, "sdc_mbus",
+				(uint32_t *)(&rval));
+		if (ret < 0) {
+			cfg->sdc_mbus = 0;
+			MMCDBG("get card2_boot_para:sdc_mbus fail\n");
+		} else {
+			cfg->sdc_mbus = rval;
+			if (rval != 0)
+				MMCDBG("card2 try to use mbus sdc mode\n");
 		}
 
 		pin_default->pin_count = fdt_get_all_pin(nodeoffset, "pinctrl-0", pin_default->pin_set);
@@ -1251,6 +1299,23 @@ static void mmc_get_para_from_dtb(int sdc_no)
 __ERRRO_END:
 	MMCINFO("fdt err returned %s\n", fdt_strerror(ret));
 	return ;
+}
+
+int sunxi_mmc_mbus_resource(int sdc_no, struct sunxi_ccm_reg *ccm)
+{
+#if defined(CONFIG_MACH_SUN60IW2)
+	struct sunxi_mmc_priv *priv = &mmc_host[sdc_no];
+	struct mmc_config *cfg = &priv->cfg;
+
+	if (sdc_no == 2 && cfg->sdc_mbus != 0) {
+		priv->reg = (struct mmc_reg_v4p1 *)SUNXI_MMC3_BASE;
+		priv->mclkreg = &ccm->sd3_clk_cfg;
+		priv->hclkbase = IOMEM_ADDR(&ccm->sd_gate_reset) + 3 * 0x10;
+		priv->hclkrst = IOMEM_ADDR(&ccm->sd_gate_reset) + 3 * 0x10;
+	}
+#endif
+
+	return 0;
 }
 
 int sunxi_host_mmc_config(int sdc_no)

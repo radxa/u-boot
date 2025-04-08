@@ -5,28 +5,35 @@
 #include <openssl_ext.h>
 #include <asm/arch/ce.h>
 #include <sunxi_board.h>
-
+#include <sunxi_cert_interface.h>
+#include <memalign.h>
 #ifdef CONFIG_CRYPTO
 #include <crypto/ecc_dsa.h>
 #endif
 
 #ifndef ALG_ECC
-#define ALG_ECC         (0x21)
+#define ALG_ECC	(0x21)
 #endif
+
 typedef struct _sunxi_certif_desc {
-	int (*pubkey_hash_cal)(u8 *sub_pubkey_hash, u32 sub_pubkey_hash_size,
-			       sunxi_certif_info_t *sunxi_certif);
+	int (*pubkey_hash_cal_from_sunxi_cert)(
+		u8 *sub_pubkey_hash, u32 sub_pubkey_hash_size,
+		sunxi_certif_info_t *sunxi_certif);
 	int (*verify_itself)(sunxi_certif_info_t *sunxi_certif, u8 *buf,
 			     u32 len);
-	s32 (*asy_sign_check)(struct ecc_verify_params *params,
-			      u32 key_byte_size, u8 *hash, u32 hash_byte_len);
+	int (*aw_certif_verify_sign)(aw_cert_t *p_toc1_cert, u8 *hash_of_certif,
+				     u8 hash_of_certif_len);
+	int (*verify_subcert_pubkey)(sunxi_certif_info_t *root_certif,
+				     u8 ext_seq,
+				     sunxi_certif_info_t *sub_certif);
+	// int (*aw_certif_pubkey_hash_cal)(u8 *out_buf, u32 hash_size,
+	// 			u8 *public_key_info, u32 public_key_size);
 } sunxi_certif_desc_t;
-
 sunxi_certif_desc_t toc_certif_desc;
 int sunxi_certif_desc_register(u8 *buf);
 
-__weak s32 sunxi_ecc_sign_check(struct ecc_verify_params *params,
-				u32 key_byte_size, u8 *hash, u32 hash_byte_len)
+__weak s32 sunxi_ecc_sign_check(struct ecc_verify_params *params, u32 key_byte_size,
+				u8 *hash, u32 hash_byte_len)
 {
 #ifdef CONFIG_CRYPTO
 	u8 *pubkey, *sign;
@@ -66,6 +73,14 @@ __weak s32 sunxi_ecc_sign_check(struct ecc_verify_params *params,
 #endif  /* CONFIG_CRYPTO */
 }
 
+__weak s32 sunxi_rsa_sign_check(u32 mod_bit_size, u8 *key_addr, u32 key_len,
+			 u8 *src_addr, u32 src_len, u8 *dest_addr, u32 want_len,
+			 u8 *mod_addr)
+{
+	printf("__weak %s: not support rsa verify\n", __func__);
+	return -1;
+}
+
 int aw_certif_probe_sunxi_certif(sunxi_certif_info_t *sunxi_certif,
 				 aw_cert_t *aw_cert)
 {
@@ -80,10 +95,10 @@ int aw_certif_probe_sunxi_certif(sunxi_certif_info_t *sunxi_certif,
 	}
 	memcpy(sunxi_certif->aw_cert_info.public_key_info,
 	       aw_cert->public_key_info, AW_CERT_PK_INFO_SIZE);
-	sunxi_certif->aw_cert_info.public_key_size = AW_CERT_PK_INFO_SIZE;
+	sunxi_certif->aw_cert_info.public_key_size = aw_cert->public_key_size;
+
 	return 0;
 }
-
 #define SELF_STRING "self"
 int aw_certif_probe_extern(sunxi_certif_info_t *sunxi_certif,
 			   aw_cert_t *p_toc1_cert)
@@ -122,7 +137,7 @@ int aw_certif_probe_extern(sunxi_certif_info_t *sunxi_certif,
 			//        *((char *)(aw_cert_extern->name) + 4),
 			//        *((char *)(aw_cert_extern->name) + 5),
 			// 	   *((char *)(aw_cert_extern->name) + 6));
-			// ndump(aw_cert_extern->value,
+			// sunxi_dump(aw_cert_extern->value,
 			//       sizeof(aw_cert_extern->value));
 			sunxi_certif->extension.name[count] =
 				malloc(sizeof(aw_cert_extern->name));
@@ -156,13 +171,11 @@ int aw_certif_probe_extern(sunxi_certif_info_t *sunxi_certif,
 	// printf("count = %d\n", count);
 	return 0;
 }
-
 int aw_certif_probe_signature(aw_cert_t *aw_cert, u8 *sign)
 {
 	memcpy(sign, aw_cert->sign, aw_cert->sign_size);
 	return 0;
 }
-
 static void parse_aw_cert_publickey(aw_cert_t *p_toc0_cert,
 				    struct ecc_verify_params *params)
 {
@@ -184,7 +197,6 @@ static void parse_aw_cert_publickey(aw_cert_t *p_toc0_cert,
 	params->qy_len = ecc_pk_info->qy_len;
 	return;
 }
-
 static void parse_aw_cert_sign(aw_cert_ecc_sign_t *ecc_sign,
 			       struct ecc_verify_params *params)
 {
@@ -195,12 +207,42 @@ static void parse_aw_cert_sign(aw_cert_ecc_sign_t *ecc_sign,
 	return;
 }
 
-static int aw_certif_verify_sign(aw_cert_t *p_toc1_cert,
+static int aw_certif_rsa_verify_sign(aw_cert_t *p_toc1_cert,
 				 u8 *hash_of_certif, u8 hash_of_certif_len)
+{
+	int ret = -1;
+	aw_cert_rsa_pk_info_t *rsa_params =
+		(aw_cert_rsa_pk_info_t *)p_toc1_cert->public_key_info;
+	u8 hash_of_sign[32];
+	memset(hash_of_sign, 0, sizeof(hash_of_sign));
+
+	ret = sunxi_rsa_sign_check(p_toc1_cert->public_key_size, rsa_params->e,
+				   rsa_params->e_len, p_toc1_cert->sign,
+				   p_toc1_cert->sign_size, hash_of_sign,
+				   sizeof(hash_of_sign), rsa_params->n);
+	if (ret) {
+		printf("rsa sign calc: calc rsa %d with hardware err\n", p_toc1_cert->public_key_size);
+		return -1;
+	}
+	if (memcmp(hash_of_certif, hash_of_sign, 32)) {
+		printf("rsa %d certif verify failed\n", p_toc1_cert->public_key_size);
+		printf(">>>>>>>>>>>>>>hash_of_certif\n");
+		sunxi_dump(hash_of_certif, 32);
+		printf("<<<<<<<<<<<<<<\n");
+		printf(">>>>>>>>>>>>>>hash_of_sign\n");
+		sunxi_dump(hash_of_sign, 32);
+		printf("<<<<<<<<<<<<<<\n");
+		return -1;
+	}
+	return 0;
+}
+
+static int aw_certif_ecc_verify_sign(aw_cert_t *p_toc1_cert, u8 *hash_of_certif,
+				     u8 hash_of_certif_len)
 {
 	struct ecc_verify_params *params = (struct ecc_verify_params *)malloc(
 		sizeof(struct ecc_verify_params));
-	int ret = 0;
+	int ret = -1;
 	parse_aw_cert_publickey(p_toc1_cert, params);
 	parse_aw_cert_sign((aw_cert_ecc_sign_t *)(p_toc1_cert->sign), params);
 
@@ -208,8 +250,8 @@ static int aw_certif_verify_sign(aw_cert_t *p_toc1_cert,
 
 	// pr_err("dump hash_of_certif(%d)\n", hash_of_certif_len);
 	// sunxi_dump(hash_of_certif, hash_of_certif_len);
-	if (!toc_certif_desc.asy_sign_check(params, 68, hash_of_certif,
-					    hash_of_certif_len)) {
+	if (!sunxi_ecc_sign_check(params, 68,
+				 hash_of_certif, hash_of_certif_len)) {
 		ret = 0;
 	} else {
 		pr_err("ecc sign check failed\n");
@@ -222,12 +264,11 @@ static int aw_certif_verify_sign(aw_cert_t *p_toc1_cert,
 
 int aw_certif_verify_itself(sunxi_certif_info_t *sunxi_certif, u8 *buf, u32 len)
 {
-	int ret;
-	u8 hash_of_certif[64] = { 0 };
-	u8 sign_in_certif[256] = { 0 };
-	u8 *p_sign_to_calc;
-	u8 *align = (u8 *)(((uintptr_t)hash_of_certif + 31) & (~31));
+	int ret = -1;
+	u32 toc1_cert_align_len;
 	aw_cert_t *p_toc1_cert = (aw_cert_t *)buf;
+	toc1_cert_align_len = ALIGN((p_toc1_cert->head_size - RSA_MAX_BYTE), CACHE_LINE_SIZE);
+	ALLOC_CACHE_ALIGN_BUFFER(u8, hash_of_certif, CACHE_LINE_SIZE);
 	//get cert
 	if (aw_certif_probe_sunxi_certif(sunxi_certif,
 					 (aw_cert_t *)buf) < 0) {
@@ -236,64 +277,101 @@ int aw_certif_verify_itself(sunxi_certif_info_t *sunxi_certif, u8 *buf, u32 len)
 	if (aw_certif_probe_extern(sunxi_certif, p_toc1_cert) < 0) {
 		return -1;
 	}
-	//get certif sign
-	ret = aw_certif_probe_signature((aw_cert_t *)buf,
-					sign_in_certif);
-	if (ret) {
-		printf("fail to probe the sign value\n");
-		return -1;
-	}
-	// printf("dump p_toc1_cert->sign(%d)\n", p_toc1_cert->sign_size);
-	// ndump(sign_in_certif, p_toc1_cert->sign_size);
-	//get sign data
-	p_sign_to_calc = malloc(SUNXI_X509_CERTIFF_MAX_LEN);
-	if (!p_sign_to_calc) {
-		printf("malloc failed\n");
-		ret = -1;
-		goto verify_err;
-	}
+
 	//get  sign data hash
-	memset(hash_of_certif, 0, sizeof(hash_of_certif));
-	ret = sunxi_sha_calc(align, 32, (void *)p_toc1_cert,
+	memset(hash_of_certif, 0, CACHE_LINE_SIZE);
+	if ((unsigned long)p_toc1_cert & (CACHE_LINE_SIZE - 1)) {
+		ALLOC_CACHE_ALIGN_BUFFER(u8, p_toc1_cert_align, toc1_cert_align_len);
+		memset(p_toc1_cert_align, 0, toc1_cert_align_len);
+		memcpy(p_toc1_cert_align, p_toc1_cert, (p_toc1_cert->head_size - RSA_MAX_BYTE));
+		ret = sunxi_sha_calc(hash_of_certif, 32, p_toc1_cert_align,
 			     (p_toc1_cert->head_size - RSA_MAX_BYTE));
-	if (ret) {
-		printf("sunxi_sha_calc: calc sha256 with hardware err\n");
-		ret = -1;
-		goto verify_err;
+		if (ret) {
+			printf("sunxi_sha_calc: calc sha256 with hardware err\n");
+			return -1;
+		}
+	} else {
+		ret = sunxi_sha_calc(hash_of_certif, 32, (void *)p_toc1_cert,
+				     (p_toc1_cert->head_size - RSA_MAX_BYTE));
+		if (ret) {
+			printf("sunxi_sha_calc: calc sha256 with hardware err\n");
+			return -1;
+		}
 	}
-	ret = aw_certif_verify_sign(p_toc1_cert, align, 32);
-verify_err:
-	free(p_sign_to_calc);
+	ret = toc_certif_desc.aw_certif_verify_sign(p_toc1_cert, hash_of_certif, 32);
+
 	return ret;
 }
-
 int sunxi_certif_verify_itself(sunxi_certif_info_t *sunxi_certif, u8 *buf,
 			       u32 len)
 {
 	if (sunxi_certif_desc_register(buf) < 0) {
-		printf("sunxi_certif_desc_register failed\n");
 		return -1;
 	}
 	return toc_certif_desc.verify_itself(sunxi_certif, buf, len);
 }
 
-int sunxi_ecc_pubkey_hash_cal(u8 *out_buf, u32 hash_size,
-			      sunxi_certif_info_t *sunxi_certif)
+
+int aw_certif_rsa_pubkey_hash_cal(u8 *out_buf, u32 hash_size,
+				  u8 *public_key_info, u32 public_key_size)
 {
-	u8 pkey[ECC_MAX_BYTE * 2 + 32]; //px + py
-	u8 *align = (u8 *)(((uintptr_t)pkey + 31) & (~31));
+	int ret = -1;
+	aw_cert_rsa_pk_info_t *rsa_pk_info =
+		(aw_cert_rsa_pk_info_t *)public_key_info;
+	u32 pkey_size = public_key_size / 8 * 2;
+	ALLOC_CACHE_ALIGN_BUFFER(u8, pkey, ALIGN(pkey_size + 31, CACHE_LINE_SIZE));
+	if (!pkey) {
+		goto rsapk_err;
+	}
+	memset(pkey, 0x91, ALIGN(pkey_size + 31, CACHE_LINE_SIZE));
+	memcpy(pkey, rsa_pk_info->n, rsa_pk_info->n_len);
+	memcpy(pkey + rsa_pk_info->n_len, rsa_pk_info->e, rsa_pk_info->e_len);
+	if (sunxi_sha_calc(out_buf, hash_size, pkey, pkey_size)) {
+		goto rsapk_err;
+	}
+	ret = 0;
+	// printf("dump public hash(%d)\n", pkey_size);
+	// sunxi_dump(align, pkey_size);
+rsapk_err:
+	return ret;
+}
+
+int aw_certif_rsa_pubkey_hash_cal_from_sunxi_cert(
+	u8 *out_buf, u32 hash_size, sunxi_certif_info_t *sunxi_certif)
+{
+	return aw_certif_rsa_pubkey_hash_cal(
+		out_buf, hash_size,
+		(u8 *)(sunxi_certif->aw_cert_info.public_key_info),
+		sunxi_certif->aw_cert_info.public_key_size);
+}
+
+int aw_certif_ecc_pubkey_hash_cal(u8 *out_buf, u32 hash_size,
+				  u8 *public_key_info, u32 public_key_size)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(u8, pkey, ALIGN(ECC_MAX_BYTE * 2 + 32, CACHE_LINE_SIZE)); //px + py
+
 	aw_cert_ecc_pk_info_t *ecc_pk_info =
-		(aw_cert_ecc_pk_info_t *)
-			sunxi_certif->aw_cert_info.public_key_info;
-	memset(pkey, 0x0, sizeof(pkey));
-	memcpy(align, ecc_pk_info->qx, ecc_pk_info->qx_len);
-	memcpy(align + ecc_pk_info->qx_len, ecc_pk_info->qy,
+		(aw_cert_ecc_pk_info_t *)public_key_info;
+
+	memset(pkey, 0x0, ALIGN(ECC_MAX_BYTE * 2 + 32, CACHE_LINE_SIZE));
+	memcpy(pkey, ecc_pk_info->qx, ecc_pk_info->qx_len);
+	memcpy(pkey + ecc_pk_info->qx_len, ecc_pk_info->qy,
 	       ecc_pk_info->qy_len);
-	if (sunxi_sha_calc(out_buf, hash_size, align,
+
+	if (sunxi_sha_calc(out_buf, hash_size, pkey,
 			   ecc_pk_info->qx_len + ecc_pk_info->qy_len)) {
 		return -1;
 	}
 	return 0;
+}
+
+int aw_certif_ecc_pubkey_hash_cal_from_sunxi_cert(
+	u8 *out_buf, u32 hash_size, sunxi_certif_info_t *sunxi_certif)
+{
+	return aw_certif_ecc_pubkey_hash_cal(
+		out_buf, hash_size,
+		(u8 *)(sunxi_certif->aw_cert_info.public_key_info),
+		sunxi_certif->aw_cert_info.public_key_size);
 }
 
 int sunxi_rsa_pubkey_hash_cal(u8 *out_buf, u32 hash_size,
@@ -302,25 +380,95 @@ int sunxi_rsa_pubkey_hash_cal(u8 *out_buf, u32 hash_size,
 int sunxi_certif_pubkey_hash_cal(sunxi_certif_info_t *sunxi_certif,
 				 u8 *hash_buf)
 {
-	if (toc_certif_desc.pubkey_hash_cal == NULL) {
+	if (toc_certif_desc.pubkey_hash_cal_from_sunxi_cert == NULL) {
 		//printf("sunxi_certif_desc_register isn't register, use sunxi certif default\n");
-		toc_certif_desc.pubkey_hash_cal = sunxi_rsa_pubkey_hash_cal;
+		toc_certif_desc.pubkey_hash_cal_from_sunxi_cert = sunxi_rsa_pubkey_hash_cal;
 	}
-	return toc_certif_desc.pubkey_hash_cal(hash_buf, 32, sunxi_certif);
+	return toc_certif_desc.pubkey_hash_cal_from_sunxi_cert(hash_buf, 32, sunxi_certif);
+}
+
+int aw_certif_verify_subcert_pubkey(sunxi_certif_info_t *root_certif,
+				    u8 ext_seq, sunxi_certif_info_t *sub_certif)
+{
+	u8 sub_pubkey_hash[32] = { 0 };
+
+	if (toc_certif_desc.pubkey_hash_cal_from_sunxi_cert(sub_pubkey_hash, 32,
+							    sub_certif) < 0) {
+		return -1;
+	}
+	if (memcmp(root_certif->extension.value[ext_seq], sub_pubkey_hash,
+		   32)) {
+		printf("root cert exten hash(%d)\n", 32);
+		sunxi_dump((void *)root_certif->extension.value[ext_seq], 32);
+		printf("sub cert pubkey hash(%d)\n", 32);
+		sunxi_dump((void *)sub_pubkey_hash, 32);
+		return -1;
+	}
+	return 0;
+}
+
+int sunxi_certif_verify_subcert_pubkey(sunxi_certif_info_t *root_certif,
+				       sunxi_certif_info_t *sub_certif,
+				       const char *name)
+{
+	u8 i;
+
+	for (i = 0; i < root_certif->extension.extension_num; i++) {
+		if (!strncmp((const char *)root_certif->extension.name[i],
+			     name,
+			     root_certif->extension.name_len[i])) {
+			printf("find %s key stored in root certif\n", name);
+
+			if (toc_certif_desc.verify_subcert_pubkey(
+				    root_certif, i, sub_certif) < 0) {
+				return -1;
+			}
+			break;
+		}
+	}
+	if (i == root_certif->extension.extension_num) {
+		printf("cant find %s key stored in root certif\n", name);
+		return -1;
+	}
+	return 0;
 }
 
 int sunxi_certif_desc_register(u8 *buf)
 {
 	int ret = 0;
+	aw_cert_t *p_toc1_cert = (aw_cert_t *)buf;
 
 	if (!memcmp(buf, AW_CERT_FORMAT_SIGN, AW_CERT_MAGIC_SIZE)) {
-		printf("aw ceritf\n");
-		toc_certif_desc.pubkey_hash_cal = sunxi_ecc_pubkey_hash_cal;
+		// printf("aw ceritf %s %d\n",
+		//        p_toc1_cert->algorithm_type ? "ecc" : "rsa",
+		//        p_toc1_cert->public_key_size);
 		toc_certif_desc.verify_itself = aw_certif_verify_itself;
-		toc_certif_desc.asy_sign_check = sunxi_ecc_sign_check;
+		toc_certif_desc.verify_subcert_pubkey = aw_certif_verify_subcert_pubkey;
+
+		if (p_toc1_cert->algorithm_type == SIGN_TYPE_ECC) {
+			toc_certif_desc.pubkey_hash_cal_from_sunxi_cert =
+				aw_certif_ecc_pubkey_hash_cal_from_sunxi_cert;
+			toc_certif_desc.aw_certif_verify_sign =
+				aw_certif_ecc_verify_sign;
+			// toc_certif_desc.aw_certif_pubkey_hash_cal =
+			// 	aw_certif_ecc_pubkey_hash_cal;
+		} else if (p_toc1_cert->algorithm_type == SIGN_TYPE_RSA) {
+			toc_certif_desc.pubkey_hash_cal_from_sunxi_cert =
+				aw_certif_rsa_pubkey_hash_cal_from_sunxi_cert;
+			toc_certif_desc.aw_certif_verify_sign =
+				aw_certif_rsa_verify_sign;
+			// toc_certif_desc.aw_certif_pubkey_hash_cal =
+			// 	aw_certif_rsa_pubkey_hash_cal;
+		} else {
+			printf("unsupport asymmetric\n");
+			return -1;
+		}
 	} else {
-		toc_certif_desc.pubkey_hash_cal = sunxi_rsa_pubkey_hash_cal;
+		toc_certif_desc.pubkey_hash_cal_from_sunxi_cert =
+			sunxi_rsa_pubkey_hash_cal;
 		toc_certif_desc.verify_itself = sunxi_X509_certif_verify_itself;
+		//toc_certif_desc.verify_subcert_pubkey =
+		//	sunxi_X509_certif_verify_subcert_pubkey;
 	}
 	return ret;
 }

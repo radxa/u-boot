@@ -12,11 +12,8 @@
 
 #include "../../../sunxi_edp.h"
 #include "trilinear_dp14.h"
-#include <linux/pinctrl/consumer.h>
 #include <linux/delay.h>
 #include <linux/io.h>
-#include <linux/of_gpio.h>
-#include <linux/gpio.h>
 
 #define LS_PER_TU	64
 
@@ -26,6 +23,84 @@ struct edp_aux_request {
 	int address;
 	int data_len;
 	int data[16];
+};
+
+struct edp_audio_mn_aud {
+	int link_bw;
+	int data_rate;
+	int maud;
+	int naud;
+};
+
+enum audio_intf {
+	HDMI_I2S,
+	HDMI_RIGHT_J,
+	HDMI_LEFT_J,
+	HDMI_DSP_A,
+	HDMI_DSP_B,
+	HDMI_AC97,
+	HDMI_SPDIF,
+};
+
+#define RET_OP(ret)	(0 - ret)
+
+static const char * const aux_fail_reason_str[] = {
+	[RET_OP(RET_AUX_NACK)]			= "AUX_NACK",
+	[RET_OP(RET_AUX_TIMEOUT)]		= "AUX_TIMEOUT",
+	[RET_OP(RET_AUX_DEFER)]			= "AUX_DEFER",
+	[RET_OP(RET_AUX_NO_STOP)]		= "AUX_NO_STOP",
+	[RET_OP(RET_AUX_RPLY_ERR)]		= "AUX_RPLY_ERR",
+	[RET_OP(RET_I2C_AUX_NACK)]		= "I2C_AUX_NACK",
+	[RET_OP(RET_I2C_AUX_DEFER)]		= "I2C_AUX_DEFER",
+};
+
+
+#define EDP_AUD_DEFINE(bw, rate, m, n) \
+	.link_bw = bw, \
+	.data_rate = rate, \
+	.maud = m, \
+	.naud = n,
+
+struct edp_audio_mn_aud aud_tbl[] = {
+	{ EDP_AUD_DEFINE(162, 32000, 1024, 10125) },
+	{ EDP_AUD_DEFINE(162, 44100, 784, 5625) },
+	{ EDP_AUD_DEFINE(162, 48000, 512, 3375) },
+	{ EDP_AUD_DEFINE(162, 64000, 2048, 10125) },
+	{ EDP_AUD_DEFINE(162, 88200, 1568, 5625) },
+	{ EDP_AUD_DEFINE(162, 90600, 1024, 3375) },
+	{ EDP_AUD_DEFINE(162, 128000, 4096, 10125) },
+	{ EDP_AUD_DEFINE(162, 176400, 3136, 5625) },
+	{ EDP_AUD_DEFINE(162, 192000, 2048, 3375) },
+
+	{ EDP_AUD_DEFINE(270, 32000, 1024, 16875) },
+	{ EDP_AUD_DEFINE(270, 44100, 784, 9375) },
+	{ EDP_AUD_DEFINE(270, 48000, 512, 5625) },
+	{ EDP_AUD_DEFINE(270, 64000, 2048, 16875) },
+	{ EDP_AUD_DEFINE(270, 88200, 1568, 9375) },
+	{ EDP_AUD_DEFINE(270, 90600, 1024, 5625) },
+	{ EDP_AUD_DEFINE(270, 128000, 4096, 16875) },
+	{ EDP_AUD_DEFINE(270, 176400, 3136, 9375) },
+	{ EDP_AUD_DEFINE(270, 192000, 2048, 5625) },
+
+	{ EDP_AUD_DEFINE(540, 32000, 1024, 33750) },
+	{ EDP_AUD_DEFINE(540, 44100, 784, 18750) },
+	{ EDP_AUD_DEFINE(540, 48000, 512, 11250) },
+	{ EDP_AUD_DEFINE(540, 64000, 2048, 33750) },
+	{ EDP_AUD_DEFINE(540, 88200, 1568, 18750) },
+	{ EDP_AUD_DEFINE(540, 90600, 1024, 11250) },
+	{ EDP_AUD_DEFINE(540, 128000, 4096, 33750) },
+	{ EDP_AUD_DEFINE(540, 176400, 3136, 18750) },
+	{ EDP_AUD_DEFINE(540, 192000, 2048, 11250) },
+
+	{ EDP_AUD_DEFINE(810, 32000, 1024, 50625) },
+	{ EDP_AUD_DEFINE(810, 44100, 784, 28125) },
+	{ EDP_AUD_DEFINE(810, 48000, 512, 16875) },
+	{ EDP_AUD_DEFINE(810, 64000, 2048, 50625) },
+	{ EDP_AUD_DEFINE(810, 88200, 1568, 28125) },
+	{ EDP_AUD_DEFINE(810, 90600, 1024, 16875) },
+	{ EDP_AUD_DEFINE(810, 128000, 4096, 50625) },
+	{ EDP_AUD_DEFINE(810, 176400, 3136, 28125) },
+	{ EDP_AUD_DEFINE(810, 192000, 2048, 16875) },
 };
 
 u32 TR_READ(struct sunxi_edp_hw_desc *edp_hw, u32 addr)
@@ -48,7 +123,7 @@ void TR_TOP_WRITE(struct sunxi_edp_hw_desc *edp_hw, u32 addr, u32 val)
 	writel(val, edp_hw->top_base + addr);
 }
 
-static void TR_CLR_BITS(struct sunxi_edp_hw_desc *edp_hw, u32 reg, u32 shift, u32 width)
+__maybe_unused static void TR_CLR_BITS(struct sunxi_edp_hw_desc *edp_hw, u32 reg, u32 shift, u32 width)
 {
 	u32 reg_val;
 
@@ -76,12 +151,6 @@ static u32 TR_GET_BITS(struct sunxi_edp_hw_desc *edp_hw, u32 reg, u32 shift, u32
 	return reg_val;
 }
 
-
-void trilinear_enhanced_frame_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
-{
-	TR_SET_BITS(edp_hw, TR_ENHANCED_FRAME_EN, 0, 1, enable ? 0x1 : 0x0);
-}
-
 /* must set to disable  before link training
  * and set to enable after link training */
 void trilinear_scrambling_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
@@ -104,7 +173,7 @@ void trilinear_sst_init(struct sunxi_edp_hw_desc *edp_hw)
 	// set mst source channel, only use channel 0
 	TR_SET_BITS(edp_hw, TR_INPUT_SOURCE_ENABLE, 0, 3, 0x1);
 
-	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 1, 1, 0x1);
+//	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 1, 1, 0x1);
 	TR_SET_BITS(edp_hw, TR_TRANSMITTER_OUTPUT_EN, 0, 1, 0x1);
 }
 
@@ -123,6 +192,8 @@ void edp_hbr2_scrambler_config(struct sunxi_edp_hw_desc *edp_hw, u32 intval)
 
 s32 trilinear_lane_remap_config(struct sunxi_edp_hw_desc *edp_hw, u32 lane_id, u32 remap_id)
 {
+	// put remap config into phy driver
+	return RET_OK;
 	if (lane_id < 0 || lane_id > 3) {
 		EDP_WRN("lane remap: unsupport lane number!\n");
 		return RET_FAIL;
@@ -157,6 +228,8 @@ s32 trilinear_lane_remap_config(struct sunxi_edp_hw_desc *edp_hw, u32 lane_id, u
 /* some markid should always invert because base-board lane has been inverted */
 s32 trilinear_lane_invert_config(struct sunxi_edp_hw_desc *edp_hw, u32 lane_id, bool invert)
 {
+	// put invert config into phy driver
+	return RET_OK;
 	if (lane_id < 0 || lane_id > 4) {
 		EDP_WRN("lane invert: unsupport lane number!\n");
 		return RET_FAIL;
@@ -270,8 +343,7 @@ int edp_send_aux_request(struct sunxi_edp_hw_desc *edp_hw,
 
 	TR_WRITE(edp_hw, TR_AUX_ADDRESS, request->address);
 
-	if (request->cmd_code == TR_DP_CMD_REQUEST_I2C_READ_MOT ||
-	    request->cmd_code == TR_DP_CMD_REQUEST_WRITE ||
+	if (request->cmd_code == TR_DP_CMD_REQUEST_WRITE ||
 	    request->cmd_code == TR_DP_CMD_REQUEST_I2C_WRITE ||
 	    request->cmd_code == TR_DP_CMD_REQUEST_I2C_WRITE_MOT) {
 		for (i = 0; i < request->data_len; i++)
@@ -292,50 +364,48 @@ int edp_send_aux_request(struct sunxi_edp_hw_desc *edp_hw,
 }
 
 int edp_aux_read(struct sunxi_edp_hw_desc *edp_hw,
-		 u32 addr, u32 len, char *buf, bool retry)
+		 u32 addr, u32 len, char *buf)
 {
 	struct edp_aux_request request;
-	int ret = 0, i = 0, j = 0;
+	int ret = 0, i = 0;
 	int reply_code = 0;
 
 	mutex_lock(&edp_hw->aux_lock);
 
-	for (j = 0; j < (len / 16 + 1); j++) {
-		request.cmd_code = TR_DP_CMD_REQUEST_READ;
-		request.address_only = false;
-		request.address = addr + (16 * j);
-		request.data_len = 16;
+	memset(&request, 0, sizeof(struct edp_aux_request));
+	request.cmd_code = TR_DP_CMD_REQUEST_READ;
+	request.address_only = false;
+	request.address = addr;
+	request.data_len = 16;
 
-		edp_send_aux_request(edp_hw, &request);
+	edp_send_aux_request(edp_hw, &request);
 
-		ret = edp_wait_reply(edp_hw);
-		if (ret != RET_OK) {
-			mutex_unlock(&edp_hw->aux_lock);
-			return ret;
-		}
+	ret = edp_wait_reply(edp_hw);
+	if (ret != RET_OK) {
+		EDP_LOW_DBG("[%s] wait reply fail\n", __func__);
+		mutex_unlock(&edp_hw->aux_lock);
+		return ret;
+	}
 
-		reply_code = edp_aux_reply_code(edp_hw);
-		switch (reply_code) {
-		case AUX_ACK:
-			for (i = 0; i < request.data_len; i++) {
-				/* add limit to avoid memory exceed */
-				if ((16 * j + i) <= len) {
-					buf[16 * j + i] = TR_READ(edp_hw, TR_AUX_REPLY_DATA_FIFO);
-					EDP_LOW_DBG("[%s] result: buf[%d] = 0x%x\n", __func__, i, buf[16 * j + i]);
-				}
+	reply_code = edp_aux_reply_code(edp_hw);
+	EDP_LOW_DBG("[%s] reply_code:0x%x\n", __func__, reply_code);
+	switch (reply_code) {
+	case AUX_ACK:
+		for (i = 0; i < request.data_len; i++) {
+			/* add limit to avoid memory exceed */
+			if (i <= len) {
+				buf[i] = TR_READ(edp_hw, TR_AUX_REPLY_DATA_FIFO);
+				EDP_LOW_DBG("[%s] result: buf[%d] = 0x%x\n", __func__, i, buf[i]);
 			}
-			break;
-		case NATIVE_AUX_NACK:
-			EDP_LOW_DBG("edp_aux_read recieve NATIVE_AUX_NACK, request(cmd:0x%x addr:0x%x len:%d)\n",
-				    request.cmd_code, request.address, request.data_len);
-			ret = RET_AUX_NACK;
-			goto OUT;
-		case NATIVE_AUX_DEFER:
-			EDP_LOW_DBG("edp_aux_read recieve NATIVE_AUX_DEFER, request(cmd:0x%x addr:0x%x len:%d)\n",
-				    request.cmd_code, request.address, request.data_len);
-			ret = RET_AUX_DEFER;
-			goto OUT;
 		}
+		ret = RET_OK;
+		goto OUT;
+	case NATIVE_AUX_NACK:
+		ret = RET_AUX_NACK;
+		goto OUT;
+	case NATIVE_AUX_DEFER:
+		ret = RET_AUX_DEFER;
+		goto OUT;
 	}
 OUT:
 	mutex_unlock(&edp_hw->aux_lock);
@@ -343,56 +413,46 @@ OUT:
 }
 
 int edp_aux_write(struct sunxi_edp_hw_desc *edp_hw,
-		  u32 addr, u32 len, char *buf, bool retry)
+		  u32 addr, u32 len, char *buf)
 {
 	struct edp_aux_request request;
-	int ret = 0, i = 0, j = 0;
+	int ret = 0, i = 0;
 	int reply_code;
 
 	mutex_lock(&edp_hw->aux_lock);
+
 	memset(&request, 0, sizeof(struct edp_aux_request));
+	request.cmd_code = TR_DP_CMD_REQUEST_WRITE;
+	request.address_only = false;
+	request.address = addr;
+	request.data_len = len;
 
-	for (j = 0; j < (len / 16 + 1); j++) {
-		request.cmd_code = TR_DP_CMD_REQUEST_WRITE;
-		request.address_only = false;
-		request.address = addr + (16 * j);
+	for (i = 0; i < request.data_len; i++) {
+		request.data[i] = buf[i];
+		EDP_LOW_DBG("[%s] want_write: buf[%d] = 0x%x\n", __func__, i, buf[i]);
+	}
 
-		if (len <= 16)
-			request.data_len = len;
-		else if ((16 * j) < (len - 16))
-			request.data_len = 16;
-		else
-			/* this is the last one transmit */
-			request.data_len = len - 16;
+	edp_send_aux_request(edp_hw, &request);
 
-		for (i = 0; i < request.data_len; i++) {
-			request.data[i] = buf[16 * j + i];
-			EDP_LOW_DBG("[%s] want_write: buf[%d] = 0x%x\n", __func__, i, buf[16 * j + i]);
-		}
+	ret = edp_wait_reply(edp_hw);
+	if (ret != RET_OK) {
+		EDP_LOW_DBG("[%s] wait reply fail\n", __func__);
+		mutex_unlock(&edp_hw->aux_lock);
+		return ret;
+	}
 
-		edp_send_aux_request(edp_hw, &request);
-
-		ret = edp_wait_reply(edp_hw);
-		if (ret != RET_OK) {
-			mutex_unlock(&edp_hw->aux_lock);
-			return ret;
-		}
-
-		reply_code = edp_aux_reply_code(edp_hw);
-		switch (reply_code) {
-		case AUX_ACK:
-			break;
-		case NATIVE_AUX_NACK:
-			EDP_LOW_DBG("edp_aux_write recieve NATIVE_AUX_NACK, request(cmd:0x%x addr:0x%x len:%d)\n",
-				    request.cmd_code, request.address, request.data_len);
-			ret = RET_AUX_NACK;
-			goto OUT;
-		case NATIVE_AUX_DEFER:
-			EDP_LOW_DBG("edp_aux_write recieve NATIVE_AUX_DEFER, request(cmd:0x%x addr:0x%x len:%d)\n",
-				    request.cmd_code, request.address, request.data_len);
-			ret = RET_AUX_DEFER;
-			goto OUT;
-		}
+	reply_code = edp_aux_reply_code(edp_hw);
+	EDP_LOW_DBG("[%s] reply_code:0x%x\n", __func__, reply_code);
+	switch (reply_code) {
+	case AUX_ACK:
+		ret = RET_OK;
+		goto OUT;
+	case NATIVE_AUX_NACK:
+		ret = RET_AUX_NACK;
+		goto OUT;
+	case NATIVE_AUX_DEFER:
+		ret = RET_AUX_DEFER;
+		goto OUT;
 	}
 OUT:
 	mutex_unlock(&edp_hw->aux_lock);
@@ -400,86 +460,300 @@ OUT:
 }
 
 int edp_aux_i2c_read(struct sunxi_edp_hw_desc *edp_hw,
-		     u32 i2c_addr, u32 addr, u32 len, char *buf, bool retry)
+		     u32 i2c_addr, u32 addr, u32 len, char *buf, bool mot)
 {
 	struct edp_aux_request request;
-	int ret = 0, i = 0, j = 0;
+	int ret = 0, i = 0;
 	int reply_code;
 
 	mutex_lock(&edp_hw->aux_lock);
-	request.cmd_code = TR_DP_CMD_REQUEST_I2C_WRITE_MOT;
+
+	memset(&request, 0, sizeof(struct edp_aux_request));
 	request.address = i2c_addr;
-	//request.address_only = true;
-	request.data_len = 1;
-	request.data[0] = addr;
-	request.data[1] = 0;
+	request.data_len = 16;
+	if (mot)
+		request.cmd_code = TR_DP_CMD_REQUEST_I2C_READ_MOT;
+	else
+		request.cmd_code = TR_DP_CMD_REQUEST_I2C_READ;
 
 	edp_send_aux_request(edp_hw, &request);
-
 	ret = edp_wait_reply(edp_hw);
 	if (ret != RET_OK) {
+		EDP_LOW_DBG("[%s] wait reply fail\n", __func__);
 		mutex_unlock(&edp_hw->aux_lock);
 		return ret;
 	}
 
-	memset(&request, 0, sizeof(struct edp_aux_request));
-
-	for (j = 0; j < (len / 16 + 1); j++) {
-		request.address = i2c_addr;
-		request.data_len = 16;
-		if ((j == ((len / 16) - 1)) || (j == ((len / 16)))) {
-			request.cmd_code = TR_DP_CMD_REQUEST_I2C_READ;
-		} else {
-			request.cmd_code = TR_DP_CMD_REQUEST_I2C_READ_MOT;
-		}
-
-		edp_send_aux_request(edp_hw, &request);
-
-		ret = edp_wait_reply(edp_hw);
-		if (ret != RET_OK) {
-			mutex_unlock(&edp_hw->aux_lock);
-			return ret;
-		}
-
-		reply_code = edp_aux_reply_code(edp_hw);
-		switch (reply_code) {
-		case AUX_ACK:
-			for (i = 0; i < request.data_len; i++) {
-				if ((16 * j + i) <= len) {
-					buf[16 * j + i] = TR_READ(edp_hw, TR_AUX_REPLY_DATA_FIFO);
-					EDP_LOW_DBG("[%s] result: buf[%d] = 0x%x\n", __func__, i, buf[16 * j + i]);
-				}
+	reply_code = edp_aux_reply_code(edp_hw);
+	EDP_LOW_DBG("[%s] reply_code:0x%x\n", __func__, reply_code);
+	switch (reply_code) {
+	case AUX_ACK:
+		for (i = 0; i < request.data_len; i++) {
+			if (i <= len) {
+				buf[i] = TR_READ(edp_hw, TR_AUX_REPLY_DATA_FIFO);
+				EDP_LOW_DBG("[%s] result: buf[%d] = 0x%x\n", __func__, i, buf[i]);
 			}
-			break;
-		case I2C_AUX_NACK:
-			EDP_LOW_DBG("edp_aux_i2c_read recieve I2C_AUX_NACK, request(cmd:0x%x addr:0x%x len:%d)\n",
-				    request.cmd_code, request.address, request.data_len);
-			ret = RET_AUX_NACK;
-			goto OUT;
-		case I2C_AUX_DEFER:
-			EDP_LOW_DBG("edp_aux_i2c_read recieve I2C_AUX_DEFER, request(cmd:0x%x addr:0x%x len:%d)\n",
-				    request.cmd_code, request.address, request.data_len);
-			ret = RET_AUX_DEFER;
-			goto OUT;
 		}
+		ret = RET_OK;
+		break;
+	case I2C_AUX_NACK:
+	case NATIVE_AUX_NACK:
+		ret = RET_I2C_AUX_NACK;
+		goto OUT;
+	case I2C_AUX_DEFER:
+	case NATIVE_AUX_DEFER:
+		ret = RET_I2C_AUX_DEFER;
+		goto OUT;
 	}
 
 
 OUT:
 	mutex_unlock(&edp_hw->aux_lock);
-	return RET_OK;
+	return ret;
 }
 
 int edp_aux_i2c_write(struct sunxi_edp_hw_desc *edp_hw,
-		      u32 i2c_addr, u32 addr, u32 len, char *buf, bool retry)
+		      u32 i2c_addr, u32 addr, u32 len, char *buf, bool mot)
 {
 	struct edp_aux_request request;
-	int ret = 0, i = 0, j = 0;
+	int ret = 0, i = 0;
 	int reply_code;
+
+	mutex_lock(&edp_hw->aux_lock);
+
+	memset(&request, 0, sizeof(struct edp_aux_request));
+	request.cmd_code = TR_DP_CMD_REQUEST_I2C_WRITE_MOT;
+	request.address = i2c_addr;
+	request.data_len = len;
+
+	if (!mot) {
+		/* if is the last once transmit, use I2C_WRITE but not
+		 * I2C_WRITE_MOT*/
+		request.cmd_code = TR_DP_CMD_REQUEST_I2C_WRITE;
+	}
+
+	for (i = 0; i < request.data_len; i++) {
+		request.data[i] = buf[i];
+		EDP_LOW_DBG("[%s] want_write: buf[%d] = 0x%x\n", __func__, i, buf[i]);
+	}
+
+	edp_send_aux_request(edp_hw, &request);
+
+	ret = edp_wait_reply(edp_hw);
+	if (ret != RET_OK) {
+		EDP_LOW_DBG("[%s] wait reply fail\n", __func__);
+		mutex_unlock(&edp_hw->aux_lock);
+		return ret;
+	}
+
+	reply_code = edp_aux_reply_code(edp_hw);
+	switch (reply_code) {
+	case AUX_ACK:
+		ret = RET_OK;
+		goto OUT;
+	case I2C_AUX_NACK:
+	case NATIVE_AUX_NACK:
+		ret = RET_I2C_AUX_NACK;
+		goto OUT;
+	case I2C_AUX_DEFER:
+	case NATIVE_AUX_DEFER:
+		ret = RET_I2C_AUX_DEFER;
+		goto OUT;
+	}
+
+OUT:
+	mutex_unlock(&edp_hw->aux_lock);
+	return ret;
+}
+
+s32 trilinear_aux_read(struct sunxi_edp_hw_desc *edp_hw,
+		     s32 addr, s32 len, char *buf)
+{
+	int ret = 0, j = 0;
+	int len_rest;
+	int block = 16;
+	u32 ext = (len % block) ? 1 : 0;
+	u32 retry_cnt = 0;
+
+	len_rest = len;
+	for (j = 0; j < (len / block + ext); j++) {
+		retry_cnt = 0;
+		while (retry_cnt < 7) {
+			ret = edp_aux_read(edp_hw, addr + (j * block), (len_rest > block) ? block : len_rest,
+					       buf + (j * block));
+
+			/*
+			 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
+			 * AUX_TIMEOUT, AUX_NO_STOP
+			 */
+			if ((ret != RET_AUX_NACK) &&
+			    (ret != RET_AUX_TIMEOUT) &&
+			    (ret != RET_AUX_RPLY_ERR) &&
+			    (ret != RET_AUX_DEFER) &&
+			    (ret != RET_I2C_AUX_NACK) &&
+			    (ret != RET_I2C_AUX_DEFER) &&
+			    (ret != RET_AUX_NO_STOP))
+				break;
+			/* at least 400us between two request is request in dp cts */
+			udelay(500);
+			retry_cnt++;
+			EDP_LOW_DBG("%s fail(%s), addr:0x%x len:16, retry (%d) times now\n",
+				     __func__, aux_fail_reason_str[RET_OP(ret)], (addr + j * block), retry_cnt);
+		}
+
+		if (ret != RET_OK) {
+			EDP_ERR("%s retry 7 timies but still %s, request(addr:0x%x len:16)\n",
+			    __func__, aux_fail_reason_str[RET_OP(ret)], (addr + j * block));
+
+			return ret;
+		}
+		len_rest -= block;
+	}
+
+	return ret;
+}
+
+s32 trilinear_aux_write(struct sunxi_edp_hw_desc *edp_hw,
+			s32 addr, s32 len, char *buf)
+{
+	int ret = 0, j = 0;
+	int len_rest;
+	int block = 16;
+	u32 ext = (len % block) ? 1 : 0;
+	u32 retry_cnt = 0;
+
+	len_rest = len;
+	for (j = 0; j < (len / block + ext); j++) {
+		retry_cnt = 0;
+		while (retry_cnt < 7) {
+			ret = edp_aux_write(edp_hw, addr + (j * block), (len_rest > block) ? block : len_rest,
+					       buf + (j * block));
+
+			/*
+			 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
+			 * AUX_TIMEOUT, AUX_NO_STOP
+			 */
+			if ((ret != RET_AUX_NACK) &&
+			    (ret != RET_AUX_TIMEOUT) &&
+			    (ret != RET_AUX_RPLY_ERR) &&
+			    (ret != RET_AUX_DEFER) &&
+			    (ret != RET_I2C_AUX_NACK) &&
+			    (ret != RET_I2C_AUX_DEFER) &&
+			    (ret != RET_AUX_NO_STOP))
+				break;
+			/* at least 400us between two request is request in dp cts */
+			udelay(500);
+			retry_cnt++;
+			EDP_LOW_DBG("%s fail(%s), addr:0x%x len:16, retry (%d) times now\n",
+				     __func__, aux_fail_reason_str[RET_OP(ret)], (addr + j * block), retry_cnt);
+		}
+
+		if (ret != RET_OK) {
+			EDP_ERR("%s retry 7 timies but still %s, request(addr:0x%x len:16)\n",
+			    __func__, aux_fail_reason_str[RET_OP(ret)], (addr + j * block));
+
+			return ret;
+		}
+		len_rest -= block;
+	}
+
+	return ret;
+}
+
+s32 trilinear_aux_i2c_read(struct sunxi_edp_hw_desc *edp_hw,
+			   s32 i2c_addr, s32 addr, s32 len, char *buf)
+{
+	struct edp_aux_request request;
+	int block = 16;
+	int ret = 0, j = 0;
+	u32 ext = (len % block) ? 1 : 0;
+	u32 retry_cnt = 0;
+	int len_rest;
+	bool mot;
+
+	len_rest = len;
+	mutex_lock(&edp_hw->aux_lock);
+	memset(&request, 0, sizeof(struct edp_aux_request));
+	request.cmd_code = TR_DP_CMD_REQUEST_I2C_WRITE_MOT;
+	request.address = i2c_addr;
+	//request.address_only = true;
+	request.data_len = 1;
+	request.data[0] = addr;
+	request.data[1] = 0;
+	while (retry_cnt < 7) {
+		edp_send_aux_request(edp_hw, &request);
+
+		ret = edp_wait_reply(edp_hw);
+		if (ret == RET_OK)
+			break;
+
+		retry_cnt++;
+		EDP_LOW_DBG("i2c read fail in write-i2c-addr(err:%s), addr:0x%x len:16 retry (%d) times now\n",
+			    aux_fail_reason_str[RET_OP(ret)], (addr + j * block), retry_cnt);
+		/* at least 400us between two request is request in dp cts */
+		udelay(500);
+	}
+	mutex_unlock(&edp_hw->aux_lock);
+	if (ret != RET_OK)
+		return ret;
+
+
+	for (j = 0; j < (len / block + ext); j++) {
+		retry_cnt = 0;
+		while (retry_cnt < 7) {
+			if ((j == ((len / block) - 1)) || (j == ((len / block))))
+				mot = false;
+			else
+				mot = true;
+			ret = edp_aux_i2c_read(edp_hw, i2c_addr, addr, (len_rest > block) ? block : len_rest,
+					       buf + (j * block), mot);
+
+			/*
+			 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
+			 * AUX_TIMEOUT, AUX_NO_STOP
+			 */
+			if ((ret != RET_AUX_NACK) &&
+			    (ret != RET_AUX_TIMEOUT) &&
+			    (ret != RET_AUX_RPLY_ERR) &&
+			    (ret != RET_AUX_DEFER) &&
+			    (ret != RET_I2C_AUX_NACK) &&
+			    (ret != RET_I2C_AUX_DEFER) &&
+			    (ret != RET_AUX_NO_STOP))
+				break;
+			/* at least 400us between two request is request in dp cts */
+			udelay(500);
+			retry_cnt++;
+			EDP_LOW_DBG("%s fail(%s), addr:0x%x len:16, retry (%d) times now\n",
+				     __func__, aux_fail_reason_str[RET_OP(ret)], (addr + j * block), retry_cnt);
+		}
+
+		if (ret != RET_OK) {
+			EDP_ERR("%s retry 7 timies but still %s, request(i2c_addr:0x%x addr:0x%x len:16)\n",
+			    __func__, aux_fail_reason_str[RET_OP(ret)], i2c_addr, (addr + j * block));
+
+			return ret;
+		}
+		len_rest -= block;
+	}
+
+	return ret;
+}
+
+s32 trilinear_aux_i2c_write(struct sunxi_edp_hw_desc *edp_hw,
+			    s32 i2c_addr, s32 addr, s32 len, char *buf)
+{
+	struct edp_aux_request request;
+	int block = 16;
+	int ret = 0, j = 0;
+	u32 ext = (len % block) ? 1 : 0;
+	u32 retry_cnt = 0;
+	int len_rest;
+	bool mot;
 
 	mutex_lock(&edp_hw->aux_lock);
 	memset(&request, 0, sizeof(struct edp_aux_request));
 
+	len_rest = len;
 	request.cmd_code = TR_DP_CMD_REQUEST_I2C_WRITE_MOT;
 	request.address = i2c_addr;
 	//request.address_only = true;
@@ -487,62 +761,68 @@ int edp_aux_i2c_write(struct sunxi_edp_hw_desc *edp_hw,
 	request.data[0] = addr;
 	request.data[1] = 0;
 
-	edp_send_aux_request(edp_hw, &request);
-
-	ret = edp_wait_reply(edp_hw);
-	if (ret != RET_OK) {
-		mutex_unlock(&edp_hw->aux_lock);
-		return ret;
-	}
-
-	for (j = 0; j < (len / 16 + 1); j++) {
-		request.cmd_code = TR_DP_CMD_REQUEST_I2C_WRITE_MOT;
-		request.address = i2c_addr;
-
-		if (len <= 16)
-			request.data_len = len;
-		else if ((16 * j) < (len - 16))
-			request.data_len = 16;
-		else {
-			/* if is the last once transmit, use I2C_WRITE but not
-			 * I2C_WRITE_MOT*/
-			request.cmd_code = TR_DP_CMD_REQUEST_I2C_WRITE;
-			request.data_len = len - 16;
-		}
-
-		for (i = 0; i < request.data_len; i++) {
-			request.data[i] = buf[16 * j + i];
-			EDP_LOW_DBG("[%s] want_write: buf[%d] = 0x%x\n", __func__, i, buf[16 * j + i]);
-		}
-
+	while (retry_cnt < 7) {
 		edp_send_aux_request(edp_hw, &request);
 
 		ret = edp_wait_reply(edp_hw);
+		if (ret == RET_OK)
+			break;
+
+		retry_cnt++;
+		EDP_LOW_DBG("i2c write fail in write-i2c-addr(err:%s), addr:0x%x len:16 retry (%d) times now\n",
+			    aux_fail_reason_str[RET_OP(ret)], (addr + j * block), retry_cnt);
+		/* at least 400us between two request is request in dp cts */
+		udelay(500);
+	}
+	mutex_unlock(&edp_hw->aux_lock);
+	if (ret != RET_OK)
+		return ret;
+
+	for (j = 0; j < (len / block + ext); j++) {
+		retry_cnt = 0;
+		while (retry_cnt < 7) {
+			if (len <= 16)
+				mot = true;
+			else if ((16 * j) < (len - 16))
+				mot = true;
+			else {
+				/* if is the last once transmit, use I2C_WRITE but not
+				 * I2C_WRITE_MOT*/
+				mot = false;
+			}
+
+			ret = edp_aux_i2c_write(edp_hw, i2c_addr, addr, (len_rest > block) ? block : len_rest,
+				  buf + (j * block), mot);
+
+			/*
+			 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
+			 * AUX_TIMEOUT, AUX_NO_STOP
+			 */
+			if ((ret != RET_AUX_NACK) &&
+			    (ret != RET_AUX_TIMEOUT) &&
+			    (ret != RET_AUX_RPLY_ERR) &&
+			    (ret != RET_AUX_DEFER) &&
+			    (ret != RET_I2C_AUX_NACK) &&
+			    (ret != RET_I2C_AUX_DEFER) &&
+			    (ret != RET_AUX_NO_STOP))
+				break;
+			/* at least 400us between two request is request in dp cts */
+			udelay(500);
+			retry_cnt++;
+			EDP_LOW_DBG("%s fail(%s), addr:0x%x len:16, retry (%d) times now\n",
+				     __func__, aux_fail_reason_str[RET_OP(ret)], (addr + j * block), retry_cnt);
+		}
+
 		if (ret != RET_OK) {
-			mutex_unlock(&edp_hw->aux_lock);
+			EDP_ERR("%s retry 7 timies but still %s, request(i2c_addr:0x%x addr:0x%x len:16)\n",
+			    __func__, aux_fail_reason_str[RET_OP(ret)], i2c_addr, (addr + j * block));
+
 			return ret;
 		}
-
-		reply_code = edp_aux_reply_code(edp_hw);
-		switch (reply_code) {
-		case AUX_ACK:
-			break;
-		case I2C_AUX_NACK:
-			EDP_LOW_DBG("edp_aux_i2c_read recieve I2C_AUX_NACK, request(cmd:0x%x addr:0x%x len:%d)\n",
-				    request.cmd_code, request.address, request.data_len);
-			ret = RET_AUX_NACK;
-			goto OUT;
-		case I2C_AUX_DEFER:
-			EDP_LOW_DBG("edp_aux_i2c_read recieve I2C_AUX_DEFER, request(cmd:0x%x addr:0x%x len:%d)\n",
-				    request.cmd_code, request.address, request.data_len);
-			ret = RET_AUX_DEFER;
-			goto OUT;
-		}
+		len_rest -= block;
 	}
 
-OUT:
-	mutex_unlock(&edp_hw->aux_lock);
-	return RET_OK;
+	return ret;
 }
 
 s32 trilinear_read_edid_block(struct sunxi_edp_hw_desc *edp_hw,
@@ -550,34 +830,11 @@ s32 trilinear_read_edid_block(struct sunxi_edp_hw_desc *edp_hw,
 {
 	unsigned int addr = block_id * EDID_LENGTH;
 
-	edp_aux_i2c_read(edp_hw, EDID_ADDR, addr, len, (char *)(raw_edid), false);
+	trilinear_aux_i2c_read(edp_hw, EDID_ADDR, addr, len, (char *)(raw_edid));
 
 	return RET_OK;
 }
 
-s32 trilinear_aux_read(struct sunxi_edp_hw_desc *edp_hw,
-		     s32 addr, s32 len, char *buf, bool retry)
-{
-	return edp_aux_read(edp_hw, addr, len, buf, retry);
-}
-
-s32 trilinear_aux_write(struct sunxi_edp_hw_desc *edp_hw,
-			s32 addr, s32 len, char *buf, bool retry)
-{
-	return edp_aux_write(edp_hw, addr, len, buf, retry);
-}
-
-s32 trilinear_aux_i2c_read(struct sunxi_edp_hw_desc *edp_hw,
-			   s32 i2c_addr, s32 addr, s32 len, char *buf, bool retry)
-{
-	return edp_aux_i2c_read(edp_hw, i2c_addr, addr, len, buf, retry);
-}
-
-s32 trilinear_aux_i2c_write(struct sunxi_edp_hw_desc *edp_hw,
-			    s32 i2c_addr, s32 addr, s32 len, char *buf, bool retry)
-{
-	return edp_aux_i2c_write(edp_hw, i2c_addr, addr, len, buf, retry);
-}
 
 void trilinear_set_lane_rate(struct sunxi_edp_hw_desc *edp_hw, u64 bit_rate)
 {
@@ -656,14 +913,12 @@ void edp_video_stream_enable(struct sunxi_edp_hw_desc *edp_hw)
 {
 	TR_SET_BITS(edp_hw, TR_VIDEO_STREAM_ENABLE, 0, 1, 0x1);
 	TR_SET_BITS(edp_hw, TR_SECOND_STREAM_ENABLE, 0, 1, 0x1);
-	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 4, 1, 0x1);
-	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 0, 1, 0x1);
 }
 
 void edp_video_stream_disable(struct sunxi_edp_hw_desc *edp_hw)
 {
 	TR_SET_BITS(edp_hw, TR_VIDEO_STREAM_ENABLE, 0, 1, 0x0);
-	TR_SET_BITS(edp_hw, TR_SECOND_STREAM_ENABLE, 0, 1, 0x0);
+//	TR_SET_BITS(edp_hw, TR_SECOND_STREAM_ENABLE, 0, 1, 0x0);
 }
 
 void trilinear_set_qual_pattern(struct sunxi_edp_hw_desc *edp_hw, u32 pattern, u32 lane_cnt)
@@ -736,10 +991,8 @@ s32 trilinear_get_hotplug_state(struct sunxi_edp_hw_desc *edp_hw)
 
 void trilinear_irq_handler(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core)
 {
-	u32 reg_val = 0;
-
 	// clear all interrupt state at the end of irq handler
-	reg_val = TR_READ(edp_hw, TR_INTERRUPT_CAUSE);
+	TR_READ(edp_hw, TR_INTERRUPT_CAUSE);
 }
 
 void trilinear_set_training_pattern(struct sunxi_edp_hw_desc *edp_hw,
@@ -756,38 +1009,155 @@ void trilinear_dsc_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
 		TR_SET_BITS(edp_hw, TR_DSC_COMPRESSION_EN, 0, 1, 0x0);
 }
 
+static void trilinear_audio_set_interface(struct sunxi_edp_hw_desc *edp_hw, int interface)
+{
+	switch (interface) {
+	case HDMI_SPDIF:
+		TR_SET_BITS(edp_hw, TR_SEC0_AUDIO_INPUT_SEL, 0, 2, 0x3);
+		break;
+	default:
+	case HDMI_I2S:
+		TR_SET_BITS(edp_hw, TR_SEC0_AUDIO_INPUT_SEL, 0, 2, 0x0);
+		break;
+	}
+}
+
+static void trilinear_audio_set_channel_cnt(struct sunxi_edp_hw_desc *edp_hw, int chn_cnt)
+{
+	switch (chn_cnt) {
+	case 2:
+		TR_SET_BITS(edp_hw, TR_SEC0_CHANNEL_CNT, 0, 32, 0x2);
+		break;
+	case 5:
+		TR_SET_BITS(edp_hw, TR_SEC0_CHANNEL_CNT, 0, 32, 0x6);
+		break;
+	default:
+	case 8:
+		TR_SET_BITS(edp_hw, TR_SEC0_CHANNEL_CNT, 0, 32, 0x8);
+		break;
+	}
+
+}
+
+static void trilinear_audio_set_mn_aud(struct sunxi_edp_hw_desc *edp_hw,
+				       int link_bw, int audio_data_rate)
+{
+	int i = 0;
+
+	for (i = 0; i < ARRAY_SIZE(aud_tbl); i++) {
+		if ((aud_tbl[i].link_bw == link_bw) &&
+		    (aud_tbl[i].data_rate == audio_data_rate)) {
+			TR_SET_BITS(edp_hw, TR_SEC0_MAUD, 0, 32, aud_tbl[i].maud);
+			TR_SET_BITS(edp_hw, TR_SEC0_NAUD, 0, 32, aud_tbl[i].naud);
+			break;
+		}
+	}
+}
+
+static void trilinear_audio_set_data_rate(struct sunxi_edp_hw_desc *edp_hw, int audio_data_rate)
+{
+	int link_bw = 0;
+
+	link_bw = TR_READ(edp_hw, TR_LINK_BW_SET) * 27;
+
+	/* set audio clock mode to synchronous mode */
+	TR_SET_BITS(edp_hw, TR_SEC0_AUDIO_CLOCK_MODE, 0, 32, 0x1);
+
+	/* set MAUD NAUD */
+	trilinear_audio_set_mn_aud(edp_hw, link_bw, audio_data_rate);
+}
+
 s32 trilinear_audio_enable(struct sunxi_edp_hw_desc *edp_hw)
 {
+	TR_SET_BITS(edp_hw, TR_SEC0_AUDIO_ENABLE, 0, 1, 0x1);
+
 	return RET_OK;
 }
 
 s32 trilinear_audio_disable(struct sunxi_edp_hw_desc *edp_hw)
 {
+	TR_SET_BITS(edp_hw, TR_SEC0_AUDIO_ENABLE, 1, 1, 0x1);
+
+	return RET_OK;
+}
+
+s32 trilinear_audio_mute(struct sunxi_edp_hw_desc *edp_hw,
+			 bool enable, int direction)
+{
+	TR_SET_BITS(edp_hw, TR_SEC0_AUDIO_ENABLE, 1, 1, enable ? 0x1 : 0x0);
+
+	return RET_OK;
+}
+
+s32 trilinear_audio_config(struct sunxi_edp_hw_desc *edp_hw, int interface,
+		      int chn_cnt, int data_width, int data_rate)
+{
+	trilinear_audio_set_interface(edp_hw, interface);
+	trilinear_audio_set_channel_cnt(edp_hw, chn_cnt);
+	trilinear_audio_set_data_rate(edp_hw, data_rate);
+//	trilinear_audio_set_data_width(edp_hw, data_width);
 	return RET_OK;
 }
 
 bool trilinear_audio_is_enabled(struct sunxi_edp_hw_desc *edp_hw)
 {
-	return false;
+	int reg_val = 0;
+
+	reg_val = TR_GET_BITS(edp_hw, TR_SEC0_AUDIO_ENABLE, 0, 1);
+
+	return reg_val ? true : false;
 }
 
-s32 trilinear_get_audio_if(struct sunxi_edp_hw_desc *edp_hw)
+u32 trilinear_get_audio_if(struct sunxi_edp_hw_desc *edp_hw)
 {
-	return RET_OK;
+	int reg_val = 0;
+
+	reg_val = TR_GET_BITS(edp_hw, TR_SEC0_AUDIO_INPUT_SEL, 0, 2);
+
+	switch (reg_val) {
+	case 0x3:
+		return 0;
+	default:
+	case 0x0:
+		return 1;
+	}
+
+	return 1;
 }
 
-s32 trilinear_audio_is_muted(struct sunxi_edp_hw_desc *edp_hw)
+bool trilinear_audio_is_muted(struct sunxi_edp_hw_desc *edp_hw)
 {
-	return RET_OK;
+	int reg_val = 0;
+
+	reg_val = TR_GET_BITS(edp_hw, TR_SEC0_AUDIO_ENABLE, 1, 1);
+
+	return reg_val ? true : false;
 }
 
-s32 trilinear_get_audio_chn_cnt(struct sunxi_edp_hw_desc *edp_hw)
+u32 trilinear_get_audio_max_channel(struct sunxi_edp_hw_desc *edp_hw)
 {
-	//TODO
+	return 8;
+}
+
+u32 trilinear_get_audio_chn_cnt(struct sunxi_edp_hw_desc *edp_hw)
+{
+	int reg_val = 0;
+
+	reg_val = TR_GET_BITS(edp_hw, TR_SEC0_CHANNEL_CNT, 0, 32);
+
+	switch (reg_val) {
+	case 2:
+		return 2;
+	case 6:
+		return 5;
+	case 8:
+		return 8;
+	}
+
 	return 0;
 }
 
-s32 trilinear_get_audio_date_width(struct sunxi_edp_hw_desc *edp_hw)
+u32 trilinear_get_audio_date_width(struct sunxi_edp_hw_desc *edp_hw)
 {
 	//TODO
 	return 0;
@@ -796,9 +1166,9 @@ s32 trilinear_get_audio_date_width(struct sunxi_edp_hw_desc *edp_hw)
 
 void edp_controller_soft_reset(struct sunxi_edp_hw_desc *edp_hw)
 {
-	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 4, 1, 0x1);
-	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 0, 1, 0x1);
-	TR_CLR_BITS(edp_hw, TR_TRANSMITTER_OUTPUT_EN, 0, 1);
+//	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 4, 1, 0x1);
+//	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 0, 1, 0x1);
+//	TR_CLR_BITS(edp_hw, TR_TRANSMITTER_OUTPUT_EN, 0, 1);
 }
 
 s32 trilinear_irq_enable(struct sunxi_edp_hw_desc *edp_hw, u32 irq_id)
@@ -838,9 +1208,13 @@ s32 trilinear_init_early(struct sunxi_edp_hw_desc *edp_hw)
 {
 	mutex_init(&edp_hw->aux_lock);
 
+	return RET_OK;
+}
+
+void trilinear_top_init(struct sunxi_edp_hw_desc *edp_hw)
+{
 	TR_TOP_WRITE(edp_hw, 0x0, 0x1);
 	TR_TOP_WRITE(edp_hw, 0x4, 0x1);
-	return RET_OK;
 }
 
 s32 trilinear_controller_init(struct sunxi_edp_hw_desc *edp_hw,
@@ -848,6 +1222,7 @@ s32 trilinear_controller_init(struct sunxi_edp_hw_desc *edp_hw,
 {
 	s32 ret = 0;
 
+	trilinear_top_init(edp_hw);
 	edp_controller_soft_reset(edp_hw);
 	trilinear_timer_init(edp_hw);
 	trilinear_hpd_enable(edp_hw);
@@ -959,7 +1334,7 @@ s32 trilinear_set_misc(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp
 	return RET_OK;
 }
 
-s32 trilinear_set_pixel_count(struct sunxi_edp_hw_desc *edp_hw, u32 pixel_cnt)
+s32 trilinear_set_pixel_mode(struct sunxi_edp_hw_desc *edp_hw, u32 pixel_cnt)
 {
 	u32 pixel_count = pixel_cnt;
 
@@ -975,6 +1350,15 @@ s32 trilinear_set_pixel_count(struct sunxi_edp_hw_desc *edp_hw, u32 pixel_cnt)
 	TR_SET_BITS(edp_hw, TR_SRC0_USER_PIXEL_CNT, 0, 3, pixel_count);
 
 	return RET_OK;
+}
+
+u32 trilinear_get_pixel_mode(struct sunxi_edp_hw_desc *edp_hw)
+{
+	u32 reg_val;
+
+	reg_val = TR_GET_BITS(edp_hw, TR_SRC0_USER_PIXEL_CNT, 0, 31);
+
+	return reg_val;
 }
 
 s32 trilinear_set_video_data_count(struct sunxi_edp_hw_desc *edp_hw, u32 hres, u32 bpp, u32 lane_cnt)
@@ -1008,10 +1392,6 @@ s32 trilinear_set_video_format(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_c
 	trilinear_set_video_timestamp(edp_hw, edp_core);
 
 	ret = trilinear_set_misc(edp_hw, edp_core);
-	if (ret)
-		return ret;
-
-	ret = trilinear_set_pixel_count(edp_hw, edp_core->pixel_count);
 	if (ret)
 		return ret;
 
@@ -1152,6 +1532,13 @@ s32 trilinear_assr_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
 	return RET_OK;
 }
 
+void edp_set_80bit_pattern(struct sunxi_edp_hw_desc *edp_hw)
+{
+	TR_WRITE(edp_hw, TR_80BIT_PATTERN_0_31, 0x3E0F83E0);
+	TR_WRITE(edp_hw, TR_80BIT_PATTERN_32_63, 0x0F83E0F8);
+	TR_WRITE(edp_hw, TR_80BIT_PATTERN_64_79, 0xF83E);
+}
+
 s32 trilinear_set_pattern(struct sunxi_edp_hw_desc *edp_hw, u32 pattern, u32 lane_cnt)
 {
 	switch (pattern) {
@@ -1166,8 +1553,7 @@ s32 trilinear_set_pattern(struct sunxi_edp_hw_desc *edp_hw, u32 pattern, u32 lan
 		break;
 	case PATTERN_80BIT:
 		trilinear_set_qual_pattern(edp_hw, 0x4, lane_cnt);
-		//hyx TODO
-		//edp_set_80bit_pattern();
+		edp_set_80bit_pattern(edp_hw);
 		break;
 	case HBR2_EYE:
 		trilinear_set_qual_pattern(edp_hw, 0x5, lane_cnt);
@@ -1256,6 +1642,7 @@ u32 trilinear_get_pixclk(struct sunxi_edp_hw_desc *edp_hw)
 	return pixclk;
 }
 
+
 u32 trilinear_get_pattern(struct sunxi_edp_hw_desc *edp_hw)
 {
 	u32 reg_val;
@@ -1336,12 +1723,12 @@ s32 trilinear_get_lane_para(struct sunxi_edp_hw_desc *edp_hw, struct edp_lane_pa
 	}
 
 	/* lane count */
-	reg_val = TR_GET_BITS(edp_hw, TR_LINK_BW_SET, 0, 8);
+	reg_val = TR_GET_BITS(edp_hw, TR_LANE_COUNT_SET, 0, 8);
 	if (reg_val == 1)
 		tmp_lane_para->lane_cnt = 1;
 	else if (reg_val == 2)
 		tmp_lane_para->lane_cnt = 2;
-	else if (reg_val == 3)
+	else if (reg_val == 4)
 		tmp_lane_para->lane_cnt = 4;
 	else
 		tmp_lane_para->lane_cnt = 0;
@@ -1365,6 +1752,20 @@ u32 trilinear_get_tu_valid_symbol(struct sunxi_edp_hw_desc *edp_hw)
 	count = (symbol * 10) + symbol_frac;
 
 	return count;
+}
+
+s32 trilinear_link_soft_reset(struct sunxi_edp_hw_desc *edp_hw)
+{
+	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 4, 1, 0x1);
+	mdelay(5);
+	return RET_OK;
+}
+
+s32 trilinear_video_soft_reset(struct sunxi_edp_hw_desc *edp_hw)
+{
+	TR_SET_BITS(edp_hw, TR_SOFT_RESET, 0, 1, 0x1);
+	mdelay(5);
+	return RET_OK;
 }
 
 s32 trilinear_link_start(struct sunxi_edp_hw_desc *edp_hw)
@@ -1506,6 +1907,21 @@ bool trilinear_support_hardware_hdcp2x(struct sunxi_edp_hw_desc *edp_hw)
 	return false;
 }
 
+bool trilinear_support_enhance_frame(struct sunxi_edp_hw_desc *edp_hw)
+{
+	return true;
+}
+
+bool trilinear_support_muti_pixel_mode(struct sunxi_edp_hw_desc *edp_hw)
+{
+	return true;
+}
+
+bool trilinear_need_reset_before_enable(struct sunxi_edp_hw_desc *edp_hw)
+{
+	return true;
+}
+
 
 static struct sunxi_edp_hw_video_ops trilinear_dp14_video_ops = {
 	.assr_enable = trilinear_assr_enable,
@@ -1513,21 +1929,15 @@ static struct sunxi_edp_hw_video_ops trilinear_dp14_video_ops = {
 	.psr_is_enabled = trilinear_psr_is_enabled,
 	.get_tu_size = trilinear_get_tu_size,
 	.get_pixel_clk = trilinear_get_pixclk,
+	.get_pixel_mode = trilinear_get_pixel_mode,
 	.get_color_format = trilinear_get_color_fmt,
 	.get_lane_para = trilinear_get_lane_para,
 	.get_tu_valid_symbol = trilinear_get_tu_valid_symbol,
 	.get_hotplug_change = trilinear_get_hotplug_change,
 	.get_hotplug_state = trilinear_get_hotplug_state,
 	.irq_handle = trilinear_irq_handler,
-	.audio_is_enabled = trilinear_audio_is_enabled,
-	.get_audio_if = trilinear_get_audio_if,
-	.audio_is_muted = trilinear_audio_is_muted,
-	.audio_enable = trilinear_audio_enable,
-	.audio_disable = trilinear_audio_disable,
 	.get_pattern = trilinear_get_pattern,
 	.set_pattern = trilinear_set_pattern,
-	.get_audio_data_width = trilinear_get_audio_date_width,
-	.get_audio_chn_cnt = trilinear_get_audio_chn_cnt,
 	.aux_read = trilinear_aux_read,
 	.aux_write = trilinear_aux_write,
 	.aux_i2c_read = trilinear_aux_i2c_read,
@@ -1535,16 +1945,18 @@ static struct sunxi_edp_hw_video_ops trilinear_dp14_video_ops = {
 	.read_edid_block = trilinear_read_edid_block,
 	.irq_enable = trilinear_irq_enable,
 	.irq_disable = trilinear_irq_disable,
+	.link_soft_reset = trilinear_link_soft_reset,
+	.video_soft_reset = trilinear_video_soft_reset,
 	.main_link_start = trilinear_link_start,
 	.main_link_stop = trilinear_link_stop,
 	.lane_remap = trilinear_lane_remap_config,
 	.lane_invert = trilinear_lane_invert_config,
 	.scrambling_enable = trilinear_scrambling_enable,
 	.fec_enable = trilinear_fec_enable,
-	.enhanced_frame_enable = trilinear_enhanced_frame_enable,
 	.set_lane_sw_pre = trilinear_set_lane_sw_pre,
 	.set_lane_cnt = trilinear_set_lane_cnt,
 	.set_lane_rate = trilinear_set_lane_rate,
+	.set_pixel_mode = trilinear_set_pixel_mode,
 	.init_early = trilinear_init_early,
 	.init = trilinear_controller_init,
 	.enable = trilinear_enable,
@@ -1558,17 +1970,17 @@ static struct sunxi_edp_hw_video_ops trilinear_dp14_video_ops = {
 	.support_max_lane = trilinear_get_max_lane,
 	.support_tps3 = trilinear_support_tps3,
 	.support_fast_training = trilinear_support_fast_train,
-	.support_audio = trilinear_support_audio,
 	.support_psr = trilinear_support_psr,
 	.support_psr2 = trilinear_support_psr2,
 	.support_ssc = trilinear_support_ssc,
 	.support_mst = trilinear_support_mst,
 	.support_fec = trilinear_support_fec,
 	.support_assr = trilinear_support_assr,
-	.support_hdcp1x = trilinear_support_hdcp1x,
-	.support_hdcp2x = trilinear_support_hdcp2x,
-	.support_hw_hdcp1x = trilinear_support_hardware_hdcp1x,
-	.support_hw_hdcp2x = trilinear_support_hardware_hdcp2x,
+	.support_lane_remap = trilinear_support_lane_remap,
+	.support_lane_invert = trilinear_support_lane_invert,
+	.support_enhance_frame = trilinear_support_enhance_frame,
+	.support_muti_pixel_mode = trilinear_support_muti_pixel_mode,
+	.need_reset_before_enable = trilinear_need_reset_before_enable,
 };
 
 struct sunxi_edp_hw_video_ops *sunxi_edp_get_hw_video_ops(void)
@@ -1576,7 +1988,24 @@ struct sunxi_edp_hw_video_ops *sunxi_edp_get_hw_video_ops(void)
 	return &trilinear_dp14_video_ops;
 }
 
+static struct sunxi_edp_hw_audio_ops trilinear_dp14_audio_ops = {
+	.support_audio = trilinear_support_audio,
+	.audio_enable = trilinear_audio_enable,
+	.audio_disable = trilinear_audio_disable,
+	.audio_config = trilinear_audio_config,
+	.audio_mute = trilinear_audio_mute,
+	.audio_is_enabled = trilinear_audio_is_enabled,
+	.get_audio_if = trilinear_get_audio_if,
+	.audio_is_muted = trilinear_audio_is_muted,
+	.get_audio_data_width = trilinear_get_audio_date_width,
+	.get_audio_chn_cnt = trilinear_get_audio_chn_cnt,
+	.get_audio_max_channel = trilinear_get_audio_max_channel,
+};
 
+struct sunxi_edp_hw_audio_ops *sunxi_edp_get_hw_audio_ops(void)
+{
+	return &trilinear_dp14_audio_ops;
+}
 
 void trilinear_hdcp_set_mode(struct sunxi_edp_hw_desc *edp_hw,
 			     enum dp_hdcp_mode mode)
@@ -1693,6 +2122,10 @@ u64 trilinear_hdcp1_get_m0(struct sunxi_edp_hw_desc *edp_hw)
 }
 
 struct sunxi_edp_hw_hdcp_ops trilinear_dp14_dpcd_ops = {
+	.support_hdcp1x = trilinear_support_hdcp1x,
+	.support_hdcp2x = trilinear_support_hdcp2x,
+	.support_hw_hdcp1x = trilinear_support_hardware_hdcp1x,
+	.support_hw_hdcp2x = trilinear_support_hardware_hdcp2x,
 	.hdcp1_get_an = trilinear_hdcp1_get_an,
 	.hdcp1_get_aksv = trilinear_hdcp1_get_aksv,
 	.hdcp1_write_bksv = trilinear_hdcp1_write_bksv,

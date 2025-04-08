@@ -12,40 +12,72 @@
 #define _DW_PHY_H
 
 /**
- * Set PHY to standby mode - turn off all interrupts
- * @param dev device structure
+ * @desc: dw phy get hpd state
+ * @return: 1 - hpd plugin
+ *          0 - hpd plugout
+ */
+u8 dw_phy_get_hpd(void);
+/**
+ * @desc: dw phy config svsret
+ */
+void dw_phy_config_svsret(void);
+/**
+ * @desc: dw phy set extern phy power
+ * @state: 1 - enable extern phy power
+ *         0 - disable extern phy power
+ */
+void dw_phy_set_power(u8 state);
+/**
+ * @desc: dw phy config interface mode by global params
+ * @return: 0 - config success
+ *         -1 - config failed
+ */
+int dw_phy_config_interface(void);
+/**
+ * @desc: dw phy set standby mode
+ * @return: 0 - success
+ *         -1 - failed
  */
 int dw_phy_standby(void);
-
 /**
- * Enable HPD sensing circuitry
- * @param dev device structure
+ * @desc: dw phy wait mpll lock state
+ * @return: 1 - mpll lock
+ *          0 - mpll unlock
  */
-int dw_phy_enable_hpd_sense(void);
-
+u8 dw_phy_wait_lock(void);
 /**
- * Disable HPD sensing circuitry
- * @param dev device structure
+ * @desc: dw phy write
+ * @addr: write address
+ * @data: write value
+ * @return: 0 - write success
+ *         -1 - write failed
  */
-int dw_phy_disable_hpd_sense(void);
-
-u8 dw_phy_hot_plug_state(void);
-
-u8 dw_phy_rxsense_state(void);
-u8 dw_phy_pll_lock_state(void);
-u8 dw_phy_power_state(void);
-
-void dw_phy_power_enable(u8 enable);
-
-int dw_phy_reconfigure_interface(void);
-
-void dw_phy_svsret(void);
-
-int dw_phy_wait_lock(void);
 int dw_phy_write(u8 addr, u16 data);
+/**
+ * @desc: dw phy read
+ * @addr: read address
+ * @value: point to read value
+ * @return: 0 - read successs
+ *         -1 - read failed
+ */
 int dw_phy_read(u8 addr, u16 *value);
+/**
+ * @desc: dw phy initial. not-use
+ * @return: 0 - success
+ *         -1 - failed
+ */
+int dw_phy_initialize(void);
+/**
+ * @desc: dw phy init. useing
+ * @return: 0 - success
+ *         -1 - failed
+ */
 int dw_phy_init(void);
-
+/**
+ * @desc: dw phy info dump
+ * @buf: point to info buffer
+ * @return: dump info byte
+ */
 ssize_t dw_phy_dump(char *buf);
 
 /*****************************************************************************
@@ -123,6 +155,7 @@ ssize_t dw_phy_dump(char *buf);
 #define PHY_STAT0_RX_SENSE_1_MASK                   0x00000020
 #define PHY_STAT0_RX_SENSE_2_MASK                   0x00000040
 #define PHY_STAT0_RX_SENSE_3_MASK                   0x00000080
+#define PHY_STAT0_RX_SENSE_ALL_MASK					0x000000F0
 
 /**
  * @desc: PHY RXSENSE, PLL Lock, and HPD Interrupt Register

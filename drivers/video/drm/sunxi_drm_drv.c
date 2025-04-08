@@ -45,6 +45,17 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+int check_drm_debug_mode(void)
+{
+	int debug_mode;
+
+	debug_mode = env_get_hex("drm_debug", 0);
+
+	if (debug_mode)
+		printf("drm debug mode: %d \n", debug_mode);
+
+	return debug_mode;
+}
 static int sunxi_de_add_kernel_iova_premap(unsigned long address, unsigned int length)
 {
 	int ret;
@@ -76,7 +87,7 @@ int sunxi_drm_kernel_para_flush(void)
 	int i = 0;
 	int ret;
 
-	if (!drm)
+	if (!drm || check_drm_debug_mode() == SKIP_DRM_DRIVE)
 		return -1;
 
 	sunxi_drm_for_each_display(state, drm) {
@@ -131,6 +142,8 @@ int sunxi_drm_kernel_para_flush(void)
 			fdt_mode_append("hskew", mode->hskew);
 			fdt_mode_append("type",  mode->type);
 			fdt_mode_append("ratio", mode->picture_aspect_ratio);
+			fdt_mode_append("width-mm", mode->width_mm);
+			fdt_mode_append("height-mm",  mode->height_mm);
 #undef fdt_mode_append
 
 #define fdt_append(name, val) \
@@ -143,6 +156,7 @@ int sunxi_drm_kernel_para_flush(void)
 
 			fdt_append("route", state->crtc_state.crtc_id);
 			fdt_append("route", state->crtc_state.tcon_id);
+			fdt_append("route", state->crtc_state.tcon_top_id);
 			fdt_append("route", state->conn_state.connector->type);
 			fdt_append("route", state->conn_state.connector->id);
 
@@ -353,32 +367,48 @@ int sunxi_ofnode_get_display_mode(ofnode node, struct drm_display_mode *mode, u3
 	ofnode_read_u32(node, "vsync-len", &vsync_len);
 	ofnode_read_u32(node, "vfront-porch", &vfront_porch);
 	ofnode_read_u32(node, "vback-porch", &vback_porch);
-	ofnode_read_u32(node, "hsync-active", &val);
-	flags |= val ? DRM_MODE_FLAG_PHSYNC : DRM_MODE_FLAG_NHSYNC;
-	ofnode_read_u32(node, "vsync-active", &val);
-	flags |= val ? DRM_MODE_FLAG_PVSYNC : DRM_MODE_FLAG_NVSYNC;
+
+	if (!ofnode_read_u32(node, "hsync-active", &val))
+		flags |= val ? DISPLAY_FLAGS_HSYNC_HIGH :
+				DISPLAY_FLAGS_HSYNC_LOW;
+	if (!ofnode_read_u32(node, "vsync-active", &val))
+		flags |= val ? DISPLAY_FLAGS_VSYNC_HIGH :
+				DISPLAY_FLAGS_VSYNC_LOW;
 
 	val = ofnode_read_bool(node, "interlaced");
-	flags |= val ? DRM_MODE_FLAG_INTERLACE : 0;
+	flags |= val ? DISPLAY_FLAGS_INTERLACED : 0;
 	val = ofnode_read_bool(node, "doublescan");
-	flags |= val ? DRM_MODE_FLAG_DBLSCAN : 0;
+	flags |= val ? DISPLAY_FLAGS_DOUBLESCAN : 0;
 	val = ofnode_read_bool(node, "doubleclk");
 	flags |= val ? DISPLAY_FLAGS_DOUBLECLK : 0;
 
-	ofnode_read_u32(node, "de-active", &val);
-	*bus_flags |= val ? DRM_BUS_FLAG_DE_HIGH : DRM_BUS_FLAG_DE_LOW;
-	ofnode_read_u32(node, "pixelclk-active", &val);
-	*bus_flags |= val ? DRM_BUS_FLAG_PIXDATA_DRIVE_POSEDGE : DRM_BUS_FLAG_PIXDATA_DRIVE_NEGEDGE;
-
-	ofnode_read_u32(node, "screen-rotate", &val);
-	if (val == DRM_MODE_FLAG_XMIRROR) {
-		flags |= DRM_MODE_FLAG_XMIRROR;
-	} else if (val == DRM_MODE_FLAG_YMIRROR) {
-		flags |= DRM_MODE_FLAG_YMIRROR;
-	} else if (val == DRM_MODE_FLAG_XYMIRROR) {
-		flags |= DRM_MODE_FLAG_XMIRROR;
-		flags |= DRM_MODE_FLAG_YMIRROR;
+	if (!ofnode_read_u32(node, "de-active", &val)) {
+		*bus_flags |= val ? DRM_BUS_FLAG_DE_HIGH : DRM_BUS_FLAG_DE_LOW;
+		flags |= val ? DISPLAY_FLAGS_DE_HIGH : DISPLAY_FLAGS_DE_LOW;
 	}
+	if (!ofnode_read_u32(node, "pixelclk-active", &val)) {
+		*bus_flags |= val ? DRM_BUS_FLAG_PIXDATA_DRIVE_POSEDGE :
+					DRM_BUS_FLAG_PIXDATA_DRIVE_NEGEDGE;
+		flags |= val ? DISPLAY_FLAGS_PIXDATA_POSEDGE :
+					DISPLAY_FLAGS_PIXDATA_NEGEDGE;
+	}
+
+	if (!ofnode_read_u32(node, "syncclk-active", &val))
+		flags |= val ? DISPLAY_FLAGS_SYNC_POSEDGE :
+				DISPLAY_FLAGS_SYNC_NEGEDGE;
+	else if (flags & (DISPLAY_FLAGS_PIXDATA_POSEDGE |
+			DISPLAY_FLAGS_PIXDATA_NEGEDGE))
+		flags |= flags & DISPLAY_FLAGS_PIXDATA_POSEDGE ?
+				DISPLAY_FLAGS_SYNC_POSEDGE :
+				DISPLAY_FLAGS_SYNC_NEGEDGE;
+
+	val = ofnode_read_bool(node, "interlaced");
+	flags |= val ? DISPLAY_FLAGS_INTERLACED : 0;
+	val = ofnode_read_bool(node, "doublescan");
+	flags |= val ? DISPLAY_FLAGS_DOUBLESCAN : 0;
+	val = ofnode_read_bool(node, "doubleclk");
+	flags |= val ? DISPLAY_FLAGS_DOUBLECLK : 0;
+
 	mode->hdisplay = hactive;
 	mode->hsync_start = mode->hdisplay + hfront_porch;
 	mode->hsync_end = mode->hsync_start + hsync_len;
@@ -390,7 +420,23 @@ int sunxi_ofnode_get_display_mode(ofnode node, struct drm_display_mode *mode, u3
 	mode->vtotal = mode->vsync_end + vback_porch;
 
 	mode->clock = pixelclock / 1000;
-	mode->flags = flags;
+
+	mode->flags = 0;
+	if (flags & DISPLAY_FLAGS_HSYNC_HIGH)
+		mode->flags |= DRM_MODE_FLAG_PHSYNC;
+	else if (flags & DISPLAY_FLAGS_HSYNC_LOW)
+		mode->flags |= DRM_MODE_FLAG_NHSYNC;
+	if (flags & DISPLAY_FLAGS_VSYNC_HIGH)
+		mode->flags |= DRM_MODE_FLAG_PVSYNC;
+	else if (flags & DISPLAY_FLAGS_VSYNC_LOW)
+		mode->flags |= DRM_MODE_FLAG_NVSYNC;
+	if (flags & DISPLAY_FLAGS_INTERLACED)
+		mode->flags |= DRM_MODE_FLAG_INTERLACE;
+	if (flags & DISPLAY_FLAGS_DOUBLESCAN)
+		mode->flags |= DRM_MODE_FLAG_DBLSCAN;
+	if (flags & DISPLAY_FLAGS_DOUBLECLK)
+		mode->flags |= DRM_MODE_FLAG_DBLCLK;
+
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
 	return 0;
@@ -440,6 +486,8 @@ struct sunxi_drm_device *sunxi_drm_device_get(void)
 {
 	struct udevice *dev;
 
+	if (check_drm_debug_mode() == SKIP_DRM_DRIVE)
+		return NULL;
 	if (uclass_get_device_by_driver(UCLASS_VIDEO,
 					DM_GET_DRIVER(sunxi_display), &dev)) {
 		return NULL;
@@ -587,7 +635,6 @@ static int sunxi_drm_drv_probe(struct udevice *dev)
 
 		conn = sunxi_drm_of_get_connector(ep_node[phandle_count - 1]);
 		if (!conn) {
-			printf("Warn: can't get connect driver\n");
 			continue;
 		}
 
@@ -731,6 +778,7 @@ int sunxi_de_print_state(const char *cmd)
 	struct drm_plane *plane;
 	const struct drm_plane_funcs *plane_func;
 
+
 	if (!drm || list_empty(&drm->display_list)) {
 		DRM_ERROR("Get sunxi drm device fail!\n");
 		return -1;
@@ -756,7 +804,7 @@ int sunxi_de_print_state(const char *cmd)
 		if (crtc_funcs->print_state) {
 			ret = crtc_funcs->print_state(state, NULL);
 		}
-
+		sunxi_connector_print_state(state);
 	}
 
 	if (ret)
@@ -774,9 +822,9 @@ static int load_bmp_logo(struct display_state *state, char *bmp_name)
 		state->logo = NULL;
 	}
 
-	state->logo = load_file(bmp_name, "boot-resource");
+	state->logo = load_file(bmp_name, "bootloader");
 	if (!state->logo) {
-		state->logo = load_file(bmp_name, "bootloader");
+		state->logo = load_file(bmp_name, "boot-resource");
 	}
 
 	if (!state->logo) {
@@ -1079,11 +1127,11 @@ static int display_init(struct display_state *state)
 
 	ret = 0;
 	if (conn->panel) {
+		sunxi_drm_panel_prepare(conn->panel);
 		ret = display_get_timing(state);
 		if (!ret)
 			conn_state->info.bpc = conn->panel->bpc;
 		if (ret < 0 && conn->funcs->get_edid_timing) {
-			sunxi_drm_panel_prepare(conn->panel);
 			ret = conn->funcs->get_edid_timing(conn, state);
 		}
 	} else if (conn->bridge) {
@@ -1185,12 +1233,6 @@ static int display_logo(struct display_state *state)
 		return ret;
 	}
 
-	ret = display_enable(state);
-	if (ret) {
-		DRM_ERROR("dislay enable fail!\n");
-		return ret;
-	}
-
 	if (!state->logo) {
 		DRM_ERROR("Logo not found!\n");
 		return -EINVAL;
@@ -1222,10 +1264,68 @@ static int display_logo(struct display_state *state)
 	if (fb->height > bmp->header.height)
 		upper_offset = ((fb->height - bmp->header.height) >> 1);
 
-	return bmp_display((ulong)state->logo->file_addr, left_offset, upper_offset);
+	bmp_display((ulong)state->logo->file_addr, left_offset, upper_offset);
+
+	ret = display_enable(state);
+	if (ret) {
+		DRM_ERROR("dislay enable fail!\n");
+		return ret;
+	}
+
+	return ret;
 }
 
+int sunxi_show_bmp_and_backlight(char *bmp, char *reg)
+{
+	struct display_state *s;
+	int ret = 0;
+	struct sunxi_drm_device *drm = sunxi_drm_device_get();
 
+	if (!drm || list_empty(&drm->display_list)) {
+		DRM_ERROR("Get sunxi drm device fail!\n");
+		return -1;
+	}
+
+	if (!bmp) {
+		sunxi_drm_for_each_display(s, drm) {
+			display_disable(s);
+		}
+		return -ENOENT;
+	}
+
+	sunxi_drm_for_each_display(s, drm) {
+		/*s->logo.mode = s->charge_logo_mode;*/
+		if (load_bmp_logo(s, bmp))
+			continue;
+		if (!strcmp(reg, "on"))
+			s->backlight = true;
+		else if (!strcmp(reg, "off"))
+			s->backlight = false;
+		else
+			return -1;
+		ret = display_logo(s);
+	}
+	return ret;
+}
+
+int sunxi_drm_disable(void)
+{
+	struct display_state *state;
+	struct sunxi_drm_device *drm = sunxi_drm_device_get();
+
+	DRM_INFO("%s:%d\n", __func__, __LINE__);
+	if (!drm || list_empty(&drm->display_list)) {
+		DRM_ERROR("%s:Get sunxi drm device fail!\n", __func__);
+		return -1;
+	}
+
+	sunxi_drm_for_each_display(state, drm) {
+		if (state->is_enable)
+			sunxi_drm_panel_post_disable(state);
+	}
+
+	return 0;
+}
 
 int sunxi_show_bmp(char *bmp)
 {
@@ -1249,11 +1349,16 @@ int sunxi_show_bmp(char *bmp)
 		/*s->logo.mode = s->charge_logo_mode;*/
 		if (load_bmp_logo(s, bmp))
 			continue;
+		s->backlight = true;
 		ret = display_logo(s);
 	}
 	return ret;
 }
 
+int sunxi_bmp_display(char *name)
+{
+	return sunxi_show_bmp(name);
+}
 int sunxi_backlight_ctrl(char *reg)
 {
 	struct display_state *state = NULL;
@@ -1299,6 +1404,7 @@ int sunxi_show_logo(void)
 		if (load_bmp_logo(s, s->ulogo_name)) {
 			DRM_ERROR("load logo fail\n");
 		} else {
+			s->backlight = true;
 			ret = display_logo(s);
 			if (ret)
 				DRM_ERROR("failed to display uboot logo for disp %d\n");
@@ -1311,10 +1417,10 @@ int sunxi_show_logo(void)
 
 struct drm_framebuffer *drm_fb_lock(void)
 {
-	int i = 0;
 	struct sunxi_drm_device *drm = sunxi_drm_device_get();
 	struct drm_framebuffer *fb = NULL;
 	struct display_state *state = NULL;
+	int ret;
 
 	if (!drm || list_empty(&drm->display_list)) {
 		DRM_ERROR("Get sunxi drm device fail!\n");
@@ -1322,13 +1428,22 @@ struct drm_framebuffer *drm_fb_lock(void)
 	}
 
 	sunxi_drm_for_each_display(state, drm) {
-		display_logo(state);
+		ret = display_check(state);
+		if (ret) {
+			DRM_ERROR("display check fail!\n");
+			continue;
+		}
+		state->backlight = true;
+		ret = display_enable(state);
+		if (ret) {
+			DRM_ERROR("display enable fail!\n");
+			return NULL;
+		}
 		if (state->is_enable) {
 			fb = drm_framebuffer_lookup(drm, state->fb_id);
 			if (fb)
 				return fb;
 		}
-		i++;
 	}
 	return NULL;
 }

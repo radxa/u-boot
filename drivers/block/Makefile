@@ -9,6 +9,8 @@ ifndef CONFIG_$(SPL_)BLK
 obj-y += blk_legacy.o
 endif
 
+obj-$(CONFIG_AW_BLK) += blk_sunxi.o
+
 obj-$(CONFIG_IDE) += ide.o
 obj-$(CONFIG_SANDBOX) += sandbox.o
 obj-$(CONFIG_$(SPL_)BLOCK_CACHE) += blkcache.o

@@ -181,6 +181,7 @@ obj-$(CONFIG_CMD_SUNXI_NAND) += sunxi_nand.o
 obj-$(CONFIG_CMD_SUNXI_BURN) += sunxi_burn.o
 obj-$(CONFIG_CMD_SUNXI_BOOTR) += sunxi_bootr.o
 obj-$(CONFIG_CMD_SUNXI_BOOTRV) += sunxi_bootrv.o
+obj-${CONFIG_CMD_SUNXI_BOOT_HYPER} += sunxi_hyper.o
 obj-$(CONFIG_CMD_SUNXI_HWSPINLOCK) += sunxi_hwspinlock.o
 ifdef CONFIG_SUNXI_SECURE_STORAGE
 obj-y += sunxi_svudata.o

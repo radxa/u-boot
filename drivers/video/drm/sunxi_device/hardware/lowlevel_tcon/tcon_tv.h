@@ -35,6 +35,7 @@ s32 tcon_tv_set_reg_base(struct sunxi_tcon_tv *tcon, uintptr_t base);
 s32 tcon_tv_src_select(struct sunxi_tcon_tv *tcon, enum __lcd_src_t src, unsigned int de_no);
 s32 tcon_tv_src_get(struct sunxi_tcon_tv *tcon);
 s32 tcon_tv_set_timming(struct sunxi_tcon_tv *tcon, struct disp_video_timings *timming);
+s32 tcon_tv_set_pixel_mode(struct sunxi_tcon_tv *tcon, unsigned int pixel_mode);
 s32 tcon_tv_cfg(struct sunxi_tcon_tv *tcon, struct disp_video_timings *timing);
 s32 tcon_tv_hdmi_color_remap(struct sunxi_tcon_tv *tcon, u32 onoff);
 s32 tcon_tv_black_src(struct sunxi_tcon_tv *tcon, u32 on_off, u32 color);

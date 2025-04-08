@@ -27,6 +27,25 @@
 #define SUNXI_HDMI_POWER_CNT	     4
 #define SUNXI_HDMI_POWER_NAME	     40
 
+#define SUNXI_HDMI_HPD_FORCE_IN		(0x11)
+#define SUNXI_HDMI_HPD_FORCE_OUT	(0x10)
+#define SUNXI_HDMI_HPD_MASK_NOTIFY	(0x100)
+#define SUNXI_HDMI_HPD_MASK_DETECT	(0x1000)
+
+#if IS_ENABLED(CONFIG_EXTCON)
+static const unsigned int sunxi_hdmi_cable[] = {
+	EXTCON_DISP_HDMI,
+	EXTCON_NONE,
+};
+#endif
+
+enum sunxi_hdmi_reg_bank_e {
+	SHDMI_REG_BANK_CTRL    = 0,
+	SHDMI_REG_BANK_PHY     = 1,
+	SHDMI_REG_BANK_SCDC    = 2,
+	SHDMI_REG_BANK_HPI     = 3
+};
+
 struct sunxi_hdmi_res_s {
 	struct clk  *clk_hdmi;
 	struct clk  *clk_hdmi_24M;
@@ -60,7 +79,7 @@ struct sunxi_hdmi_ctrl_s {
 	int drv_hpd_state;
 	int drv_hpd_mask;
 
-	u32 drv_color_cap;
+	u32 drv_pixel_format_cap;
 
 	int drv_reg_bank;
 	enum disp_data_bits   drv_max_bits;
@@ -80,6 +99,7 @@ struct sunxi_drm_hdmi {
 	struct sunxi_drm_connector	connector;
 	struct drm_display_mode		drm_mode;
 	unsigned int				tcon_id;
+	unsigned int				tcon_top_id;
 
 	int hdmi_irq;
 
@@ -94,17 +114,14 @@ struct sunxi_drm_hdmi {
 	struct sunxi_hdmi_s            hdmi_core;
 };
 
-enum sunxi_hdmi_reg_bank_e {
-	SUNXI_HDMI_REG_BANK_CTRL    = 0,
-	SUNXI_HDMI_REG_BANK_PHY     = 1,
-	SUNXI_HDMI_REG_BANK_SCDC    = 2,
-	SUNXI_HDMI_REG_BANK_HPI     = 3
-};
-
 const struct drm_display_mode _sunxi_hdmi_default_modes[1] = {
 	{ DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 148500,
 		1920, 2008, 2052, 2200, 0, 1080, 1084, 1089, 1125, 0,
 		DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC)},
+
+	/* { DRM_MODE("3840x2160", DRM_MODE_TYPE_DRIVER, 594000,
+		3840, 4016, 4104, 4400, 0, 2160, 2168, 2178, 2250, 0,
+		DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC)}, */
 };
 
 /*******************************************************************************
@@ -542,11 +559,11 @@ ssize_t _sunxi_hdmi_sysfs_reg_read_store(struct udevice *dev, u32 reg, u32 count
 
 	for (i = 0; i < count; i++) {
 		switch (hdmi->hdmi_ctrl.drv_reg_bank) {
-		case SUNXI_HDMI_REG_BANK_PHY:
+		case SHDMI_REG_BANK_PHY:
 			sunxi_hdmi_phy_read((u8)reg, &r_value);
 			printf(" - phy read: 0x%x = 0x%x\n", (u8)reg, r_value);
 			break;
-		case SUNXI_HDMI_REG_BANK_SCDC:
+		case SHDMI_REG_BANK_SCDC:
 			r_value = sunxi_hdmi_scdc_read((u8)reg);
 			printf(" - scdc read: 0x%x = 0x%x\n", (u8)reg, (u8)r_value);
 			break;
@@ -565,15 +582,15 @@ ssize_t _sunxi_hdmi_sysfs_reg_write_store(struct udevice *dev, u32 reg, u32 valu
 	struct sunxi_drm_hdmi *hdmi = dev_get_priv(dev);
 
 	switch (hdmi->hdmi_ctrl.drv_reg_bank) {
-	case SUNXI_HDMI_REG_BANK_PHY:
+	case SHDMI_REG_BANK_PHY:
 		sunxi_hdmi_phy_write((u8)reg, (u32)value);
 		printf(" - phy write: 0x%x = 0x%x\n", (u8)reg, (u32)value);
 		break;
-	case SUNXI_HDMI_REG_BANK_SCDC:
+	case SHDMI_REG_BANK_SCDC:
 		sunxi_hdmi_scdc_write(reg, value);
 		printf(" - scdc write: 0x%x = 0x%x\n", (u8)reg, (u8)value);
 		break;
-	case SUNXI_HDMI_REG_BANK_HPI:
+	case SHDMI_REG_BANK_HPI:
 		printf(" - current unsupport hpi write\n");
 		break;
 	default:
@@ -616,31 +633,38 @@ static ssize_t _sunxi_hdmi_sysfs_hdmi_source_show(struct udevice *dev)
 {
 	int n = 0;
 	struct sunxi_drm_hdmi   *hdmi = dev_get_priv(dev);
-	char buf[2048];
+	char buf[4096];
 
 	memset(buf, 0x0, ARRAY_SIZE(buf));
+#if 1
+	n += sprintf(buf + n, "\n[ver]\n");
+	n += sprintf(buf + n, " - hw: 2.0\n");
+	n += sprintf(buf + n, " - sw: 2.25.0403: Ie8e1729bbeaf78511ca893b7b099eb2233492d2d\n");
 
-	n += sprintf(buf + n, "\n");
-	n += sprintf(buf + n, "========= [hdmi top] =========\n");
-	n += sprintf(buf + n, " - boot mode  : [%s]\n",
-			hdmi->hdmi_ctrl.dts_fast_output ? "fast" : "normal");
+	n += sprintf(buf + n, "\n[drv cfg]\n");
+	n += sprintf(buf + n, "|       |          dts         |              drm              |\n");
+	n += sprintf(buf + n, "|  name |----------------------+-------------------------------|\n");
+	n += sprintf(buf + n, "|       | boot mode | resistor | enable | mode set | mode info |\n");
+	n += sprintf(buf + n, "|-------+-----------+----------+--------+----------+-----------|\n");
+	n += sprintf(buf + n, "| state |  %-6s   |  %-7s |  %-3s   |   %-3s    | %-4dx%-4d |\n",
+		hdmi->hdmi_ctrl.dts_fast_output ? "fast" : "normal",
+		hdmi->hdmi_ctrl.drv_dts_res_src ? "onboard" : "onchip",
+		hdmi->hdmi_ctrl.drm_enable ? "yes" : "no",
+		hdmi->hdmi_ctrl.drm_mode_set ? "yes" : "no",
+		hdmi->drm_mode.hdisplay, hdmi->drm_mode.vdisplay);
 
-	n += sprintf(buf + n, "[drm state]\n");
-	n += sprintf(buf + n, " - enable     : [%s]\n",
-			hdmi->hdmi_ctrl.drm_enable ? "yes" : "not");
-	n += sprintf(buf + n, " - mode_set   : [%s]\n",
-			hdmi->hdmi_ctrl.drm_mode_set ? "yes" : "not");
-	n += sprintf(buf + n, " - mode_info  : [%dx%d]\n",
-			hdmi->drm_mode.hdisplay, hdmi->drm_mode.vdisplay);
-
-	n += sprintf(buf + n, "[drv state]\n");
-	n += sprintf(buf + n, " - hpd_state  : [%s]\n",
-			hdmi->hdmi_ctrl.drv_hpd_state ? "plugin" : "plugout");
-	n += sprintf(buf + n, " - hdmi clock : [%s]\n",
-			hdmi->hdmi_ctrl.drv_clock ? "enable" : "disable");
-	n += sprintf(buf + n, " - hdmi output: [%s]\n",
-			hdmi->hdmi_ctrl.drv_enable ? "enable" : "disable");
-
+	n += sprintf(buf + n, "\n[drv state]\n");
+	n += sprintf(buf + n, "|       |     driver     |     hpd      |                |\n");
+	n += sprintf(buf + n, "|  name |----------------+--------------+ support format |\n");
+	n += sprintf(buf + n, "|       | clock | output | state | mask |                |\n");
+	n += sprintf(buf + n, "|-------+-------+--------+-------+------+----------------|\n");
+	n += sprintf(buf + n, "| state |  %-4s |  %-4s  |  %-3s  | 0x%-2x |    0x%-4x      |\n",
+		hdmi->hdmi_ctrl.drv_clock ? "on" : "off",
+		hdmi->hdmi_ctrl.drv_enable ? "on" : "off",
+		hdmi->hdmi_ctrl.drv_hpd_state ? "in" : "out",
+		hdmi->hdmi_ctrl.drv_hpd_mask,
+		hdmi->hdmi_ctrl.drv_pixel_format_cap);
+#endif
 	printf("%s\n", buf);
 	memset(buf, 0x0, ARRAY_SIZE(buf));
 	n = 0;
@@ -923,6 +947,7 @@ static int _sunxi_drm_hdmi_init(struct sunxi_drm_connector *conn,
 	struct crtc_state *scrtc_state = &state->crtc_state;
 
 	scrtc_state->tcon_id       = hdmi->tcon_id;
+	scrtc_state->tcon_top_id   = hdmi->tcon_top_id;
 	scrtc_state->enable_vblank = _sunxi_drv_hdmi_vblank_enable;
 	scrtc_state->check_status  = _sunxi_drv_hdmi_fifo_check;
 	scrtc_state->vblank_enable_data = hdmi;
@@ -1053,7 +1078,7 @@ int __sunxi_hdmi_init_value(struct sunxi_drm_hdmi *hdmi)
 //	init_info->aspect_ratio = HDMI_ACTIVE_ASPECT_PICTURE;
 
 	hdmi->hdmi_ctrl.drv_enable   = 0x0;
-	hdmi->hdmi_ctrl.drv_color_cap  = BIT(SUNXI_COLOR_RGB888_8BITS);
+	hdmi->hdmi_ctrl.drv_pixel_format_cap  = BIT(SHDMI_RGB888_8BITS);
 	hdmi->hdmi_ctrl.drv_max_bits   = DISP_DATA_10BITS;
 	return 0;
 }
@@ -1114,6 +1139,7 @@ int sunxi_drm_hdmi_probe(struct udevice *dev)
 		goto failed_exit;
 	}
 	hdmi->tcon_id = sunxi_tcon_of_get_id(hdmi->tcon_dev);
+	hdmi->tcon_top_id = sunxi_tcon_of_get_top_id(hdmi->tcon_dev);
 
 	ret = _sunxi_hdmi_init_drv(hdmi);
 	if (ret != 0) {

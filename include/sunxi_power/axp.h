@@ -12,6 +12,7 @@
 
 #include <common.h>
 #include <linker_lists.h>
+#include <spare_head.h>
 
 #define AXP_POWER_ON_BY_POWER_KEY 0
 #define AXP_POWER_ON_BY_POWER_TRIGGER 1
@@ -26,12 +27,17 @@
 #define POWER_KEY_EXIST 1
 #define POWER_KEY_NOTEXIST 0
 
+/* legacy */
 #define BATTERY_RATIO_DEFAULT 0
 #define BATTERY_RATIO_TOO_LOW_WITHOUT_DCIN 1
 #define BATTERY_RATIO_TOO_LOW_WITH_DCIN 2
 #define BATTERY_RATIO_ENOUGH 3
 #define BATTERY_VOL_TOO_LOW 4
+
+/* new */
 #define BATTERY_IS_NOT_EXIST 5
+#define BATTERY_RATIO_VOL_NOT_ENOUGH 6
+#define BATTERY_RATIO_VOL_IS_ENOUGH 7
 
 #define AXP_POWER_ON_BY_POWER_KEY 0
 #define AXP_POWER_ON_BY_POWER_TRIGGER 1
@@ -41,6 +47,18 @@ enum sunxi_axp_type {
 	AXP_TYPE_SLAVE,
 };
 
+enum charge_mode_type {
+	STARTUP_IMMEDIATE_BOOT = 0,
+	STARTUP_CHARGER,
+	STARTUP_POWERKEY,
+};
+
+enum battery_exist_type {
+	BATTERY_FAULT = -1,
+	BATTERY_NONE,
+	BATTERY_IS_EXIST,
+};
+
 struct sunxi_pmu_dev_t {
 const char *pmu_name;
 int (*probe)(void); /* matches chipid*/
@@ -48,6 +66,7 @@ int (*get_info)(char *name, unsigned char *chipid); /*get axp info*/
 int (*set_voltage)(char *name, uint vol_value, uint onoff); /*Set a certain power, voltage value. */
 int (*get_voltage)(char *name); /*Read a certain power, voltage value */
 int (*set_power_off)(void); /*Set shutdown*/
+int (*set_reboot_flag)(void); /*Set reboot flag*/
 int (*set_sys_mode)(int status); /*Sets the state of the next mode */
 int (*set_dcdc_mode)(const char *name, int mode); /*force dcdc mode in pwm or not */
 int (*get_sys_mode)(void); /*Get the current state*/
@@ -56,6 +75,7 @@ int (*set_bus_vol_limit)(int vol_value); /*Set limit total voltage*/
 unsigned char (*get_reg_value)(unsigned char reg_addr);/*get register value*/
 unsigned char (*set_reg_value)(unsigned char reg_addr, unsigned char reg_value);/*set register value*/
 int (*reg_debug)(void); /*Get debug message*/
+int (*get_poweron_source)(void); /* Get the reason for triggering the boot, (button to power on, power on)*/
 };
 
 
@@ -90,11 +110,12 @@ int (*get_battery_probe_ext)(void); /*Get the flag of the power on*/
 #define U_BOOT_AXP_BMU_INIT(_name)                                             \
 	ll_entry_declare(struct sunxi_bmu_dev_t, _name, bmu)
 
-#define AXP_BOOT_SOURCE_BUTTON         0
+#define AXP_BOOT_SOURCE_BUTTON                 0
 #define AXP_BOOT_SOURCE_IRQ_LOW                1
-#define AXP_BOOT_SOURCE_VBUS_USB       2
+#define AXP_BOOT_SOURCE_VBUS_USB               2
 #define AXP_BOOT_SOURCE_CHARGER                3
 #define AXP_BOOT_SOURCE_BATTERY                4
+#define AXP_BOOT_SOURCE_PS_L_TO_H              5
 
 
 int pmu_probe(void);
@@ -102,6 +123,7 @@ int pmu_get_info(char *name, unsigned char *chipid);
 int pmu_set_voltage(char *name, uint vol_value, uint onoff);
 int pmu_get_voltage(char *name);
 int pmu_set_power_off(void);
+int pmu_set_reboot_flag(void);
 int pmu_set_sys_mode(int status);
 int pmu_set_dcdc_mode(const char *name, int mode);
 int pmu_get_sys_mode(void);
@@ -110,6 +132,8 @@ int pmu_set_bus_vol_limit(int vol_value);
 unsigned char pmu_get_reg_value(unsigned char reg_addr);
 unsigned char pmu_set_reg_value(unsigned char reg_addr, unsigned char reg_value);
 int pmu_reg_debug(void);
+const char *pmu_get_name(void);
+int pmu_get_poweron_source(void);
 
 int bmu_probe(void);
 int bmu_set_power_off(void);
@@ -130,6 +154,7 @@ int bmu_get_ntc_temp(int param[]);
 int bmu_reg_debug(void);
 int bmu_set_power_on_flag(int status);
 int bmu_get_power_on_flag(void);
+bool bmu_get_exist(void);
 int axp_probe(void);
 
 #endif /* __AXP_H__ */

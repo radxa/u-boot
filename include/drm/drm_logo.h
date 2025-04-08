@@ -21,9 +21,11 @@
 extern "C" {
 #endif
 
+extern int sunxi_bmp_display(char *name);
 int sunxi_show_bmp(char *name);
+int sunxi_show_bmp_and_backlight(char *name, char *reg);
 int sunxi_backlight_ctrl(char *reg);
-
+int sunxi_drm_disable(void);
 #ifdef __cplusplus
 }
 #endif

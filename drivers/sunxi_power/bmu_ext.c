@@ -111,6 +111,15 @@ int bmu_ext_set_charge(void)
 	return -1;
 }
 
+/*get bmu_ext poweron sourc*/
+int bmu_ext_get_charge(void)
+{
+	if  ((sunxi_bmu_ext_dev) && (sunxi_bmu_ext_dev->get_charge))
+		return sunxi_bmu_ext_dev->get_charge();
+	axp_err("not imple:%s\n", __func__);
+	return -1;
+}
+
 /*get bmu_ext type*/
 int bmu_ext_get_type(void)
 {

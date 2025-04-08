@@ -22,7 +22,10 @@ int do_poweroff(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #ifdef CONFIG_SUNXI_BMU
 	bmu_set_power_off();
 #endif
-	asm volatile("b .");
+
+	while (1)
+	;
+
 	return 0;
 }
 
@@ -33,8 +36,7 @@ int axp_reg_debug(void)
 	ret = pmu_reg_debug();
 #endif
 #ifdef CONFIG_SUNXI_BMU
-	if (ret < 0)
-		ret = bmu_reg_debug();
+	ret = bmu_reg_debug();
 #endif
 	return ret;
 }
@@ -54,7 +56,11 @@ int axp_probe(void)
 #endif
 
 #ifdef CONFIG_SUNXI_BMU
+#ifdef CONFIG_SUNXI_BMU_EXT
+	if ((!bmu_probe()) || (bmu_ext_get_exist() == true)) {
+#else
 	if (!bmu_probe()) {
+#endif /* CONFIG_SUNXI_BMU_EXT */
 #if !defined CONFIG_AXP_LATE_INFO
 		gd->pmu_saved_status = bmu_get_poweron_source();
 		gd->pmu_runtime_chgcur = axp_get_battery_status();
@@ -67,14 +73,14 @@ int axp_probe(void)
 		}
 #else
 		gd->pmu_saved_status = -1;
+		gd->pmu_runtime_chgcur = BATTERY_IS_NOT_EXIST;
 #endif /* !CONFIG_AXP_LATE_INFO */
 	}
+#else
+	gd->pmu_saved_status = -1;
+	gd->pmu_runtime_chgcur = BATTERY_IS_NOT_EXIST;
 #endif /* CONFIG_SUNXI_BMU */
 
 	axp_reg_debug();
 	return ret;
 }
-
-
-
-

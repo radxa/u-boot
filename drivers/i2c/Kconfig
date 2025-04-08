@@ -652,6 +652,33 @@ config AXP221_SUNXI_I2C_SLAVE
 	 Sunxi AXP221 I2C Slave
 endif
 
+config AXP515_SUNXI_I2C_SLAVE
+	hex "AXP515 I2C Slave"
+	depends on R_I2C0_ENABLE && AXP515_POWER
+	default 0
+	help
+	 Sunxi AXP515 I2C Slave
+
+config AXP517_SUNXI_I2C_SLAVE
+	hex "AXP517 I2C Slave"
+	depends on R_I2C0_ENABLE && AXP517_POWER
+	default 0
+	help
+	 Sunxi AXP517 I2C Slave
+
+config OCP2131_SUNXI_I2C_SLAVE
+	hex "OCP2131 I2C Slave"
+	depends on OCP2131_POWER
+	default 0
+	help
+	 Sunxi OCP2131 I2C Slave
+
+config AW37501_SUNXI_I2C_SLAVE
+	hex "AW37501 I2C Slave"
+	depends on AW37501_POWER
+	default 0
+	help
+	 Sunxi AW37501 I2C Slave
 
 source "drivers/i2c/muxes/Kconfig"
 

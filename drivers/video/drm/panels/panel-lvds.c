@@ -69,7 +69,7 @@ static int panel_lvds_prepare(struct sunxi_drm_panel *panel)
 	DRM_INFO("%s\n", __func__);
 	for (i = 0; i < POWER_MAX; i++) {
 		if (lvds->supply[i]) {
-			err = sunxi_drm_power_enable(lvds->supply[i]);
+			err = sunxi_drm_power_enable(lvds->supply[i], 0);
 			if (err < 0) {
 				DRM_ERROR("failed to enable supply%d: %d\n",
 					i, err);
@@ -142,7 +142,7 @@ static int panel_lvds_unprepare(struct sunxi_drm_panel *panel)
 
 	for (i = POWER_MAX; i > 0; i--) {
 		if (lvds->supply[i - 1]) {
-			sunxi_drm_power_disable(lvds->supply[i]);
+			sunxi_drm_power_disable(lvds->supply[i - 1]);
 			if (lvds->delay.power)
 				mdelay(lvds->delay.power);
 		}
@@ -171,10 +171,11 @@ static int panel_lvds_parse_dt(struct panel_lvds *lvds)
 	for (i = 0; i < POWER_MAX; i++) {
 		lvds->supply[i] = 0;
 		snprintf(power_name, 40, "power%d-supply", i);
-
-		ret = dev_read_u32(lvds->dev, power_name, &lvds->supply[i]);
-		if (ret) {
-			pr_err("failed to request regulator(%s): %d\n", power_name, ret);
+		if (dev_read_bool(lvds->dev, power_name)) {
+			ret = dev_read_u32(lvds->dev, power_name, &lvds->supply[i]);
+			if (ret) {
+				pr_err("failed to request regulator(%s): %d\n", power_name, ret);
+			}
 		}
 	}
 	dev_read_u32(lvds->dev, "power-delay-ms", &lvds->delay.power);
@@ -185,18 +186,22 @@ static int panel_lvds_parse_dt(struct panel_lvds *lvds)
 	for (i = 0; i < GPIO_MAX; i++) {
 		snprintf(gpio_name, 40, "enable%d-gpios", i);
 
-		ret = sunxi_drm_gpio_request(lvds->dev, gpio_name);
-		if (ret < 0) {
-			pr_err("failed to request %s GPIO: %d\n", gpio_name, ret);
-		} else
-			lvds->enable_gpio[i] = ret;
+		if (dev_read_bool(lvds->dev, gpio_name)) {
+			ret = sunxi_drm_gpio_request(lvds->dev, gpio_name);
+			if (ret < 0) {
+				pr_err("failed to request %s GPIO: %d\n", gpio_name, ret);
+			} else
+				lvds->enable_gpio[i] = ret;
+		}
 	}
 
-	ret = sunxi_drm_gpio_request(lvds->dev, "reset-gpios");
-	if (ret < 0) {
-		pr_err("failed to request %s GPIO: %d\n", "reset", ret);
-	} else
-		lvds->reset_gpio = ret;
+	if (dev_read_bool(lvds->dev, "reset-gpios")) {
+		ret = sunxi_drm_gpio_request(lvds->dev, "reset-gpios");
+		if (ret < 0) {
+			pr_err("failed to request %s GPIO: %d\n", "reset", ret);
+		} else
+			lvds->reset_gpio = ret;
+	}
 
 	lvds->panel.bus_format = dev_read_u32_default(lvds->dev, "bus-format", MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA);
 

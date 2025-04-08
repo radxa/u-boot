@@ -112,6 +112,8 @@ int bmu_get_poweron_source(void)
 	if (bmu_ext_get_exist() == true) {
 		if ((sunxi_bmu_dev) && (sunxi_bmu_dev->get_poweron_source))
 			return bmu_ext_get_poweron_source(sunxi_bmu_dev->get_poweron_source());
+		else
+			return bmu_ext_get_poweron_source(-1);
 	}
 #endif
 	if ((sunxi_bmu_dev) && (sunxi_bmu_dev->get_poweron_source))
@@ -272,4 +274,12 @@ int bmu_get_power_on_flag(void)
 		return sunxi_bmu_dev->get_power_on_flag();
 	axp_err("not imple:%s\n", __func__);
 	return -1;
+}
+
+bool bmu_get_exist(void)
+{
+	if (sunxi_bmu_dev)
+		return true;
+
+	return false;
 }

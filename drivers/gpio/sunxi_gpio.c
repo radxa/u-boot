@@ -29,6 +29,7 @@ struct sunxi_gpio_platdata {
 };
 
 #ifndef CONFIG_DM_GPIO
+#if !CONFIG_IS_ENABLED(AW_GPIO_V3) && !CONFIG_IS_ENABLED(AW_GPIO_V4)
 static int sunxi_gpio_output(u32 pin, u32 val)
 {
 	u32 dat;
@@ -59,7 +60,59 @@ static int sunxi_gpio_input(u32 pin)
 
 	return dat & 0x1;
 }
+#else
+static int sunxi_gpio_output(u32 pin, u32 val)
+{
+	u32 dat;
+	u32 bank = GPIO_BANK(pin);
+	u32 num = GPIO_NUM(pin);
+	struct sunxi_gpio *pio;
+	struct sunxi_r_gpio *r_pio;
 
+	if (bank < SUNXI_GPIO_L) {
+		(void)r_pio;
+		pio = (struct sunxi_gpio *)BANK_TO_GPIO(bank);
+		dat = readl(&pio->dat);
+	} else {
+		(void)pio;
+		r_pio = (struct sunxi_r_gpio *)BANK_TO_GPIO(bank);
+		dat = readl(&r_pio->dat);
+	}
+
+	if (val)
+		dat |= 0x1 << num;
+	else
+		dat &= ~(0x1 << num);
+
+	if (bank < SUNXI_GPIO_L)
+		writel(dat, &pio->dat);
+	else
+		writel(dat, &r_pio->dat);
+
+	return 0;
+}
+
+static int sunxi_gpio_input(u32 pin)
+{
+	u32 dat;
+	u32 bank = GPIO_BANK(pin);
+	u32 num = GPIO_NUM(pin);
+
+	if (bank < SUNXI_GPIO_L) {
+		struct sunxi_gpio *pio;
+		pio = (struct sunxi_gpio *)BANK_TO_GPIO(bank);
+		dat = readl(&pio->dat);
+	} else {
+		struct sunxi_r_gpio *r_pio;
+		r_pio = (struct sunxi_r_gpio *)BANK_TO_GPIO(bank);
+		dat = readl(&r_pio->dat);
+	}
+	dat >>= num;
+
+	return dat & 0x1;
+}
+
+#endif
 int gpio_request(unsigned gpio, const char *label)
 {
 	return 0;
@@ -112,12 +165,12 @@ int sunxi_name_to_gpio(const char *name)
 	pin = simple_strtol(name, &eptr, 10);
 	if (!*name || *eptr)
 		return -1;
-	if (pin < 0 || pin > groupsize || group >= 12)
+	if (pin < 0 || pin > groupsize || group > 12)
 		return -1;
 	return group * 32 + pin;
 }
-#endif
 
+#endif
 int sunxi_name_to_gpio_bank(const char *name)
 {
 	int group = 0;

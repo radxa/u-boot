@@ -21,6 +21,9 @@
 #define R_IR_CLK_SRC_OFFSET		24
 #define R_IR_CLK_RATIO_M_OFFSET		0
 
+#define HOSC_19_2M			(BIT(14))
+#define HOSC_26M			(BIT(15))
+
 static void setbit(u32 cpux, u8 bit);
 static void clearbit(u32 cpux, u8 bit);
 void clock_init_uart(void)
@@ -221,6 +224,20 @@ uint clock_get_peri1_pll6_pll4(int div)
 
 	return pll6;
 }
+
+uint get_hosc(void)
+{
+	u32 reg_val;
+	reg_val = readl(SUNXI_RTC_BASE + RTC_XO_CONTROL0_REG);
+
+	if (reg_val & HOSC_19_2M)
+		return 19200000;
+	else if (reg_val & HOSC_26M)
+		return 26000000;
+	else
+		return 24000000;
+}
+
 uint clock_get_corepll(void)
 {
 	struct sunxi_cpu_pll_reg *const ccm =

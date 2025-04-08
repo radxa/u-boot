@@ -149,7 +149,7 @@
 #else
 #define  USBC_REG_o_PHYCTL          0x0410
 #endif
-
+#define USBC_REG_o_SEL              0x420
 
 
 #define  USBC_REG_o_DMA_ENABLE      0x0500

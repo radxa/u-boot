@@ -22,6 +22,7 @@ int (*get_poweron_source)(int poweron_source); /*get poweron source*/
 int (*get_battery_probe)(void); /*get battery status*/
 int (*set_discharge)(void); /*get battery status*/
 int (*set_charge)(void); /*get battery status*/
+int (*get_charge)(void); /*get battery status*/
 int (*get_ntc_temp)(int param[]); /*get battery temp*/
 int (*set_ntc_onoff)(int onoff, int ntc_cur); /*get battery temp*/
 int (*get_battery_vol)(void); /*Get the average battery voltage*/
@@ -46,6 +47,7 @@ int bmu_ext_get_battery_probe(void);
 int bmu_ext_get_type(void);
 int bmu_ext_set_discharge(void);
 int bmu_ext_set_charge(void);
+int bmu_ext_get_charge(void);
 int bmu_ext_get_ntc_temp(int param[]);
 int bmu_ext_set_ntc_onoff(int onoff, int ntc_cur);
 int bmu_ext_get_battery_vol(void);

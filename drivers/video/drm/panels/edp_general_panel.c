@@ -36,7 +36,14 @@ struct general_panel {
 	ulong enable_gpio[GPIO_MAX];
 	ulong reset_gpio;
 #endif
+	unsigned int power_delay_ms;
+	unsigned int disable_delay_ms;
 };
+
+static void general_panel_sleep(int msec)
+{
+	mdelay(msec);
+}
 
 static inline struct general_panel *to_general_panel(struct sunxi_drm_panel *panel)
 {
@@ -64,9 +71,10 @@ static int general_panel_unprepare(struct sunxi_drm_panel *panel)
 #else
 			sunxi_drm_power_disable(edp_panel->supply[i - 1]);
 #endif
-			mdelay(10);
 		}
 	}
+
+	general_panel_sleep(edp_panel->disable_delay_ms);
 
 	return 0;
 }
@@ -82,25 +90,26 @@ static int general_panel_prepare(struct sunxi_drm_panel *panel)
 #ifdef DRM_USE_DM_POWER
 			err = regulator_set_enable(edp_panel->supply[i], true);
 #else
-			err = sunxi_drm_power_enable(edp_panel->supply[i]);
+			err = sunxi_drm_power_enable(edp_panel->supply[i], 0);
 #endif
 			if (err < 0) {
 				dev_err(edp_panel->dev, "failed to enable supply%d: %d\n",
 					i, err);
 				return err;
 			}
-			mdelay(10);
 		}
 	}
 
 	for (i = 0; i < GPIO_MAX; i++) {
 		if (edp_panel->enable_gpio[i])
 #ifdef DRM_USE_DM_GPIO
-			dm_gpio_set_value(edp_panel->enable_gpio[i - 1], 1);
+			dm_gpio_set_value(edp_panel->enable_gpio[i], 1);
 #else
-			sunxi_drm_gpio_set_value(edp_panel->enable_gpio[i - 1], 1);
+			sunxi_drm_gpio_set_value(edp_panel->enable_gpio[i], 1);
 #endif
 	}
+
+	general_panel_sleep(edp_panel->power_delay_ms);
 
 	return 0;
 }
@@ -138,6 +147,7 @@ static int general_panel_parse_dts(struct general_panel *edp_panel)
 	char power_name[32] = {0};
 	char gpio_name[32] = {0};
 	int ret;
+	ulong gpio;
 	int i = 0;
 
 	ret = sunxi_of_get_panel_orientation(dev, &edp_panel->panel.orientation);
@@ -147,22 +157,24 @@ static int general_panel_parse_dts(struct general_panel *edp_panel)
 
 	for (i = 0; i < POWER_MAX; i++) {
 		snprintf(power_name, 32, "power%d-supply", i);
+		if (dev_read_bool(dev, power_name)) {
 #ifdef DRM_USE_DM_POWER
-		ret = uclass_get_device_by_phandle(UCLASS_REGULATOR, dev,
-						   power_name, &edp_panel->supply[i]);
-		if (IS_ERR(edp_panel->supply[i]) || ret) {
-			DRM_ERROR("failed to request regulator(%s) for edp panel, ret:%d\n",
-				power_name, ret);
-			edp_panel->supply[i] = NULL;
-		}
+			ret = uclass_get_device_by_phandle(UCLASS_REGULATOR, dev,
+							   power_name, &edp_panel->supply[i]);
+			if (IS_ERR(edp_panel->supply[i]) || ret) {
+				DRM_ERROR("failed to request regulator(%s) for edp panel, ret:%d\n",
+					power_name, ret);
+				edp_panel->supply[i] = NULL;
+			}
 #else
-		ret = dev_read_u32(dev, power_name, &edp_panel->supply[i]);
-		if (!edp_panel->supply[i] || ret) {
-			DRM_ERROR("failed to request regulator(%s) for edp panel, ret:%d\n",
-				power_name, ret);
-			edp_panel->supply[i] = 0;
-		}
+			ret = dev_read_u32(dev, power_name, &edp_panel->supply[i]);
+			if (!edp_panel->supply[i] || ret) {
+				DRM_ERROR("failed to request regulator(%s) for edp panel, ret:%d\n",
+					power_name, ret);
+				edp_panel->supply[i] = 0;
+			}
 #endif
+		}
 	}
 
 #ifdef DRM_USE_DM_GPIO
@@ -170,38 +182,53 @@ static int general_panel_parse_dts(struct general_panel *edp_panel)
 	for (i = 0; i < GPIO_MAX; i++) {
 		edp_panel->enable_gpio[i] = kmalloc(sizeof(struct gpio_desc), __GFP_ZERO);
 		snprintf(gpio_name, 32, "enable%d-gpios", i);
-		ret = gpio_request_by_name(dev, gpio_name, 0,
-					   edp_panel->enable_gpio[i], GPIOD_IS_OUT);
-		if (IS_ERR(edp_panel->enable_gpio[i]) || ret) {
-			DRM_ERROR("failed to request %s GPIO for edp panel, ret:%d\n",
-				gpio_name, ret);
+		if (dev_read_bool(dev, gpio_name)) {
+			ret = gpio_request_by_name(dev, gpio_name, 0,
+						   edp_panel->enable_gpio[i], GPIOD_IS_OUT);
+			if (IS_ERR(edp_panel->enable_gpio[i]) || ret) {
+				DRM_ERROR("failed to request %s GPIO for edp panel, ret:%d\n",
+					gpio_name, ret);
+			}
 		}
 	}
 
 	edp_panel->reset_gpio = kmalloc(sizeof(struct gpio_desc), __GFP_ZERO);
-	ret = gpio_request_by_name(dev, "reset-gpios", 0,
-				   edp_panel->reset_gpio, GPIOD_IS_OUT);
-	if (IS_ERR(edp_panel->reset_gpio) || ret) {
-		dev_err(dev, "failed to request %s GPIO: %d\n", "reset", ret);
+	if (dev_read_bool(dev, "reset-gpios")) {
+		ret = gpio_request_by_name(dev, "reset-gpios", 0,
+					   edp_panel->reset_gpio, GPIOD_IS_OUT);
+		if (IS_ERR(edp_panel->reset_gpio) || ret) {
+			dev_err(dev, "failed to request %s GPIO: %d\n", "reset", ret);
+		}
 	}
 #else
 	for (i = 0; i < GPIO_MAX; i++) {
 		snprintf(gpio_name, 32, "enable%d-gpios", i);
-		ret = sunxi_drm_gpio_request(dev, gpio_name);
-		if (ret < 0) {
-			DRM_ERROR("failed to request %s GPIO for edp panel, ret:%d\n",
-				gpio_name, ret);
-		} else {
-			edp_panel->enable_gpio[i] = ret;
+		if (dev_read_bool(dev, gpio_name)) {
+			gpio = sunxi_drm_gpio_request(dev, gpio_name);
+			if (gpio < 0) {
+				DRM_ERROR("failed to request %s GPIO for edp panel, ret:%d\n",
+					gpio_name, ret);
+			} else {
+				edp_panel->enable_gpio[i] = gpio;
+			}
 		}
 	}
 
-	ret = sunxi_drm_gpio_request(dev, "reset-gpios");
-	if (ret < 0) {
-		DRM_ERROR("failed to request %s GPIO for edp panel, ret:%d\n",
-			"reset", ret);
-	} else {
-		edp_panel->reset_gpio = ret;
+	ret = dev_read_u32(dev, "power-delay-ms", &edp_panel->power_delay_ms);
+	if (ret)
+		edp_panel->power_delay_ms = 10;
+	ret = dev_read_u32(dev, "disable-delay-ms", &edp_panel->disable_delay_ms);
+	if (ret)
+		edp_panel->disable_delay_ms = 10;
+
+	if (dev_read_bool(dev, "reset-gpios")) {
+		gpio = sunxi_drm_gpio_request(dev, "reset-gpios");
+		if (gpio < 0) {
+			DRM_ERROR("failed to request %s GPIO for edp panel, ret:%d\n",
+				"reset", ret);
+		} else {
+			edp_panel->reset_gpio = gpio;
+		}
 	}
 #endif
 

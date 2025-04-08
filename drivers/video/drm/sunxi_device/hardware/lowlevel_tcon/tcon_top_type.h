@@ -122,6 +122,31 @@ union tcon_clk_gate_reg_t {
 	} bits;
 };
 
+union dsc_top_ctrl_reg_t {
+	u32 dwval;
+	struct {
+		u32 dsc_enable:1;
+		u32 dsc_slice_sel:1;
+		u32 dsc_flush:1;
+		u32 clk_dsc_div:5;
+		u32 res0:24;
+	} bits;
+};
+
+union dsc_int_reg_t {
+	u32 dwval;
+	struct {
+		u32 res0:13;
+		u32 dwc_dsc_iready_int_flag:1;
+		u32 res1:1;
+		u32 dwc_dsc_err_int_flag:1;
+		u32 res2:13;
+		u32 dwc_dsc_irady_int_en:1;
+		u32 res3:1;
+		u32 dwc_dsc_err_int_en:1;
+	} bits;
+};
+
 union dsi_src_select_reg_t {
 	u32 dwval;
 	struct {
@@ -192,6 +217,8 @@ struct __tcon_top_dev_t {
 	union tcon_de_perh_reg_t tcon_de_perh;
 	/* 0x20 - 0x2c */
 	union tcon_clk_gate_reg_t tcon_clk_gate;
+	union dsc_top_ctrl_reg_t dsc_top_ctrl;
+	union dsc_int_reg_t dsc_int_reg;
 };
 
 #endif

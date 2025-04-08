@@ -164,7 +164,7 @@ static int check_public_in_rootcert(const char *name,
 	struct sbrom_toc1_item_info  *toc1_item;
 	sunxi_certif_info_t  root_certif;
 	u8 *buf;
-	int ret, i;
+	int ret = -1, i;
 	void *toc1_base;
 
 	if (preserved_toc1 == NULL) {
@@ -179,40 +179,55 @@ static int check_public_in_rootcert(const char *name,
 
 	/*Parse root certificate*/
 	buf = (u8 *)(toc1_base + toc1_item->data_offset);
-	ret =  sunxi_certif_probe_ext(&root_certif, buf, toc1_item->data_len);
-	if (ret < 0) {
-		pr_err("fail to create root certif\n");
-		return -1;
+	if (!memcmp(buf, AW_CERT_FORMAT_SIGN, AW_CERT_MAGIC_SIZE)) {
+		if (aw_certif_probe_extern(&root_certif, (aw_cert_t *)buf) < 0) {
+			pr_err("fail to probe aw_cert extension\n");
+			goto ret;
+		}
+		ret = sunxi_certif_verify_subcert_pubkey(&root_certif, sub_certif, name);
+	} else {
+		ret = sunxi_certif_probe_ext(&root_certif, buf, toc1_item->data_len);
+		if (ret < 0) {
+			pr_err("fail to probe x509 extension\n");
+			goto ret;
+		}
+
+		for (i = 0; i < root_certif.extension.extension_num; i++) {
+			if (strcmp((const char *)root_certif.extension.name[i], name)) {
+				continue;
+			}
+			pr_err("find %s key stored in root certif\n", name);
+
+			if (memcmp(root_certif.extension.value[i],
+						sub_certif->pubkey.n+1, sub_certif->pubkey.n_len-1)) {
+				pr_err("%s key n is incompatible\n", name);
+				pr_err(">>>>>>>key in rootcertif<<<<<<<<<<\n");
+				sunxi_dump((u8 *)root_certif.extension.value[i], sub_certif->pubkey.n_len-1);
+				pr_err(">>>>>>>key in certif<<<<<<<<<<\n");
+				sunxi_dump((u8 *)sub_certif->pubkey.n+1, sub_certif->pubkey.n_len-1);
+				goto ret;
+			}
+			if (memcmp(root_certif.extension.value[i] + sub_certif->pubkey.n_len-1,
+						sub_certif->pubkey.e, sub_certif->pubkey.e_len)) {
+				pr_err("%s key e is incompatible\n", name);
+				pr_err(">>>>>>>key in rootcertif<<<<<<<<<<\n");
+				sunxi_dump((u8 *)root_certif.extension.value[i] +
+						sub_certif->pubkey.n_len-1, sub_certif->pubkey.e_len);
+				pr_err(">>>>>>>key in certif<<<<<<<<<<\n");
+				sunxi_dump((u8 *)sub_certif->pubkey.e, sub_certif->pubkey.e_len);
+				goto ret;
+			}
+			break;
+		}
+		if (i == root_certif.extension.extension_num) {
+			printf("cant find %s key stored in root certif\n", name);
+			goto ret;
+		}
+		ret = 0;
 	}
 
-	for (i = 0; i < root_certif.extension.extension_num; i++) {
-		if (strcmp((const char *)root_certif.extension.name[i], name)) {
-			continue;
-		}
-		pr_err("find %s key stored in root certif\n", name);
-
-		if (memcmp(root_certif.extension.value[i],
-					sub_certif->pubkey.n+1, sub_certif->pubkey.n_len-1)) {
-			pr_err("%s key n is incompatible\n", name);
-			pr_err(">>>>>>>key in rootcertif<<<<<<<<<<\n");
-			sunxi_dump((u8 *)root_certif.extension.value[i], sub_certif->pubkey.n_len-1);
-			pr_err(">>>>>>>key in certif<<<<<<<<<<\n");
-			sunxi_dump((u8 *)sub_certif->pubkey.n+1, sub_certif->pubkey.n_len-1);
-			return -1;
-		}
-		if (memcmp(root_certif.extension.value[i] + sub_certif->pubkey.n_len-1,
-					sub_certif->pubkey.e, sub_certif->pubkey.e_len)) {
-			pr_err("%s key e is incompatible\n", name);
-			pr_err(">>>>>>>key in rootcertif<<<<<<<<<<\n");
-			sunxi_dump((u8 *)root_certif.extension.value[i] +
-					sub_certif->pubkey.n_len-1, sub_certif->pubkey.e_len);
-			pr_err(">>>>>>>key in certif<<<<<<<<<<\n");
-			sunxi_dump((u8 *)sub_certif->pubkey.e, sub_certif->pubkey.e_len);
-			return -1;
-		}
-		break;
-	}
-	return 0 ;
+ret:
+	return ret;
 }
 #else
 static int check_public_in_rootcert(const char *name,
@@ -581,7 +596,7 @@ int sunxi_verity_hash_tree(char *part_name, char *cert_name)
 	uint32_t hash_tree_len = 0;
 
 	char *verity_dev = NULL;
-	char dm_mod[256] = {0};
+	char dm_mod[384] = {0};
 	char *dm_dev;
 
 	sunxi_partition_get_info(part_name, &info);
@@ -638,7 +653,9 @@ int sunxi_verity_hash_tree(char *part_name, char *cert_name)
 	// 2. set dm-mod env
 	verity_dev = env_get("verity_dev");
 
-	sprintf(dm_mod, "\"rootfs,,,ro,0 %d verity 1 %s %s 4096 4096 %d %d sha256 %s %s\"",
+	// panic_on_corruption - Panic the device when a corrupted block is discovered.
+	// restart_on_corruption - Restart the system when a corrupted block is discovered.
+	sprintf(dm_mod, "\"rootfs,,,ro,0 %d verity 1 %s %s 4096 4096 %d %d sha256 %s %s 1 panic_on_corruption\"",
 		part_len / SECTOR_SIZE,
 		verity_dev,
 		verity_dev,
@@ -974,7 +991,7 @@ int sunxi_verify_riscv(ulong img_addr, u32 image_len, u32 riscv_id)
 
 	if (gd->securemode) {
 		if (riscv_id == 0) {
-			cert_name = env_get("riscv0_partition");
+			cert_name = "riscv0";
 			pr_msg("cert_name = %s\n", cert_name);
 		}
 #ifdef CONFIG_SUNXI_IMAGE_HEADER

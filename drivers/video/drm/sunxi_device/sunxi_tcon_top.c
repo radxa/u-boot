@@ -120,6 +120,23 @@ static bool sunxi_tcon_top_node_is_tcon_top(ofnode node)
 	return false;
 }
 
+int sunxi_tcon_top_get_id(struct udevice *tcon_top)
+{
+	const struct tcon_top_data *match_data = (const struct tcon_top_data *)tcon_top->driver->of_match->data;
+
+	if (!sunxi_tcon_top_node_is_tcon_top(dev_ofnode(tcon_top))) {
+		DRM_ERROR("Device is not TCON TOP!\n");
+		return -EINVAL;
+	}
+
+	if (!match_data) {
+		DRM_ERROR("Device match_data is null!\n");
+		return -EINVAL;
+	}
+
+	return match_data->id;
+}
+
 int sunxi_tcon_top_clk_enable(struct udevice *tcon_top)
 {
 	struct tcon_top *topif = dev_get_priv(tcon_top);

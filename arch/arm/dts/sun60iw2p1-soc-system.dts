@@ -11,6 +11,7 @@
 #include <dt-bindings/thermal/thermal.h>
 #include <media_bus_format.h>
 #include <drm/drm_mipi_dsi.h>
+#include <dt-bindings/phy/phy.h>
 / {
 	model = "sun60iw2";
 	compatible = "allwinner,a733", "arm,sun60iw2p1";
@@ -46,8 +47,10 @@
 		card_boot:card_boot@45000014 {
 			device_type = "card_boot";
 			logical_start   = <40960>;
-			/* sprite_gpio0 = <&pio PH 6 1 0xffffffff 0xffffffff 1>; */
-			sprite_gpio0 = <&pio 0x7 0x6 0x1 0xffffffff 0xffffffff 0x1>;
+			/* sprite_gpio0 = <&pio PI 9 1 0xffffffff 0xffffffff 1>; */
+			boot_work_delay = <130>;
+			boot_work_times = <3>;
+			sprite_gpio0 = <&pio 0x8 0x9 0x1 0xffffffff 0xffffffff 0x0>;
 		};
 
 		gpio_bias:gpio_bias@45000018 {
@@ -66,6 +69,18 @@
 			key_min = <28>;
 		};
 
+		adc_boot_recovery:adc_boot_recovery@45000024 {
+			device_type = "adc_boot_recovery";
+		};
+
+		gpadc_boot_recovery:gpadc_boot_recovery@45000024 {
+			device_type = "gpadc_boot_recovery";
+		};
+
+		key_boot_recovery:key_boot_recovery@45000028 {
+			device_type = "key_boot_recovery";
+		};
+
 		pio: pinctrl@0300b000 {
 			compatible = "allwinner,sun60iw2p1-pinctrl";
 			device_type = "pio";
@@ -74,7 +89,7 @@
 			#gpio-cells = <6>;
 			/* takes the debounce time in usec as argument */
 			input-debounce = <0 0 0 0 0 0 0 0 0>;
-			r_pio: pinctrl@07022000 {
+			r_pio: pinctrl@07025000 {
 
 				s_twi0_pins_a: s_twi0@0 {
 					allwinner,pins = "PL0", "PL1";
@@ -138,7 +153,7 @@
 			spif_pins_c: spif@2 {
 			};
 
-			twi6: s_twi@0x07081400 {
+			twi6: s_twi@0x07083000 {
 				pmu0: pmu@34 {
 				};
 			};
@@ -201,12 +216,42 @@
 
 			pwm1_pin_sleep: pwm1@1 {
 			};
+
+			pwm2_pin_active: pwm2@0 {
+			};
+
+			pwm2_pin_sleep: pwm2@1 {
+			};
+
+			pwm3_pin_active: pwm3@0 {
+			};
+
+			pwm3_pin_sleep: pwm3@1 {
+			};
+
+			pwm4_pin_active: pwm4@0 {
+			};
+
+			pwm4_pin_sleep: pwm4@1 {
+			};
+
+			pwm16_pin_active: pwm16@0 {
+			};
+
+			pwm16_pin_sleep: pwm16@1 {
+			};
+
+			pwm19_pin_active: pwm19@0 {
+			};
+
+			pwm19_pin_sleep: pwm19@1 {
+			};
 		};
 
-		pwm: pwm@2527000 {
+		pwmchip0: pwmchip0@2527000 {
 			#pwm-cells = <0x3>;
 			compatible = "allwinner,sunxi-pwm";
-			reg = <0x0 0x02000c00 0x0 0x400>;
+			reg = <0x0 0x02527000 0x0 0x400>;
 			pwm-number = <10>;
 			pwm-base = <0x0>;
 			sunxi-pwms = <&pwm0>, <&pwm1>, <&pwm2>, <&pwm3>, <&pwm4>,
@@ -293,12 +338,196 @@
 			status = "disabled";
 		};
 
+		pwmchip1: pwmchip1@2528000 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm";
+			reg = <0x0 0x02528000 0x0 0x400>;
+			pwm-number = <10>;
+			pwm-base = <0xa>;
+			sunxi-pwms = <&pwm10>, <&pwm11>, <&pwm12>, <&pwm13>, <&pwm14>,
+			<&pwm15>, <&pwm16>, <&pwm17>, <&pwm18>, <&pwm19>;
+		};
+
+		pwm10: pwm10@2528010 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm10";
+			reg = <0x0 0x02528010 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm11: pwm11@2528011 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm11";
+			reg = <0x0 0x02528011 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm12: pwm12@2528012 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm12";
+			reg = <0x0 0x02528012 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm13: pwm13@2528013 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm13";
+			reg = <0x0 0x02528013 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm14: pwm14@2528014 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm14";
+			reg = <0x0 0x02528014 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm15: pwm15@2528015 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm15";
+			reg = <0x0 0x02528015 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm16: pwm16@2528016 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm16";
+			reg = <0x0 0x02528016 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm17: pwm17@2528017 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm17";
+			reg = <0x0 0x02528017 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm18: pwm18@2528018 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm18";
+			reg = <0x0 0x02528018 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwm19: pwm19@2528019 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm19";
+			reg = <0x0 0x02528019 0x0 0x4>;
+			reg_base = <0x02528000>;
+			status = "disabled";
+		};
+
+		pwmchip2: spwm0@7023000 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm";
+			reg = <0x0 0x07023000 0x0 0x400>;
+			pwm-number = <10>;
+			pwm-base = <0x14>;
+			sunxi-pwms = <&pwm20>, <&pwm21>, <&pwm22>, <&pwm23>, <&pwm24>,
+			<&pwm25>, <&pwm26>, <&pwm27>, <&pwm28>, <&pwm29>;
+		};
+
+		pwm20: pwm20@7023010 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm20";
+			reg = <0x0 0x07023010 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm21: pwm21@7023011 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm21";
+			reg = <0x0 0x07023011 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm22: pwm22@7023012 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm22";
+			reg = <0x0 0x07023012 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm23: pwm23@7023013 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm23";
+			reg = <0x0 0x07023013 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm24: pwm24@7023014 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm24";
+			reg = <0x0 0x07023014 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm25: pwm25@7023015 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm25";
+			reg = <0x0 0x07023015 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm26: pwm26@7023016 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm26";
+			reg = <0x0 0x07023016 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm27: pwm27@7023017 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm27";
+			reg = <0x0 0x07023017 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm28: pwm28@7023018 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm28";
+			reg = <0x0 0x07023018 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
+		pwm29: pwm29@7023019 {
+			#pwm-cells = <0x3>;
+			compatible = "allwinner,sunxi-pwm29";
+			reg = <0x0 0x07023019 0x0 0x4>;
+			reg_base = <0x07023000>;
+			status = "disabled";
+		};
+
 		card0_boot_para:card0_boot_para@2 {
 			device_type = "card0_boot_para";
 		};
 
 		card2_boot_para:card2_boot_para@3 {
 			device_type = "card2_boot_para";
+		};
+
+		sid: sid@3006000 {
+			device_type = "sid";
 		};
 
 		nand0:nand0@04011000 {
@@ -329,24 +558,163 @@
 			//resets = <&ccu RST_BUS_SPIF>;
 		};
 
+		serdes: serdes@6c00000 {
+			  compatible = "allwinner,cadence-combophy";
+			  reg = <0x0 0x06c00000 0x0 0x400>, /* serdes top register part-1 */
+					<0x0 0x06c06000 0x0 0x2000>, /* serdes top register part-2 */
+					<0x0 0x0709016c 0x0 0x4>; /* sys-rtc */
+			  clocks = <&clk_serdes_phy_cfgv>,
+					   <&clk_dcxo_serdes0_gate>,
+					   <&clk_dcxo_serdes1_gate>;
+			  clock-names = "serdes-clk",
+					   "dcxo-serdes0-clk",
+					   "dcxo-serdes1-clk";
+			  #address-cells = <2>;
+			  #size-cells = <2>;
+			  ranges;
+			  status = "disabled";
+
+			  combophy0: combo-phy0@6c01000 {
+				  reg = <0x0 0x06c01000 0x0 0xa00>, /* combophy0 top register */
+						<0x0 0x06c80000 0x0 0x20000>; /* combophy0 phy register*/
+				  #phy-cells = <1>;
+			  };
+
+			  combophy1: combo-phy1@6c02000 {
+				  reg = <0x0 0x06c02000 0x0 0xa00>, /* combophy1 top register */
+						<0x0 0x06ca0000 0x0 0x20000>; /* combophy1 phy register*/
+				  #phy-cells = <1>;
+			  };
+
+			  aux_hpd: aux-hpd@6c01e00 {
+				  reg = <0x0 0x06c01e00 0x0 0x200>; /* aux_hpd top register */
+				  #phy-cells = <1>;
+			  };
+		};
+
+		pcie_rc: pcie@6000000 {
+			compatible = "allwinner,sunxi-pcie-v300-rc";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			bus-range = <0x0 0xff>;
+			reg = <0 0x06000000 0 0x480000>;
+			reg-names = "dbi";
+			device_type = "pci";
+			ranges = <0x00000800 0 0x20000000 0x0 0x20000000 0 0x01000000
+				  0x81000000 0 0x21000000 0x0 0x21000000 0 0x01000000
+				  0x82000000 0 0x22000000 0x0 0x22000000 0 0x0e000000>;
+			num-lanes = <1>;
+			phys = <&combophy1 PHY_TYPE_PCIE>;
+			phy-names = "pcie-phy";
+			#interrupt-cells = <1>;
+			num-edma = <4>;
+			max-link-speed = <3>;
+			num-ib-windows = <16>;
+			num-ob-windows = <16>;
+			linux,pci-domain = <0>;
+			status = "disabled";
+		};
+
 		sunxi_drm: sunxi-drm {
 			compatible = "allwinner,sunxi-drm";
 			fb_base = <0>;
 			status = "okay";
 			route {
-				route_lvds0: route_lvds0 {
-					status = "okay";
+				disp0_lvds0: disp0_lvds0 {
+					enable = <0>;
+					status = "disabled";
 					endpoints = <&disp0_out_tcon0 &tcon0_out_lvds0>;
 					logo,uboot = "bootlogo.bmp";
 				};
-				route_rgb0: route_rgb0 {
+				disp0_lvds1: disp0_lvds1 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp0_out_tcon2 &tcon2_out_lvds1>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp0_rgb0: disp0_rgb0 {
+					enable = <0>;
 					status = "disabled";
 					endpoints = <&disp0_out_tcon0 &tcon0_out_rgb0>;
 					logo,uboot = "bootlogo.bmp";
 				};
-				route_dsi0: route_dsi0 {
+				disp0_rgb1: disp0_rgb1 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp0_out_tcon2 &tcon2_out_rgb1>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp0_dsi0: disp0_dsi0 {
+					enable = <0>;
 					status = "disabled";
 					endpoints = <&disp0_out_tcon0 &tcon0_out_dsi0>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp0_dsi1: disp0_dsi1 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp0_out_tcon1 &tcon1_out_dsi1>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp0_edp0: disp0_edp0 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp0_out_tcon4 &tcon4_out_edp0>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp0_hdmi0: disp0_hdmi0 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp0_out_tcon3 &tcon3_out_hdmi0>;
+					logo,uboot = "bootlogo.bmp";
+				};
+
+				disp1_lvds0: disp1_lvds0 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp1_out_tcon0 &tcon0_out_lvds0>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp1_lvds1: disp1_lvds1 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp1_out_tcon2 &tcon2_out_lvds1>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp1_rgb0: disp1_rgb0 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp1_out_tcon0 &tcon0_out_rgb0>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp1_rgb1: disp1_rgb1 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp1_out_tcon2 &tcon2_out_rgb1>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp1_dsi0: disp1_dsi0 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp1_out_tcon0 &tcon0_out_dsi0>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp1_dsi1: disp1_dsi1 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp1_out_tcon1 &tcon1_out_dsi1>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp1_edp0: disp1_edp0 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp1_out_tcon4 &tcon4_out_edp0>;
+					logo,uboot = "bootlogo.bmp";
+				};
+				disp1_hdmi0: disp1_hdmi0 {
+					enable = <0>;
+					status = "disabled";
+					endpoints = <&disp1_out_tcon3 &tcon3_out_hdmi0>;
 					logo,uboot = "bootlogo.bmp";
 				};
 			};
@@ -577,7 +945,7 @@
 		};
 
 		dsi0combophy: phy@5507000 {
-			compatible = "allwinner,sunxi-dsi-combo-phy0";
+			compatible = "allwinner,sunxi-dsi-combo-phy0,sun60iw2";
 			reg = <0x0 0x05507000 0x0 0x1ff>;
 			clocks = <&clk_mipi_dsi0>;
 			clock-names = "phy_clk";
@@ -587,11 +955,12 @@
 
 		dsi0: dsi0@5506000 {
 			compatible = "allwinner,dsi0";
-			reg = <0x0 0x05506000 0x0 0xfff>;
+			reg = <0x0 0x05506000 0x0 0xfff>,
+				<0x0 0x5504000 0x0 0xfff>;
 			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_mipi_dsi0>,
-			       <&clk_mipi_dsi_combphy0>;
-			clock-names = "dsi_clk", "combphy_clk";
+			       <&clk_mipi_dsc>;
+			clock-names = "dsi_clk", "dsc_clk";
 			phys = <&dsi0combophy>;
 			phy-names = "combophy";
 			status = "disabled";
@@ -612,7 +981,7 @@
 		};
 
 		dsi1combophy: phy@5509000 {
-			compatible = "allwinner,sunxi-dsi-combo-phy1";
+			compatible = "allwinner,sunxi-dsi-combo-phy1,sun60iw2";
 			reg = <0x0 0x05509000 0x0 0x1ff>;
 			clocks = <&clk_mipi_dsi1>;
 			clock-names = "phy_clk";
@@ -624,9 +993,8 @@
 			compatible = "allwinner,dsi1";
 			reg = <0x0 0x05508000 0x0 0xfff>;
 			interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_mipi_dsi1>,
-			       <&clk_mipi_dsi_combphy1>;
-			clock-names = "dsi_clk", "combphy_clk";
+			clocks = <&clk_mipi_dsi1>;
+			clock-names = "dsi_clk";
 			phys = <&dsi1combophy>;
 			phy-names = "combophy";
 			status = "disabled";
@@ -733,8 +1101,8 @@
 			compatible = "allwinner,tcon-tv";
 			reg = <0x0 0x05730000 0x0 0x1000>;
 			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_hdmi_tv>, <&clk_tcon_tv0>;
-			clock-names = "clk_tcon", "rst_bus_tcon";
+			clocks = <&clk_tcon_tv0>;
+			clock-names = "rst_bus_tcon";
 
 			top = <&vo1>;
 			status = "disabled";
@@ -758,20 +1126,20 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <1>;
-					tcon3_out_hdmi: endpoint@0 {
+					tcon3_out_hdmi0: endpoint@0 {
 						reg = <0>;
-						remote-endpoint = <&hdmi_in_tcon3>;
+						remote-endpoint = <&hdmi0_in_tcon3>;
 					};
 				};
 			};
 		};
 
 		tv1: tcon4@5731000 {
-			compatible = "allwinner,tcon-tv-edp";
+			compatible = "allwinner,tcon-tv";
 			reg = <0x0 0x05731000 0x0 0x1000>;
 			interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_tcon_tv0>;
-			clock-names = "clk_tcon";
+			clocks = <&clk_edp>, <&clk_tcon_tv1>;
+			clock-names = "clk_tcon", "clk_bus_tcon";
 			top = <&vo1>;
 			status = "disabled";
 
@@ -795,25 +1163,56 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <1>;
-					/*tcon4_out_edp: endpoint@0 {*/
-						/*reg = <0>;*/
-						/*remote-endpoint = <&edp_in_tcon4>;*/
-					/*};*/
+					tcon4_out_edp0: endpoint@0 {
+						reg = <0>;
+						remote-endpoint = <&edp0_in_tcon4>;
+					};
 				};
 			};
 		};
 
-		hdmi: hdmi@5520000 {
+		edp0: edp0@5720000 {
+			compatible = "allwinner,drm-dp";
+			reg = <0x0 0x05740000 0x0 0x1000>, /* edp base */
+				  <0x0 0x05760000 0x0 0x0020>;  /* edp pad base */
+			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_edp>;
+			clock-names = "clk_edp";
+			/* resets = <&ccu RST_BUS_EDP>; */
+			/* reset-names = "rst_bus_edp"; */
+			phys = <&aux_hpd PHY_TYPE_AUX>, <&combophy0 PHY_TYPE_DP>;
+			phy-names = "aux-phy", "dp-phy";
+			pclk_limit = <200000>; /*KHz*/
+			status = "disabled";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				edp_in: port@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+					edp0_in_tcon4: endpoint@0 {
+						reg = <0>;
+						remote-endpoint = <&tcon4_out_edp0>;
+					};
+				};
+				edp_out: port@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <1>;
+				};
+			};
+		};
+
+		hdmi0: hdmi0@5520000 {
 			compatible = "allwinner,sunxi-hdmi";
 			reg = <0x0 0x5520000 0x0 0x100000>;
 			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_hdmi_tv>,
-				<&clk_hdmi_gate>,
+			clocks = <&clk_hdmi_gate>,
 				<&clk_hdmi_sfr>,
 				<&clk_hdmi_main_rst>,
 				<&clk_hdmi_sub_rst>;
-			clock-names = "clk_tcon_tv",
-				"clk_hdmi",
+			clock-names = "clk_hdmi",
 				"clk_hdmi_24M",
 				"rst_main",
 				"rst_sub";
@@ -830,9 +1229,9 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <0>;
-					hdmi_in_tcon3: endpoint@0 {
+					hdmi0_in_tcon3: endpoint@0 {
 						reg = <0>;
-						remote-endpoint = <&tcon3_out_hdmi>;
+						remote-endpoint = <&tcon3_out_hdmi0>;
 					};
 				};
 			};
@@ -863,6 +1262,18 @@
 		interrupt-parent = <&gic>;
 	};
 	aliases:aliases@45100000 {
+		pwmchip0 = &pwmchip0;
+		pwmchip1 = &pwmchip1;
+		pwmchip2 = &pwmchip2;
+		pwm0 = &pwm0;
+		pwm1 = &pwm1;
+		pwm2 = &pwm2;
+		pwm3 = &pwm3;
+		pwm4 = &pwm4;
+		pwm16 = &pwm16;
+		pwm19 = &pwm19;
+		twi6 = &twi6;
+		pmu0 = &pmu0;
 	};
 
 };

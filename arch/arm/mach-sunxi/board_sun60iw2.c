@@ -8,10 +8,17 @@
 
 #include <sunxi_board.h>
 #include <smc.h>
+#include <asm/arch/usb.h>
+#include <asm/arch/watchdog.h>
+#include <sprite.h>
 
-#ifdef CONFIG_SUNXI_PMU_EXT
+#ifdef CONFIG_SUNXI_POWER
 #include <sunxi_power/power_manage.h>
+#include <sunxi_power/pmu_axp8191.h>
+#include <linux/delay.h>
+#include <linux/libfdt.h>
 #include <fdt_support.h>
+#include <linux/bitops.h>
 #endif
 
 int sunxi_platform_power_off(int status)
@@ -97,6 +104,115 @@ int update_pmu_ext_info_to_kernel(void)
 		pr_warn("WARNING: fdt_setprop can't set %s from node %s: %s\n",
 			"compatible", "status", fdt_strerror(err));
 		return -1;
+	}
+
+	return 0;
+}
+#endif
+
+#define SRAM_CTRL_REG2 (SUNXI_SYSCTRL_BASE + 0x8)
+int sunxi_set_sramc_mode(void)
+{
+	u32 reg_val;
+
+	/* SRAM:set sram to npu, default boot mode */
+	reg_val = readl(SRAM_CTRL_REG2);
+	reg_val &= ~(0x1 << 1);
+	writel(reg_val, SRAM_CTRL_REG2);
+	debug("set sram to npu\n");
+
+	reg_val = readl(SRAM_CTRL_REG2);
+	if (reg_val & (0x1 << 1))
+		pr_err("set sram to npu fail!\n");
+	return 0;
+}
+
+int sunxi_get_active_boot0_id(void)
+{
+	uint32_t val = *(uint32_t *)(SUNXI_RTC_BASE + 0x318);
+	if (val & (1 << 15)) {
+		return (val >> 12) & 0x7;
+	} else {
+		return (val >> 28) & 0x7;
+	}
+}
+
+void otg_phy_config(void)
+{
+	u32 reg_val;
+	reg_val = readl((const volatile void __iomem *)(SUNXI_USBOTG_BASE +
+							USBC_REG_o_PHYCTL));
+	reg_val &= ~(0x01 << USBC_PHY_CTL_SIDDQ);
+	reg_val |= 0x01 << USBC_PHY_CTL_VBUSVLDEXT;
+	writel(reg_val, (volatile void __iomem *)(SUNXI_USBOTG_BASE +
+						  USBC_REG_o_PHYCTL));
+}
+
+void sunxi_board_reset_cpu(ulong addr)
+{
+	static const struct sunxi_wdog *wdog =
+		(struct sunxi_wdog *)SUNXI_WDT_BASE;
+
+	writel(((WDT_CFG_KEY << 16) | 0x02), &wdog->ocfg);
+	/* Set the watchdog for its shortest interval (.5s) and wait */
+	writel(((WDT_CFG_KEY << 16) | WDT_MODE_EN), &wdog->srst);
+	while (1) { }
+
+}
+
+#ifdef CONFIG_SUNXI_POWER
+int update_bmu_info_to_kernel(void)
+{
+	int bat_exist;
+	int nodeoffset;
+
+	bat_exist	= axp_get_battery_exist();
+	if (bat_exist != BATTERY_IS_EXIST) {
+		tick_printf("no battery, disabled battery functons\n");
+
+		nodeoffset = fdt_path_offset(working_fdt, "bat_supply");
+		if (nodeoffset < 0) {
+			pr_err("Could not find nodeoffset for bat_supply\n");
+			return -1;
+		}
+		fdt_set_node_status(working_fdt, nodeoffset, FDT_STATUS_DISABLED, -1);
+
+		nodeoffset = fdt_path_offset(working_fdt, "pmu0");
+		if (nodeoffset < 0) {
+			pr_err("Could not find nodeoffset for pmu0\n");
+			return -1;
+		}
+		fdt_setprop_u32(working_fdt, nodeoffset, "pmu-charging-poweroff", 1);
+	}
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_SUNXI_SET_EFUSE_POWER
+int set_efuse_voltage(int status)
+{
+	int nodeoffset, len;
+	int vol;
+	const char *power_supply;
+	const char *vol_value = "voltage";
+	const char *power_name = "power_supply";
+
+	nodeoffset = fdt_path_offset(working_fdt, "/soc/sid");
+	if (nodeoffset < 0) {
+		printf("libfdt fdt_path_offset() returned %s\n",
+				fdt_strerror(nodeoffset));
+		return -1;
+	}
+	vol = fdt_getprop_u32_default_node(working_fdt, nodeoffset, 0, vol_value, -1);
+	power_supply = fdt_getprop(working_fdt, nodeoffset, power_name, &len);
+
+	if (status) {
+		pmu_set_voltage((char *)power_supply, vol, 1);
+		mdelay(20);
+	} else {
+		mdelay(20);
+		pmu_set_voltage((char *)power_supply, 0, 0);
 	}
 
 	return 0;

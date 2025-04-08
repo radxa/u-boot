@@ -22,6 +22,7 @@
 #include <clk/clk.h>
 #include <reset.h>
 #include <drm/drm_modes.h>
+#include <generic-phy.h>
 
 struct udevice;
 enum uclass_id;
@@ -62,6 +63,9 @@ ulong sunxi_drm_gpio_node_request(ofnode node, char *sub_name);
 
 int sunxi_drm_gpio_set_value(ulong p_handler, u32 value);
 
-int sunxi_drm_power_enable(uint32_t phandle);
+int sunxi_drm_power_enable(uint32_t phandle, unsigned int vol);
 int sunxi_drm_power_disable(uint32_t phandle);
+
+int sunxi_phy_get_by_name(struct udevice *dev, const char *phy_name,
+			    struct phy *phy);
 #endif /*End of file*/

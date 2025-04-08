@@ -159,6 +159,7 @@ struct sunxi_drm_connector_funcs {
 	int (*check)(struct sunxi_drm_connector *connector, struct display_state *state);
 	int (*mode_valid)(struct sunxi_drm_connector *connector, struct display_state *state);
 	int (*save_kernel_para)(struct sunxi_drm_connector *connector, struct display_state *state);
+	int (*print_conn)(struct sunxi_drm_connector *connector, struct display_state *state);
 };
 
 
@@ -167,6 +168,7 @@ int sunxi_drm_connector_pre_init(struct display_state *state);
 int sunxi_drm_connector_pre_enable(struct display_state *state);
 int sunxi_drm_connector_save_para(struct display_state *state);
 int sunxi_drm_connector_enable(struct display_state *state);
+int sunxi_drm_panel_post_disable(struct display_state *state);
 int sunxi_drm_connector_disable(struct display_state *state);
 int sunxi_drm_connector_backlight(struct display_state *state, bool flag);
 int sunxi_drm_connector_post_disable(struct display_state *state);
@@ -188,5 +190,6 @@ int drm_mode_to_sunxi_video_timings(struct drm_display_mode *mode,
 				    struct disp_video_timings *timings);
 void drm_mode_probed_add(struct sunxi_drm_connector *connector,
 			 struct drm_display_mode *mode);
+int sunxi_connector_print_state(struct display_state *state);
 
 #endif /*End of file*/

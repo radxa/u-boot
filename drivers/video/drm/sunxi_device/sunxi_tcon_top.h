@@ -15,6 +15,7 @@
 
 #include "tcon_top.h"
 
+int sunxi_tcon_top_get_id(struct udevice *tcon_top);
 int sunxi_tcon_top_clk_enable(struct udevice *tcon_top);
 int sunxi_tcon_top_clk_disable(struct udevice *tcon_top);
 

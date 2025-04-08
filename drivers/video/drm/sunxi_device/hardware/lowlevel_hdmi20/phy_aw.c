@@ -732,15 +732,15 @@ int aw_phy_config(void)
 		return -1;
 	}
 
-	dw_mc_reset_phy(1);
+	dw_mc_sw_reset(DW_MC_SWRST_PHY, 0x1);
 
-	dw_phy_reconfigure_interface();
+	dw_phy_config_interface();
 
-	dw_phy_power_enable(0);
+	dw_phy_set_power(DW_HDMI_DISABLE);
 
-	dw_phy_svsret();
+	dw_phy_config_svsret();
 
-	dw_mc_reset_phy(0);
+	dw_mc_sw_reset(DW_MC_SWRST_PHY, 0x0);
 
 	/* enable all channel */
 	aw_phy_addr->phy_ctl5.bits.reg_p1opt = 0xF;
@@ -752,7 +752,7 @@ int aw_phy_config(void)
 		_aw_phy_encoding_adapt(format);
 	}
 
-	dw_phy_power_enable(1);
+	dw_phy_set_power(DW_HDMI_ENABLE);
 
 	if (dw_phy_wait_lock() == 1) {
 		hdmi_inf("phy pll locked!\n");

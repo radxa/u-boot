@@ -258,7 +258,10 @@ static int sunxi_tcon_lvds_mode_init(struct udevice *dev)
 	bool displl_clk = hwtcon->tcon_ctrl.cfg.displl_clk;
 
 	DRM_INFO("[LVDS] %s start\n", __FUNCTION__);
-	ret = sunxi_tcon_lcd_prepare(hwtcon, lvds_para->timings.pixel_clk * tcon_div);
+	if (displl_clk)
+		ret = sunxi_tcon_lcd_prepare(hwtcon, 0);
+	else
+		ret = sunxi_tcon_lcd_prepare(hwtcon, lvds_para->timings.pixel_clk * tcon_div);
 	if (ret < 0) {
 		DRM_ERROR("sunxi_tcon_lcd_prepare failed\n");
 		return ret;
@@ -324,7 +327,10 @@ static int sunxi_tcon_rgb_mode_init(struct udevice *dev)
 	bool displl_clk = hwtcon->tcon_ctrl.cfg.displl_clk;
 
 	DRM_INFO("[RGB] %s start\n", __FUNCTION__);
-	ret = sunxi_tcon_lcd_prepare(hwtcon, rgb_para->timings.pixel_clk * tcon_div);
+	if (displl_clk)
+		ret = sunxi_tcon_lcd_prepare(hwtcon, 0);
+	else
+		ret = sunxi_tcon_lcd_prepare(hwtcon, rgb_para->timings.pixel_clk * tcon_div);
 	if (ret < 0) {
 		DRM_ERROR("sunxi_tcon_lcd_prepare failed\n");
 		return ret;
@@ -684,11 +690,11 @@ static int edp_tcon_clk_disable(struct sunxi_tcon *hwtcon)
 static void sunxi_tcon_edp_calc_judge_line(struct sunxi_tcon *hwtcon,
 					   struct disp_video_timings *timings)
 {
-	unsigned int usec_per_line, start_delay;
+	unsigned long long usec_per_line, start_delay;
 	unsigned int usec_start_delay, usec_judge_point;
 
 	usec_per_line =
-		    timings->hor_total_time * 1000000 / timings->pixel_clk;
+		    timings->hor_total_time * 1000000ull / timings->pixel_clk;
 	start_delay = tcon_tv_get_start_delay(&hwtcon->tcon_tv);
 	usec_start_delay = start_delay * usec_per_line;
 
@@ -730,6 +736,7 @@ static int sunxi_tcon_edp_mode_init(struct udevice *dev)
 	struct disp_video_timings *timings = &hwtcon->tcon_ctrl.cfg.timing;
 	unsigned int de_id = hwtcon->tcon_ctrl.cfg.de_id;
 	bool sw_enable = hwtcon->tcon_ctrl.cfg.sw_enable;
+	unsigned int pixel_mode = hwtcon->tcon_ctrl.cfg.pixel_mode;
 
 	if (hwtcon->is_enabled) {
 		DRM_WARN("tcon edp has been enable!\n");
@@ -738,11 +745,12 @@ static int sunxi_tcon_edp_mode_init(struct udevice *dev)
 
 	edp_tcon_clk_enable(hwtcon);
 	if (hwtcon->mclk)
-		clk_set_rate(hwtcon->mclk, timings->pixel_clk);
+		clk_set_rate(hwtcon->mclk, timings->pixel_clk / pixel_mode);
 
 	if (!sw_enable) {
 		tcon_tv_init(&hwtcon->tcon_tv);
 		tcon_tv_set_timming(&hwtcon->tcon_tv, timings);
+		tcon_tv_set_pixel_mode(&hwtcon->tcon_tv, pixel_mode);
 
 		tcon_tv_src_select(&hwtcon->tcon_tv, LCD_SRC_DE, de_id);
 
@@ -946,6 +954,12 @@ OUT:
 	return id;
 }
 
+int sunxi_tcon_of_get_top_id(struct udevice *tcon_dev)
+{
+	struct sunxi_tcon *tcon = dev_get_priv(tcon_dev);
+	return sunxi_tcon_top_get_id(tcon->tcon_top);
+}
+
 int sunxi_tcon_mode_init(struct udevice *tcon_dev, struct disp_output_config *disp_cfg)
 {
 	struct sunxi_tcon *tcon = dev_get_priv(tcon_dev);
@@ -991,6 +1005,17 @@ int sunxi_tcon_mode_exit(struct udevice *tcon_dev)
 		break;
 	}
 
+
+	return 0;
+}
+
+int sunxi_tcon_print(struct udevice *tcon_dev)
+{
+	struct sunxi_tcon *tcon = dev_get_priv(tcon_dev);
+
+	print_buffer((ulong)tcon->reg_base, (void *)tcon->reg_base, 4, 94, 4);
+
+	print_buffer((ulong)tcon->reg_base + 0x220, (void *)tcon->reg_base + 0x220, 4, 12, 4);
 
 	return 0;
 }

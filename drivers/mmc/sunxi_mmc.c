@@ -106,10 +106,12 @@ static int mmc_resource_init(int sdc_no)
 		priv->reg = (struct mmc_reg_v4p1 *)SUNXI_MMC1_BASE;
 		priv->mclkreg = &ccm->sd1_clk_cfg;
 		break;
+#ifndef CONFIG_MACH_SUN300IW1
 	case 2:
 		priv->reg = (struct mmc_reg_v4p1 *)SUNXI_MMC2_BASE;
 		priv->mclkreg = &ccm->sd2_clk_cfg;
 		break;
+#endif
 #ifdef SUNXI_MMC3_BASE
 	case 3:
 		priv->reg = (struct mmc_reg_v4p1 *)SUNXI_MMC3_BASE;
@@ -121,7 +123,16 @@ static int mmc_resource_init(int sdc_no)
 		return -1;
 	}
 
-#if !defined(CONFIG_MACH_SUN8IW5) && !defined(CONFIG_MACH_SUN8IW6) && !defined(CONFIG_MACH_SUN8IW7) && !defined(CONFIG_MACH_SUN8IW8)\
+#if defined(CONFIG_MACH_SUN300IW1)
+	priv->hclkbase = IOMEM_ADDR(&ccm->bus_clk_gating1_reg);
+	priv->hclkrst = IOMEM_ADDR(&ccm->bus_reset1_reg);
+#elif (defined(CONFIG_MACH_SUN60IW1) || defined(CONFIG_MACH_SUN60IW2)\
+	|| defined(CONFIG_MACH_SUN55IW6) || defined(CONFIG_MACH_SUN65IW1))
+	priv->hclkbase = IOMEM_ADDR(&ccm->sd_gate_reset) + sdc_no * 0x10;
+	priv->hclkrst = IOMEM_ADDR(&ccm->sd_gate_reset) + sdc_no * 0x10;
+	sunxi_mmc_mbus_resource(sdc_no, ccm);
+#elif !defined(CONFIG_MACH_SUN8IW5) && !defined(CONFIG_MACH_SUN8IW6)\
+	&& !defined(CONFIG_MACH_SUN8IW7) && !defined(CONFIG_MACH_SUN8IW8)\
 	&& !defined(CONFIG_MACH_SUN8IW10) && !defined(CONFIG_MACH_SUN8IW11)
 	priv->hclkbase = IOMEM_ADDR(&ccm->sd_gate_reset);
 	priv->hclkrst = IOMEM_ADDR(&ccm->sd_gate_reset);
@@ -176,6 +187,7 @@ static int sunxi_mmc_pin_set(int sdc_no)
 	if (pin_default->pin_count > 0) {
 		ret =  gpio_request_early(pin_default->pin_set, pin_default->pin_count, 1);
 	}
+
 	return ret;
 }
 
@@ -197,7 +209,7 @@ int mmc_clk_io_onoff(int sdc_no, int onoff, int reset_clk)
 	return 0;
 }
 
-static int mmc_update_clk(struct sunxi_mmc_priv *priv)
+int mmc_update_clk(struct sunxi_mmc_priv *priv)
 {
 	unsigned int cmd;
 	unsigned timeout_msecs = 10000;
@@ -392,6 +404,24 @@ static int mmc_trans_data_by_cpu(struct sunxi_mmc_priv *priv, struct mmc *mmc,
 	return 0;
 }
 
+static int mmc_get_des_num_shift(struct sunxi_mmc_priv *priv)
+{
+#if defined(CONFIG_MACH_SUN60IW2)
+	struct mmc_config *cfg = &priv->cfg;
+
+	if (priv->mmc_no == 2 && cfg->sdc_mbus != 0)
+		return 11;
+#endif
+
+	return SDXC_DES_NUM_SHIFT;
+}
+
+
+static int mmc_get_des_max_len(struct sunxi_mmc_priv *priv)
+{
+	return (1 << (mmc_get_des_num_shift(priv)));
+}
+
 static int mmc_trans_data_by_dma(struct sunxi_mmc_priv *priv, struct mmc *mmc, struct mmc_data *data)
 {
 	struct mmc_des_v4p1 *pdes = priv->pdes;
@@ -404,12 +434,12 @@ static int mmc_trans_data_by_dma(struct sunxi_mmc_priv *priv, struct mmc *mmc, s
 
 	buff = data->flags & MMC_DATA_READ ?
 			(unsigned char *)data->dest : (unsigned char *)data->src;
-	buff_frag_num = byte_cnt >> SDXC_DES_NUM_SHIFT;
-	remain = byte_cnt & (SDXC_DES_BUFFER_MAX_LEN - 1);
+	buff_frag_num = byte_cnt >>  mmc_get_des_num_shift(priv);
+	remain = byte_cnt & (mmc_get_des_max_len(priv) - 1);
 	if (remain)
 		buff_frag_num++;
 	else
-		remain = SDXC_DES_BUFFER_MAX_LEN;
+		remain = mmc_get_des_max_len(priv);
 	flush_cache((unsigned long)buff, ALIGN((unsigned long)byte_cnt, CONFIG_SYS_CACHELINE_SIZE));
 	for (i = 0; i < buff_frag_num; i++, des_idx++) {
 		memset((void *)&pdes[des_idx], 0, sizeof(struct mmc_des_v4p1));
@@ -417,14 +447,14 @@ static int mmc_trans_data_by_dma(struct sunxi_mmc_priv *priv, struct mmc *mmc, s
 		pdes[des_idx].own = 1;
 		pdes[des_idx].dic = 1;
 		if (buff_frag_num > 1 && i != buff_frag_num - 1)
-			pdes[des_idx].data_buf1_sz = SDXC_DES_BUFFER_MAX_LEN;
+			pdes[des_idx].data_buf1_sz = mmc_get_des_max_len(priv);
 		else
 			pdes[des_idx].data_buf1_sz = remain;
 		if (priv->version == 0x40200 || priv->version == 0x40502 || priv->version >= 0x50300 || priv->version == 0x40104)
-			pdes[des_idx].buf_addr_ptr1 = ((ulong)buff + i * SDXC_DES_BUFFER_MAX_LEN)
+			pdes[des_idx].buf_addr_ptr1 = ((ulong)buff + i * mmc_get_des_max_len(priv))
 							>> 2;
 		else
-			pdes[des_idx].buf_addr_ptr1 = ((ulong)buff + i * SDXC_DES_BUFFER_MAX_LEN);
+			pdes[des_idx].buf_addr_ptr1 = ((ulong)buff + i * mmc_get_des_max_len(priv));
 		if (i == 0)
 			pdes[des_idx].first_des = 1;
 
@@ -957,7 +987,7 @@ out:
 		writel(0, &priv->reg->dmac);
 		writel(readl(&priv->reg->gctrl) & (~(1 << 5)), &priv->reg->gctrl);
 	}
-	if (error < 0) {
+	if (error < 0 || (mmc->do_tuning == 0x1 && mmc->tuning_end == 0x0)) {
 		/* during tuning sample point, some sample point may cause timing problem.
 		for example, if a RTO error occurs, host may stop clock and device may still output data.
 		we need to read all data(512bytes) from device to avoid to update clock fail.
@@ -980,17 +1010,16 @@ out:
 			}
 		}
 
+		mmc_save_regs(priv);
 		writel(0x7, &priv->reg->gctrl);
 		while (readl(&priv->reg->gctrl)&0x7) {
 			MMCDBG("mmc reset dma fifo and fifo\n");
 		};
 
 		{
-			mmc_save_regs(priv);
 			mmc_clk_io_onoff(priv->mmc_no, 0, 0);
 			MMCMSG(mmc, "mmc %d close bus gating and reset\n", priv->mmc_no);
 			mmc_clk_io_onoff(priv->mmc_no, 1, 0);
-			mmc_restore_regs(priv);
 
 			writel(0x7, &priv->reg->gctrl);
 			while (readl(&priv->reg->gctrl)&0x7) {
@@ -999,6 +1028,7 @@ out:
 		}
 
 		writel(SUNXI_MMC_GCTRL_RESET, &priv->reg->gctrl);
+		mmc_restore_regs(priv);
 		mmc_update_clk(priv);
 	}
 	writel(0xffffffff, &priv->reg->rint);
@@ -1398,24 +1428,6 @@ struct mmc *sunxi_mmc_init(int sdc_no)
 	}
 	MMCDBG("host_caps:0x%x\n", cfg->host_caps);
 
-#ifdef FPGA_PLATFORM
-	int i = 0;
-	if (sdc_no == 0) {
-		for (i = 0; i < 6; i++) {
-			sunxi_gpio_set_cfgpin(SUNXI_GPF(i), SUNXI_GPF_SDC0);
-			sunxi_gpio_set_pull(SUNXI_GPF(i), 1);
-			sunxi_gpio_set_drv(SUNXI_GPF(i), 2);
-		}
-	} else {
-		unsigned int pin;
-		for (pin = SUNXI_GPC(0); pin <= SUNXI_GPF(25); pin++) {
-				sunxi_gpio_set_cfgpin(pin, 2);
-				sunxi_gpio_set_pull(pin, SUNXI_GPIO_PULL_UP);
-				sunxi_gpio_set_drv(pin, 2);
-		}
-	}
-#endif
-
 	/* config ahb clock */
 	MMCDBG("init mmc %d clock and io\n", sdc_no);
 #if !defined(CONFIG_MACH_SUN50I_H6) && !defined(CONFIG_MACH_SUN8IW16)\
@@ -1425,8 +1437,10 @@ struct mmc *sunxi_mmc_init(int sdc_no)
 	&& !defined(CONFIG_MACH_SUN20IW1) && !defined(CONFIG_MACH_SUN8IW20)\
 	&& !defined(CONFIG_MACH_SUN8IW21) && !defined(CONFIG_MACH_SUN50IW5)\
 	&& !defined(CONFIG_MACH_SUN55IW3) && !defined(CONFIG_MACH_SUN55IW5)\
-	&& !defined(CONFIG_MACH_SUN55IW6) && !defined(CONFIG_MACH_SUN20IW5)\
-	&& !defined(CONFIG_MACH_SUN60IW2) && !defined(CONFIG_MACH_SUN60IW1)
+	&& !defined(CONFIG_MACH_SUN55IW6) && !defined(CONFIG_MACH_SUN300IW1)\
+	&& !defined(CONFIG_MACH_SUN60IW2) && !defined(CONFIG_MACH_SUN60IW1)\
+	&& !defined(CONFIG_MACH_SUN50IW15) && !defined(CONFIG_MACH_SUN251IW1)\
+	&& !defined(CONFIG_MACH_SUN65IW1)
 	setbits_le32(&ccm->ahb_gate0, 1 << AHB_GATE_OFFSET_MMC(sdc_no));
 
 #ifdef CONFIG_SUNXI_GEN_SUN6I

@@ -1788,6 +1788,7 @@ static int parse_DQT(struct jdec_private *priv, const unsigned char *stream)
 static int parse_SOF(struct jdec_private *priv, const unsigned char *stream)
 {
 	int i, width, height, nr_components, sampling_factor;
+	unsigned int xstride_by_mcu, ystride_by_mcu;
 	int Q_table;
 	struct component *c;
 	unsigned int cid;
@@ -1806,14 +1807,6 @@ static int parse_SOF(struct jdec_private *priv, const unsigned char *stream)
 			 height);
 	if (nr_components != 3)
 		tj_error("We only support YUV images\n");
-	if (height % 16)
-		tj_error("Height need to be a multiple of 16 (current height "
-			 "is %d)\n",
-			 height);
-	if (width % 16)
-		tj_error(
-		    "Width need to be a multiple of 16 (current Width is %d)\n",
-		    width);
 #endif
 	stream += 8;
 	for (i = 0; i < nr_components; i++) {
@@ -1835,6 +1828,29 @@ static int parse_SOF(struct jdec_private *priv, const unsigned char *stream)
 		      cid, c->Hfactor, c->Hfactor, Q_table);
 	}
 	i = cid;
+
+	xstride_by_mcu = ystride_by_mcu = 8;
+	if ((priv->component_infos[cY].Hfactor |
+	     priv->component_infos[cY].Vfactor) == 1) {
+		trace("Use decode 1x1 sampling\n");
+	} else if (priv->component_infos[cY].Hfactor == 1) {
+		ystride_by_mcu = 16;
+		trace("Use decode 1x2 sampling (not supported)\n");
+	} else if (priv->component_infos[cY].Vfactor == 2) {
+		xstride_by_mcu = 16;
+		ystride_by_mcu = 16;
+		trace("Use decode 2x2 sampling\n");
+	} else {
+		xstride_by_mcu = 16;
+		trace("Use decode 2x1 sampling\n");
+	}
+
+	priv->real_height = height;//before align
+
+	width = ALIGN(width, xstride_by_mcu);
+	height = ALIGN(height, ystride_by_mcu);
+
+	priv->real_width = width; //after align
 	priv->width = width;
 	priv->height = height;
 
@@ -2387,8 +2403,8 @@ const char *tinyjpeg_get_errorstring(struct jdec_private *priv)
 void tinyjpeg_get_size(struct jdec_private *priv, unsigned int *width,
 		       unsigned int *height)
 {
-	*width = priv->width;
-	*height = priv->height;
+	*width = priv->real_width;
+	*height = priv->real_height;
 }
 
 int tinyjpeg_get_components(struct jdec_private *priv,

@@ -126,4 +126,8 @@ typedef struct _legacy_mbr {
 #define  GPT_ENTRY_OFFSET        1024
 #define  GPT_HEAD_OFFSET         512
 
+#define  GPT_4K_ALIGN_SIZE_BYTE         (4096)
+#define  GPT_HEAD_4K_OFFSET         GPT_4K_ALIGN_SIZE_BYTE
+#define  GPT_ENTRY_4K_OFFSET        (GPT_4K_ALIGN_SIZE_BYTE*2)
+
 #endif	/* _DISK_PART_EFI_H */

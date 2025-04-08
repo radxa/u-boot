@@ -16,6 +16,9 @@
 #include <drm/drm_scdc_helper.h>
 #include <i2c.h>
 
+#define DW_HDMI_ENABLE         (1)
+#define DW_HDMI_DISABLE        (0)
+
 #define DW_EDID_MAC_HDMI_VIC		16
 #define DW_EDID_MAX_HDMI_3DSTRUCT	16
 #define DW_EDID_MAX_VIC_WITH_3D		16
@@ -27,18 +30,6 @@ enum sunxi_platform_version {
 	HDMI_SUN50I_W9_P1,
 	HDMI_SUN55I_W3_P1,
 	HDMI_SUN60I_W2_P1,
-};
-
-enum dw_log_index_e {
-	DW_LOG_INDEX_NUL   = 0,
-	DW_LOG_INDEX_VIDEO = 1,
-	DW_LOG_INDEX_AUDIO = 2,
-	DW_LOG_INDEX_EDID  = 3,
-	DW_LOG_INDEX_HDCP  = 4,
-	DW_LOG_INDEX_CEC   = 5,
-	DW_LOG_INDEX_PHY   = 6,
-	DW_LOG_INDEX_TRACE = 7,
-	DW_LOG_INDEX_MAX
 };
 
 typedef enum {
@@ -607,9 +598,9 @@ struct dw_hdmi_dev_s {
 	u8          color_bits;
 	u8          hdmi_on;
 	u8          audio_on;
-	u8 			log_level;
 	u8			clock_src; /* 0:phypll, 1:ccmu */
 	int   		plat_id;
+	int 		sw_init;
 
 	struct dw_hdcp_s		hdcp_dev;
 	struct dw_video_s		video_dev;
@@ -652,7 +643,7 @@ struct dw_hdmi_dev_s {
 #endif
 #define hdcp_log(fmt, args...)                          \
 	do {                                                \
-		if (dw_hdmi_check_loglevel(DW_LOG_INDEX_HDCP))  \
+		if (dw_hdmi_get_loglevel())  \
 			DRM_INFO("sunxi-hdmi: [hdcp] "fmt, ##args); \
 	} while (0)
 
@@ -661,7 +652,7 @@ struct dw_hdmi_dev_s {
 #endif
 #define hdmi_trace(fmt, args...)                        \
 	do {                                                \
-		if (dw_hdmi_check_loglevel(DW_LOG_INDEX_TRACE)) \
+		if (dw_hdmi_get_loglevel()) \
 			DRM_INFO("sunxi-hdmi: "fmt, ##args);        \
 	} while (0)
 
@@ -672,6 +663,17 @@ struct dw_hdmi_dev_s {
 	do {                                                    \
 		hdmi_err("check point %s is err or null\n", #name); \
 		dump_stack();                                       \
+	} while (0)
+
+#ifdef shdmi_free_point
+#undef shdmi_free_point
+#endif
+#define shdmi_free_point(x)   \
+	do {                      \
+		if (x != NULL) {      \
+			kfree(x);         \
+			x = NULL;         \
+		}                     \
 	} while (0)
 
 /**
@@ -756,6 +758,7 @@ void dw_write(u32 addr, u32 data);
  * @param width or number of bits to written to
  */
 void dw_write_mask(u32 addr, u8 mask, u8 data);
+
 /**
  * @desc: dw hdmi wait timeout
  * @func: wait conditional function
@@ -764,6 +767,7 @@ void dw_write_mask(u32 addr, u8 mask, u8 data);
  *          0 - wait timeout
  */
 int dw_hdmi_wait_event_timeout(cond_func func, u8 times);
+
 /**
  * @desc: dw hdmi get log level
  * @return: log level
@@ -774,13 +778,6 @@ u8 dw_hdmi_get_loglevel(void);
  * @level: log level
  */
 void dw_hdmi_set_loglevel(u8 level);
-/**
- * @desc: dw hdmi check current level is enable
- * @index: current log level index
- * @return: true - enable
- *         false - disable
- */
-bool dw_hdmi_check_loglevel(u8 index);
 /**
  * @desc: dw hdmi control params reset
  * @return: 0 - success
@@ -807,6 +804,7 @@ int dw_hdmi_scdc_write(u8 addr, u8 data);
  *         -1 - read failed
  */
 int dw_hdmi_scdc_read(u8 addr, u8 *data);
+
 /**
  * @desc: dw hdmi scdc set scramble state
  * @setup: 1 - enable sink scramble

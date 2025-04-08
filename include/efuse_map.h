@@ -98,6 +98,8 @@ int sunxi_efuse_write(void *key_buf);
 */
 int sunxi_efuse_read(void *key_name, void *rd_buf, int *len);
 
+int set_efuse_voltage(int vol);
+
 /*reference this struct when call api:sunxi_efuse_write*/
 typedef struct
 {

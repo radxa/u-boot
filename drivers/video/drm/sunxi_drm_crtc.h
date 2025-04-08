@@ -36,7 +36,11 @@ enum sunxi_plane_alpha_mode {
 	GLOBAL_ALPHA = 1,
 	MIXED_ALPHA = 2,
 };
-
+#define DEBUG_TIME_SIZE 100
+typedef struct {
+	unsigned long         sync_time[DEBUG_TIME_SIZE];//for_debug
+	unsigned int          sync_time_index;//for_debug
+} health_info_t;
 struct sunxi_drm_crtc {
 	struct sunxi_drm_device *drm;
 	const struct sunxi_drm_crtc_funcs *funcs;
@@ -58,6 +62,8 @@ struct sunxi_drm_crtc {
 	struct sunxi_de_wb *sunxi_wb;
 	unsigned int fifo_err;
 	unsigned int irqcnt;
+	unsigned int fps;
+	health_info_t health_info;
 };
 
 

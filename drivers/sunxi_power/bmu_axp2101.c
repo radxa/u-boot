@@ -11,6 +11,30 @@
 #include <sunxi_power/bmu_axp2101.h>
 #include <sunxi_power/axp.h>
 #include <asm/arch/pmic_bus.h>
+#include <sys_config.h>
+#include <sunxi_power/power_manage.h>
+
+int bmu_axp2101_battery_probe_check(void)
+{
+	u8 reg_value;
+	int ret = 0, bat_exist = 0;
+
+	ret = script_parser_fetch(FDT_PATH_POWER_SPLY, "battery_exist", &bat_exist, 1);
+	if (ret < 0)
+		bat_exist = 1;
+
+	if (!bat_exist) {
+		pmic_bus_clrbits(AXP2101_RUNTIME_ADDR, AXP2101_BAT_DET, BIT(0));
+		pmic_bus_clrbits(AXP2101_RUNTIME_ADDR, AXP2101_FUEL_GAUGE_CTL, BIT(1));
+		pmic_bus_clrbits(AXP2101_RUNTIME_ADDR, AXP2101_FUEL_GAUGE_CTL, BIT(3));
+		if (pmic_bus_read(AXP2101_RUNTIME_ADDR, AXP2101_VBUS_VOL_SET, &reg_value))
+			return -1;
+		reg_value &= ~(0xf);
+		if (pmic_bus_write(AXP2101_RUNTIME_ADDR, AXP2101_VBUS_VOL_SET, reg_value))
+			return -1;
+	}
+	return 0;
+}
 
 static int bmu_axp2101_probe(void)
 {
@@ -27,6 +51,7 @@ static int bmu_axp2101_probe(void)
 	if (bmu_chip_id == 0x47 || bmu_chip_id == 0x4a) {
 		/*bmu type AXP21*/
 		tick_printf("BMU: AXP21\n");
+		bmu_axp2101_battery_probe_check();
 		return 0;
 	}
 	return -1;
@@ -59,6 +84,14 @@ int bmu_axp2101_set_power_off(void)
 int bmu_axp2101_get_battery_probe(void)
 {
 	u8 reg_value;
+	int ret = 0, bat_exist = 0;
+
+	ret = script_parser_fetch(FDT_PATH_POWER_SPLY, "battery_exist", &bat_exist, 1);
+	if (ret < 0)
+		bat_exist = 1;
+
+	if (!bat_exist)
+		return -1;
 
 	if (pmic_bus_read(AXP2101_RUNTIME_ADDR, AXP2101_COMM_STATUS0, &reg_value)) {
 		return -1;

@@ -50,6 +50,8 @@ source "drivers/misc/Kconfig"
 
 source "drivers/mmc/Kconfig"
 
+source "drivers/ufs/Kconfig"
+
 source "drivers/mtd/Kconfig"
 
 source "drivers/net/Kconfig"

@@ -30,6 +30,7 @@
 #define   AXP2202_CHIP_ID         	 	(0x03)
 #define   AXP2202_VERSION					(0x04)
 #define   AXP2202_COMM_FAULT					(0x08)
+#define   AXP2202_CLK_EN			(0x0b)
 #define   AXP2202_CURVE_CHECK            (0x0c)
 #define   AXP2202_CHIP_ID_EXT				(0x0e)
 

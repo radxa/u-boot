@@ -25,6 +25,7 @@ struct sunxi_wdog {
 #define WDT_CFG_KEY 0x16AA
 #define WDT_MODE_EN (0x1 << 0)
 #define WDT_CFG_SYS_RESTART (0x01 << 0)
+#define WDT_CTRL_RELOAD ((1 << 0) | (0x0a57 << 1))
 #elif defined(CONFIG_MACH_SUN4I) || \
     defined(CONFIG_MACH_SUN5I) || \
     defined(CONFIG_MACH_SUN7I) || \

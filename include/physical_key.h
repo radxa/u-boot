@@ -35,7 +35,7 @@ struct sunxi_lradc {
 #define ADC0_ALRDY_HOLD_PENDING   (1 << 3)    /* key already hold */
 #define ADC0_KEYUP_PENDING        (1 << 4)    /* key up */
 
-
+#define GP_SR_CON      (SUNXI_GPADC_BASE+0x00)
 #define GP_CTRL        (SUNXI_GPADC_BASE+0x04)
 #define GP_CS_EN       (SUNXI_GPADC_BASE+0x08)
 #define GP_DATA_INTC   (SUNXI_GPADC_BASE+0x28)
@@ -43,7 +43,6 @@ struct sunxi_lradc {
 #define GP_CH0_DATA    (SUNXI_GPADC_BASE+0x80)
 
 #define GPADC0_DATA_PENDING		(1 << 0)	/* gpadc0 has data */
-
 
 int sunxi_lradc_key_init(void);
 

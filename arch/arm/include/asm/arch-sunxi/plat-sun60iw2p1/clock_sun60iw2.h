@@ -16,15 +16,22 @@
 #define  sd0_clk_cfg             smhc0_clk_reg
 #define  sd1_clk_cfg             smhc1_clk_reg
 #define  sd2_clk_cfg             smhc2_clk_reg
+#define  sd3_clk_cfg             smhc3_clk_reg
 #define  sd_gate_reset           smhc0_bgr_reg
 #define  twi_gate_reset          twi0_bgr_reg
 #define  ce_gate_reset           ce_bgr_reg
 #define  ce_clk_cfg              ce_clk_reg
+#define  lradc_gate_reset        lradc_bgr_reg
+#define  gpadc_gate_reset        gpadc0_bgr_reg
+#define  pcie_aux_clk_reg        pcie0_aux_clk_reg
+#define  pcie_axi_slv_clk_reg    pcie0_axi_slv_clk_reg
+#define  pcie_bgr_reg            pcie0_bgr_reg
+#define  its_bgr_reg             its0_bgr_reg
 
-#define  APB2_CLK_SRC_OSC24M     (APB1_CLK_REG_CLK_SRC_SEL_HOSC << APB1_CLK_REG_CLK_SRC_SEL_OFFSET)
-#define  APB2_CLK_SRC_OSC32K     (APB1_CLK_REG_CLK_SRC_SEL_CLK32K << APB1_CLK_REG_CLK_SRC_SEL_OFFSET)
-#define  APB2_CLK_SRC_PSI        (APB1_CLK_REG_CLK_SRC_SEL_CLK16M_RC << APB1_CLK_REG_CLK_SRC_SEL_OFFSET)
-#define  APB2_CLK_SRC_PLL6       (APB1_CLK_REG_CLK_SRC_SEL_PERI0_600M_BUS << APB1_CLK_REG_CLK_SRC_SEL_OFFSET)
+// #define  APB2_CLK_SRC_OSC24M     (APB1_CLK_REG_CLK_SRC_SEL_HOSC << APB1_CLK_REG_CLK_SRC_SEL_OFFSET)
+// #define  APB2_CLK_SRC_OSC32K     (APB1_CLK_REG_CLK_SRC_SEL_CLK32K << APB1_CLK_REG_CLK_SRC_SEL_OFFSET)
+// #define  APB2_CLK_SRC_PSI        (APB1_CLK_REG_CLK_SRC_SEL_CLK16M_RC << APB1_CLK_REG_CLK_SRC_SEL_OFFSET)
+// #define  APB2_CLK_SRC_PLL6       (APB1_CLK_REG_CLK_SRC_SEL_PERI0_600M_BUS << APB1_CLK_REG_CLK_SRC_SEL_OFFSET)
 
 #define APB2_CLK_RATE_N_1               (0x0 << 8)
 #define APB2_CLK_RATE_N_2               (0x1 << 8)
@@ -37,9 +44,17 @@
 /* MMC clock bit field */
 #define CCM_MMC_CTRL_M(x)               (x)
 #define CCM_MMC_CTRL_N(x)               ((x) << SMHC0_CLK_REG_FACTOR_N_OFFSET)
-#define CCM_MMC_CTRL_OSCM24             (SMHC0_CLK_REG_CLK_SRC_SEL_HOSC << SMHC0_CLK_REG_CLK_SRC_SEL_OFFSET)
+#define CCM_MMC_CTRL_OSCM24             (SMHC0_CLK_REG_CLK_SRC_SEL_SYS_CLK24M << SMHC0_CLK_REG_CLK_SRC_SEL_OFFSET)
 #define CCM_MMC_CTRL_PLL6X2             (SMHC0_CLK_REG_CLK_SRC_SEL_PERI0_400M << SMHC0_CLK_REG_CLK_SRC_SEL_OFFSET)
 #define CCM_MMC_CTRL_PLL_PERIPH2X2      (SMHC0_CLK_REG_CLK_SRC_SEL_PERI0_300M << SMHC0_CLK_REG_CLK_SRC_SEL_OFFSET)
+#define CCM_MMC_CTRL_PERI0_400M_freq         (400000000)
+#define CCM_MMC_CTRL_PERI0_300M_freq         (300000000)
+#define CCM_MMC_CTRL_PERI0_800M_freq         (800000000)
+#define CCM_MMC_CTRL_PERI0_600M_freq         (600000000)
+#define CCM_MMC_CTRL_PERI0_400M         (0x1 << SMHC0_CLK_REG_CLK_SRC_SEL_OFFSET)
+#define CCM_MMC_CTRL_PERI0_300M         (0x2 << SMHC0_CLK_REG_CLK_SRC_SEL_OFFSET)
+#define CCM_MMC_CTRL_PERI0_800M         (0x1 << SMHC2_CLK_REG_CLK_SRC_SEL_OFFSET)
+#define CCM_MMC_CTRL_PERI0_600M         (0x2 << SMHC2_CLK_REG_CLK_SRC_SEL_OFFSET)
 #define CCM_MMC_CTRL_PERI1_400M		(0x3 << SMHC0_CLK_REG_CLK_SRC_SEL_OFFSET)
 #define CCM_MMC_CTRL_PERI1_300M		(0x4 << SMHC0_CLK_REG_CLK_SRC_SEL_OFFSET)
 #define CCM_MMC_CTRL_PERI1_800M		(0x3 << SMHC2_CLK_REG_CLK_SRC_SEL_OFFSET)
@@ -75,52 +90,36 @@
 #define CE_GATING_PASS                    (CE_BGR_REG_CE_GATING_MASK)
 #define CE_GATING_BIT                     (CE_BGR_REG_CE_GATING_OFFSET)
 
-#define CE_MBUS_GATING_MASK               (1)
-#define CE_MBUS_GATING_BIT                (MBUS_MAT_CLK_GATING_REG_CE_MCLK_EN_OFFSET)
-//@TODO
-#define CE_MBUS_GATING                    (MBUS_MAT_CLK_GATING_REG_CSI_MCLK_EN_PASS)
-
 #define CE_RST_BIT                        (CE_BGR_REG_CE_RST_OFFSET)
 //@TODO
 #define CE_DEASSERT                       (CE_BGR_REG_CE_SYS_RST_ASSERT)
 #define CE_SYS_RST_BIT                    (CE_BGR_REG_CE_SYS_RST_OFFSET)
 #define CE_SYS_GATING_BIT                 (CE_BGR_REG_CE_SYS_GATING_OFFSET)
 
-#define CCMU_PLL_CPU0_CTRL_REG (SUNXI_CPU_SYS_CFG_BASE + 0x817000)
-#define CCMU_PLL_CPU1_CTRL_REG (SUNXI_CPU_SYS_CFG_BASE + 0x817000 + 0x4)
-#define CCMU_PLL_CPU2_CTRL_REG (SUNXI_CPU_SYS_CFG_BASE + 0x817000 + 0x8)
-#define CCMU_PLL_CPU3_CTRL_REG (SUNXI_CPU_SYS_CFG_BASE + 0x817000 + 0xc)
+#define CE_MBUS_GATING_MASK (1)
+#define CE_MBUS_GATING_BIT (MBUS_GATE_EN_REG_CE_MCLK_EN_OFFSET)
+#define CE_MBUS_GATING (1)
 
-struct sunxi_cpu_pll_reg{
-	uint32_t pll_cpu0_ctrl_reg; /*0x00*/
-	uint32_t pll_cpu1_ctrl_reg;
-	uint32_t pll_cpu2_ctrl_reg;
-	uint32_t pll_cpu3_ctrl_reg;
-	uint32_t pll_cpu1_pat0_reg; /*0x10*/
-	uint32_t pll_cpu1_pat1_reg;
-	uint32_t pll_cpu2_pat0_reg;
-	uint32_t pll_cpu2_pat1_reg;
-	uint32_t pll_cpu3_pat0_reg; /*0x20*/
-	uint32_t pll_cpu3_pat1_reg;
-	uint32_t pll_cpu0_bias_reg;
-	uint32_t pll_cpu1_bias_reg;
-	uint32_t pll_cpu2_bias_reg; /*0x30*/
-	uint32_t pll_cpu3_bias_reg;
-	uint32_t pll_cpu0_tun_reg;
-	uint32_t pll_cpu1_tun0_reg;
-	uint32_t pll_cpu1_tun1_reg; /*0x40*/
-	uint32_t pll_cpu2_tun0_reg;
-	uint32_t pll_cpu2_tun1_reg;
-	uint32_t pll_cpu3_tun0_reg;
-	uint32_t pll_cpu3_tun1_reg; /*0x50*/
-	uint32_t pll_cpu1_ssc_reg;
-	uint32_t pll_cpu2_ssc_reg;
-	uint32_t pll_cpu3_ssc_reg;
-	uint32_t cpua_clk_reg;      /*0x60*/
-	uint32_t cpub_clk_reg;
-	uint32_t cpu_gating_reg;
-	uint32_t dsu_clk_reg;
-	uint32_t pll_test_clk_sel;
-};
+/* PLL_CPU */
+#define CPU_L_PLL_REG		0x101c
+#define CPU_L_PLL_CONTROL_REG	0x1000
+#define RTC_XO_CONTROL0_REG	0x0160
+#define CPU_BACK_PLL_CONTROL_REG	0x0000
 
+#define USBEHCI0_RST_BIT 20
+#define USBEHCI0_GATIING_BIT 4
+#define USBPHY0_RST_BIT 30
+#define USBPHY0_SCLK_GATING_BIT 31
 
+#define USBEHCI1_RST_BIT 20
+#define USBEHCI1_GATIING_BIT 4
+#define USBPHY1_RST_BIT 30
+#define USBPHY1_SCLK_GATING_BIT 31
+
+/* PCIE */
+#define ITS_PCIE_RST			16
+#define ITS_PCIE_CLK_GATING_BIT	1
+#define PCIE_AUX_CLK_GATING_BIT	31
+#define PCIE_AXI_SLV_GATING_BIT	31
+#define PCIE_BRG_REG_RST		17
+#define PCIE_BRG_REG_PWRUP_RST	16

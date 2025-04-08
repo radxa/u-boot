@@ -4,8 +4,6 @@ obj-y += sunxi_drm_drv.o
 obj-y += sunxi_drm_crtc.o  sunxi_drm_connector.o sunxi_drm_bridge.o sunxi_drm_helper_funcs.o \
 	drm_fourcc.o drm_modes.o drm_plane.o drm_edid.o drm_displayid.o drm_framebuffer.o load_file.o
 
-obj-${CONFIG_CMD_FAT} += load_file.o
-
 ccflags-y += -I$(srctree)/$(obj)/sunxi_device/hardware/
 ccflags-y += -I$(srctree)/$(obj)/sunxi_device/hardware/lowlevel_de/
 ccflags-y += -I$(srctree)/$(obj)/sunxi_device/hardware/lowlevel_lcd/
@@ -27,8 +25,9 @@ obj-$(CONFIG_AW_DRM_RGB) += sunxi_drm_rgb.o
 
 obj-$(CONFIG_AW_DRM_LVDS) += sunxi_drm_lvds.o
 
-obj-$(CONFIG_AW_DRM_DSI) += sunxi_drm_dsi.o drm_mipi_dsi.o drm_dsc.o
+obj-$(CONFIG_AW_DRM_DSI) += sunxi_drm_dsi.o drm_mipi_dsi.o drm_dsc_helper.o
 obj-$(CONFIG_AW_DRM_DSI) += sunxi_device/hardware/lowlevel_lcd/dsi_v1.o
+
 
 obj-$(CONFIG_AW_DRM_TCON) += sunxi_device/sunxi_tcon.o
 obj-$(CONFIG_AW_DRM_TCON) += sunxi_device/hardware/lowlevel_lcd/tcon_lcd.o

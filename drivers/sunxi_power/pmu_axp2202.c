@@ -323,6 +323,11 @@ static int pmu_axp2202_get_voltage(char *name)
 static int pmu_axp2202_set_power_off(void)
 {
 	u8 reg_value;
+
+	if (pmic_bus_write(AXP2202_RUNTIME_ADDR, AXP2202_DATA_BUFFER3, 0)) {
+		return -1;
+	}
+
 	if (pmic_bus_read(AXP2202_RUNTIME_ADDR, AXP2202_OFF_CTL, &reg_value)) {
 		return -1;
 	}
@@ -330,6 +335,13 @@ static int pmu_axp2202_set_power_off(void)
 	if (pmic_bus_write(AXP2202_RUNTIME_ADDR, AXP2202_OFF_CTL, reg_value)) {
 		return -1;
 	}
+	return 0;
+}
+
+static int pmu_axp2202_set_reboot_flag(void)
+{
+	pmic_bus_setbits(AXP2202_RUNTIME_ADDR, AXP2202_DATA_BUFFER3, BIT(0));
+
 	return 0;
 }
 
@@ -520,6 +532,7 @@ U_BOOT_AXP_PMU_INIT(pmu_axp2202) = {
 	.set_voltage       = pmu_axp2202_set_voltage,
 	.get_voltage       = pmu_axp2202_get_voltage,
 	.set_power_off     = pmu_axp2202_set_power_off,
+	.set_reboot_flag   = pmu_axp2202_set_reboot_flag,
 	.set_sys_mode      = pmu_axp2202_set_sys_mode,
 	.get_sys_mode      = pmu_axp2202_get_sys_mode,
 	.get_key_irq       = pmu_axp2202_get_key_irq,

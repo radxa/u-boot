@@ -16,7 +16,6 @@
 #include <dm.h>
 
 extern struct sunxi_pcie_port pcie_port;
-extern struct sunxi_combphy combphy;
 struct sunxi_pcie pci;
 
 /* Indexed by PCI_EXP_LNKCAP_SLS, PCI_EXP_LNKSTA_CLS */
@@ -277,30 +276,20 @@ void sunxi_pcie_plat_set_rate(struct sunxi_pcie *pci)
 
 static int sunxi_pcie_plat_power_on(struct sunxi_pcie *pci)
 {
-	unsigned char reg_value;
-
-	reg_value = pmu_get_reg_value(0x90);
-	reg_value |= (0x1 << 6);
-	pmu_set_reg_value(0x90, reg_value);//BLDO3 1.8V phy
-
-	reg_value = pmu_get_reg_value(0x80);
-	reg_value |= (0x1 << 3);
-	pmu_set_reg_value(0x80, reg_value);//dcdc4 3.3V slot
+	if (pci->pcie1v8_supply)
+		pmu_set_voltage((char *)pci->pcie1v8_supply, 1800, true); // 1.8V phy
+	if (pci->pcie3v3_supply)
+		pmu_set_voltage((char *)pci->pcie3v3_supply, 3300, true); // 3.3V slot
 
 	return 0;
 }
 
 static void sunxi_pcie_plat_power_off(struct sunxi_pcie *pci)
 {
-	unsigned char reg_value;
-
-	reg_value = pmu_get_reg_value(0x90);
-	reg_value &= ~(0x1 << 6);
-	pmu_set_reg_value(0x90, 0xef);//BLDO3 1.8V phy
-
-	reg_value = pmu_get_reg_value(0x80);
-	reg_value &= ~(0x1 << 3);
-	pmu_set_reg_value(0x80, 0xf);//dcdc4 3.3V slot
+	if (pci->pcie3v3_supply)
+		pmu_set_voltage((char *)pci->pcie3v3_supply, 3300, false); // 3.3V slot
+	if (pci->pcie1v8_supply)
+		pmu_set_voltage((char *)pci->pcie1v8_supply, 1800, false); // 1.8V phy
 }
 
 static int sunxi_pcie_plat_clk_setup(struct sunxi_pcie *pci)
@@ -309,10 +298,31 @@ static int sunxi_pcie_plat_clk_setup(struct sunxi_pcie *pci)
 	struct sunxi_ccm_reg *const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
 
-	//aa0 pcie_aux_clk_reg
+	if (pci->drvdata->need_pcie_rst) {
+		reg_value = readl(&ccm->pcie_bgr_reg);
+		reg_value |= BIT(PCIE_BRG_REG_RST) | BIT(PCIE_BRG_REG_PWRUP_RST);
+		writel(reg_value, &ccm->pcie_bgr_reg);
+	}
+
 	reg_value = readl(&ccm->pcie_aux_clk_reg);
-	reg_value |= (1 << PCIE_AUX_CLK_GATING_BIT);
+	reg_value |= BIT(PCIE_AUX_CLK_GATING_BIT);
 	writel(reg_value, &ccm->pcie_aux_clk_reg);
+
+#ifndef CONFIG_MACH_SUN55IW3
+	if (pci->drvdata->has_pcie_slv_clk) {
+		reg_value = readl(&ccm->pcie_axi_slv_clk_reg);
+		if (pci->drvdata->pcie_slv_clk_400m)
+			reg_value |= (2 << 24);
+		reg_value |= BIT(PCIE_AXI_SLV_GATING_BIT);
+		writel(reg_value, &ccm->pcie_axi_slv_clk_reg);
+	}
+
+	if (pci->drvdata->has_pcie_its_clk) {
+		reg_value = readl(&ccm->its_bgr_reg);
+		reg_value |= BIT(ITS_PCIE_RST) | BIT(ITS_PCIE_CLK_GATING_BIT);
+		writel(reg_value, &ccm->its_bgr_reg);
+	}
+#endif
 
 	return 0;
 }
@@ -323,17 +333,36 @@ static void sunxi_pcie_plat_clk_exit(struct sunxi_pcie *pci)
 	struct sunxi_ccm_reg *const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
 
-	//aa0 pcie_aux_clk_reg
+#ifndef CONFIG_MACH_SUN55IW3
+	if (pci->drvdata->has_pcie_its_clk) {
+		reg_value = readl(&ccm->its_bgr_reg);
+		reg_value &= ~(BIT(ITS_PCIE_RST) | BIT(ITS_PCIE_CLK_GATING_BIT));
+		writel(reg_value, &ccm->its_bgr_reg);
+	}
+
+	if (pci->drvdata->has_pcie_slv_clk) {
+		reg_value = readl(&ccm->pcie_axi_slv_clk_reg);
+		reg_value &= ~BIT(PCIE_AXI_SLV_GATING_BIT);
+		writel(reg_value, &ccm->pcie_axi_slv_clk_reg);
+	}
+#endif
+
 	reg_value = readl(&ccm->pcie_aux_clk_reg);
-	reg_value &= ~(1 << PCIE_AUX_CLK_GATING_BIT);
+	reg_value &= ~BIT(PCIE_AUX_CLK_GATING_BIT);
 	writel(reg_value, &ccm->pcie_aux_clk_reg);
+
+	if (pci->drvdata->need_pcie_rst) {
+		reg_value = readl(&ccm->pcie_bgr_reg);
+		reg_value &= ~(BIT(PCIE_BRG_REG_RST) | BIT(PCIE_BRG_REG_PWRUP_RST));
+		writel(reg_value, &ccm->pcie_bgr_reg);
+	}
 }
 
 static int sunxi_pcie_plat_combo_phy_init(struct sunxi_pcie *pci)
 {
 	int ret;
 
-	ret = sunxi_combphy_init(pci->phy);
+	ret = generic_phy_init(pci->phy);
 	if (ret) {
 		printf("fail to init phy, err %d\n", ret);
 		return ret;
@@ -342,10 +371,12 @@ static int sunxi_pcie_plat_combo_phy_init(struct sunxi_pcie *pci)
 	return 0;
 }
 
-// static void sunxi_pcie_plat_combo_phy_deinit(struct sunxi_pcie *pci)
-// {
-//	phy_exit(pci->phy);
-// }
+#if 0
+static void sunxi_pcie_plat_combo_phy_deinit(struct sunxi_pcie *pci)
+{
+	generic_phy_exit(pci->phy);
+}
+#endif
 
 int sunxi_pcie_plat_hw_init(struct udevice *dev)
 {
@@ -381,10 +412,9 @@ void sunxi_pcie_plat_init(struct udevice *dev)
 
 	pci->app_base = pci->dbi_base + PCIE_USER_DEFINED_REGISTER;
 
-	pci->link_gen = 2;
 	pci->lanes = 1;
 
-	pci->pcie_port.dbi_base = (void *)SUNXI_PCIE_DBI_ADDR;
+	pci->pcie_port.dbi_base = pci->dbi_base;
 	pci->pcie_port.cfg0_base = SUNXI_PCIE_CFG_ADDR;
 	pci->pcie_port.cfg0_size = SUNXI_PCIE_CFG_SIZE;
 	pci->pcie_port.io_base = SUNXI_PCIE_IO_ADDR;
@@ -392,11 +422,9 @@ void sunxi_pcie_plat_init(struct udevice *dev)
 	pci->pcie_port.mem_base = SUNXI_PCIE_MEM_ADDR;
 	pci->pcie_port.mem_size = SUNXI_PCIE_MEM_SIZE;
 	pci->pcie_port.va_cfg0_base = (void *)pci->pcie_port.cfg0_base;
-	pci->pcie_port.cpu_pcie_addr_quirk = true;// for sun55iw3
+	pci->pcie_port.cpu_pcie_addr_quirk = pci->drvdata->cpu_pcie_addr_quirk;
 	if (pci->pcie_port.cpu_pcie_addr_quirk) {
 		pci->pcie_port.cfg0_base -= PCIE_CPU_BASE;
 		pci->pcie_port.io_base   -= PCIE_CPU_BASE;
 	}
-
-	pci->phy = (void *)&combphy;
 }

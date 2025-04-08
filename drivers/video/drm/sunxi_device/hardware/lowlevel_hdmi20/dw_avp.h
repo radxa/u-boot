@@ -15,12 +15,6 @@
  * dw audio config function
  ******************************************************************************/
 /**
- * @desc: dw audio set acr cts mode and value
- * @value: 0 - use auto mode
- *     other - want to set cts value
- */
-void dw_audio_set_clock_cts(u32 value);
-/**
  * @desc: dw audio set audio param data
  * @data: point to param data buffer
  * @return: 0 - success
@@ -114,7 +108,7 @@ int dw_video_update_color_metry(u8 metry, u8 ext_metry);
  * @eotf: set eotf value
  * @return: 0 - success
  */
-int dw_video_update_hdr_eotf(u8 hdr, u8 eotf);
+int dw_video_update_hdr_eotf(u8 eotf);
 /**
  * @desc: dw video software update tmds mode
  * @mode: tmds mode. hdmi or dvi

@@ -188,6 +188,28 @@ inline bool get_eta6973(void)
 	return eta6973_exist;
 }
 
+int bmu_eta6973_get_charge(void)
+{
+	u8 reg_value = 0, charge_status;
+
+	pmic_bus_read(ETA6973_RUNTIME_ADDR, ETA6973_REG_08, &reg_value);
+
+	reg_value &= 0x18;
+
+	/* chg_stat = bit[2:0] */
+	switch (reg_value >> 3) {
+	case 1:
+	case 2:
+		charge_status = 1;
+		break;
+	default:
+		charge_status = 0;
+		break;
+	}
+
+	return charge_status;
+}
+
 U_BOOT_BMU_EXT_INIT(bmu_eta6973) = {
 	.bmu_ext_name	 	 = "bmu_eta6973",
 	.get_exist	   		 = get_eta6973,
@@ -197,4 +219,5 @@ U_BOOT_BMU_EXT_INIT(bmu_eta6973) = {
 	.get_battery_probe     = bmu_eta6973_get_battery_probe,
 	.set_discharge  = bmu_eta6973_set_discharge,
 	.set_charge     = bmu_eta6973_set_charge,
+	.get_charge     = bmu_eta6973_get_charge,
 };

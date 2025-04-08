@@ -704,6 +704,7 @@ static int sunxi_tuning_speed_mode(struct mmc *mmc, int speed_mode, int tuning_m
 	struct sunxi_mmc_priv *priv = mmc->priv;
 	int tm = priv->timing_mode;
 	u8 tm4_win_th = priv->cfg.tm4_timing_window_th;
+	u8 hs400_200m_data_win_th = 0;
 	u8 *sdly_cfg = NULL;
 	int sdly, sdly_cnt = 0;
 	u8 *p = NULL;
@@ -803,7 +804,15 @@ static int sunxi_tuning_speed_mode(struct mmc *mmc, int speed_mode, int tuning_m
 					best = 0xFF;
 			}
 		} else {
-			best = _get_best_sdly(sdly_cnt, tm4_win_th, (p + i*sdly_cnt));
+			if ((speed_mode == HS400) && (sunxi_select_freq(mmc, speed_mode, i) == 200000000)) {
+				hs400_200m_data_win_th = 1000/(priv->tm4.dsdly_unit_ps);
+				if (1000%(priv->tm4.dsdly_unit_ps))
+					hs400_200m_data_win_th += 1;
+				MMCINFO("*** hs400 200m: data win=%d, delay cell = %d ***\n", hs400_200m_data_win_th, priv->tm4.dsdly_unit_ps);
+				best = _get_best_sdly(sdly_cnt, hs400_200m_data_win_th, (p + i*sdly_cnt));
+			} else {
+				best = _get_best_sdly(sdly_cnt, tm4_win_th, (p + i*sdly_cnt));
+			}
 		}
 		MMCDBG("--best %d\n", best);
 

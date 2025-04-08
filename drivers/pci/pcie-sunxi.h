@@ -20,9 +20,9 @@
 #include <reset.h>
 #include <generic-phy.h>
 
-#define SUNXI_PCIE_MODULE_VERSION	"1.0.0"
+#define SUNXI_PCIE_MODULE_VERSION	"1.1.1"
 
-#define SUNXI_PCIE_DBI_ADDR	0x4800000
+#define SUNXI_PCIE_DBI_ADDR	SUNXI_PCIE_BASE
 #define SUNXI_PCIE_CFG_ADDR	0x20000000
 #define SUNXI_PCIE_IO_ADDR	0x21000000
 #define SUNXI_PCIE_MEM_ADDR	0x22000000
@@ -433,7 +433,7 @@ struct sunxi_pcie {
 	struct reset_ctl    pcie_rst;
 	struct reset_ctl    pwrup_rst;
 	struct reset_ctl    pcie_its_rst;
-	void		*phy;
+	struct phy *phy;
 	struct dma_trx_obj	*dma_obj;
 	const struct sunxi_pcie_of_data *drvdata;
 	struct gpio_desc	rst_gpio;
@@ -444,8 +444,8 @@ struct sunxi_pcie {
 	unsigned long		*wr_edma_map;
 	struct sunxi_pci_edma_chan	*dma_wr_chn;
 	struct sunxi_pci_edma_chan	*dma_rd_chn;
-	struct udevice	*pcie1v8;
-	struct udevice	*pcie3v3;
+	const char *pcie1v8_supply;
+	const char *pcie3v3_supply;
 };
 
 #define to_sunxi_pcie_from_pp(x)	\
@@ -477,8 +477,5 @@ u8 sunxi_pcie_readb_dbi(struct sunxi_pcie *pci, u32 reg);
 
 void sunxi_pcie_dbi_ro_wr_en(struct sunxi_pcie *pci);
 void sunxi_pcie_dbi_ro_wr_dis(struct sunxi_pcie *pci);
-
-extern void sunxi_combphy_cfg_init(void);
-extern int sunxi_combphy_init(void *phy);
 
 #endif /* _PCIE_SUNXI_H */

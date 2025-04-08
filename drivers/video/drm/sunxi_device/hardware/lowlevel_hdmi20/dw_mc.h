@@ -11,71 +11,103 @@
 #ifndef _DW_MC_H_
 #define _DW_MC_H_
 
-typedef enum irq_sources {
-	DW_IRQ_AUDIO_PACKET = 1,
-	DW_IRQ_OTHER_PACKET,
-	DW_IRQ_PACKETS_OVERFLOW,
-	DW_IRQ_AUDIO_SAMPLER,
-	DW_IRQ_PHY,
-	DW_IRQ_I2CM,
-	DW_IRQ_CEC,
-	DW_IRQ_VIDEO_PACKETIZER,
-	DW_IRQ_I2C_PHY,
-	DW_IRQ_AUDIO_DMA,
-} irq_sources_t;
+typedef enum {
+	DW_MC_SWRST_PIXEL   = 0,
+	DW_MC_SWRST_TMDS    = 1,
+	DW_MC_SWRST_PREP    = 2,
+	DW_MC_SWRST_I2S     = 3,
+	DW_MC_SWRST_SPDIF   = 4,
+	DW_MC_SWRST_CEC     = 5,
+	DW_MC_SWRST_IGPA    = 6,
+	DW_MC_SWRST_PHY     = 7,
+	DW_MC_SWRST_HEACPHY = 8,
+	DW_MC_SWRST_ADMA    = 9,
+} dw_mc_swrst_t;
+
+typedef enum {
+	DW_MC_CLK_LOCK_CEC   = 0,
+	DW_MC_CLK_LOCK_RES   = 1,
+	DW_MC_CLK_LOCK_SPDIF = 2,
+	DW_MC_CLK_LOCK_I2S   = 3,
+	DW_MC_CLK_LOCK_PREP  = 4,
+	DW_MC_CLK_LOCK_TMDS  = 5,
+	DW_MC_CLK_LOCK_PIXEL = 6,
+	DW_MC_CLK_LOCK_IGPA  = 7,
+} dw_mc_lock_e;
+
+typedef enum {
+	DW_MC_CLK_PIXEL = 0,
+	DW_MC_CLK_TMDS  = 1,
+	DW_MC_CLK_PREP  = 2,
+	DW_MC_CLK_AUDIO = 3,
+	DW_MC_CLK_CSC   = 4,
+	DW_MC_CLK_CEC   = 5,
+	DW_MC_CLK_HDCP  = 6,
+} dw_mc_clk_e;
+
+typedef enum {
+	DW_MC_IRQ_FC0 = 1,
+	DW_MC_IRQ_FC1,
+	DW_MC_IRQ_FC2,
+	DW_MC_IRQ_AS,
+	DW_MC_IRQ_PHY,
+	DW_MC_IRQ_I2CM,
+	DW_MC_IRQ_CEC,
+	DW_MC_IRQ_VP,
+	DW_MC_IRQ_PHYI2C,
+	DW_MC_IRQ_AUDIO_DMA,
+} dw_mc_irq_e;
 
 /**
- * @desc: main control set hdcp clock
+ * @desc: dw main control software reset
+ * @type: need reset type
+ * @state: reset signal.
+ * 	if phy reset, when PHY_GEN1 signal is 0. when PHY_GEN2 signal is 1
+ *  other reset signal is 0.
  */
-void dw_mc_disable_hdcp_clock(u8 bit);
-
-u8 dw_mc_get_hdcp_clk(void);
-
+int dw_mc_sw_reset(dw_mc_swrst_t type, u8 state);
 /**
- * @desc: main control set cec clock
+ * @desc: main control set module clock
+ * @type: main control module index
+ * @state: 0 - disable module clock
+ *         1 - enable module clock
  */
-void dw_mc_disable_cec_clock(u8 bit);
-
+int dw_mc_set_clk(dw_mc_clk_e type, u8 state);
 /**
- * @desc: main control set audio sample clock
+ * @desc: main control set module clock
+ * @type: main control module index
+ * @return: 0 - disable module clock
+ *          1 - enable module clock
  */
-void dw_mc_disable_audio_sampler_clock(u8 bit);
-u8 dw_mc_get_audio_sample_clock(void);
+u8 dw_mc_get_clk(dw_mc_clk_e type);
 /**
- * @desc: main control reset i2s
+ * @desc: main control get clock lock status
+ * @type: main control module index
+ * @return: 0 - clock unlock
+ *          1 - clock lock
  */
-void dw_mc_reset_audio_i2s(void);
-
-/**
- * @desc: main control reset tmds clock
- */
-void dw_mc_reset_tmds_clock(void);
-
-/**
- * @desc: main control set phy
- */
-void dw_mc_reset_phy(u8 bit);
+u8 dw_mc_get_lock(dw_mc_lock_e type);
 
 /**
  * @desc: main control all clock enable
  */
-void dw_mc_all_clock_enable(void);
+void dw_mc_clk_all_enable(void);
 
 /**
  * @desc: main control all clock disable
  */
-void dw_mc_all_clock_disable(void);
+void dw_mc_clk_all_disable(void);
 
-int dw_mc_irq_mute_source(irq_sources_t irq_source);
+int dw_mc_irq_mute(dw_mc_irq_e irq_source);
 
-u8 dw_mc_irq_get_state(irq_sources_t irq);
+u8 dw_mc_irq_get_state(dw_mc_irq_e irq);
 
-int dw_mc_irq_clear_state(irq_sources_t irq, u8 state);
+int dw_mc_irq_clear_state(dw_mc_irq_e irq, u8 state);
 
 /**
  * @desc: main control set irq unmute by source
  */
-int dw_mc_irq_unmute_source(irq_sources_t irq_source);
+int dw_mc_irq_unmute(dw_mc_irq_e irq_source);
 /**
  * @desc: main control set main irq
  * @state: 1 - enable main irq
@@ -511,12 +543,21 @@ void dw_mc_irq_mask_all(void);
  *        [7:7] GPAUD interface clock status
  */
 #define MC_LOCKONCLOCK          0x00004006
-#define MC_LOCKONCLOCK_CECCLK_MASK              0x00000001
-#define MC_LOCKONCLOCK_AUDIOSPDIFCLK_MASK       0x00000004
-#define MC_LOCKONCLOCK_I2SCLK_MASK              0x00000008
-#define MC_LOCKONCLOCK_PREPCLK_MASK             0x00000010
-#define MC_LOCKONCLOCK_TCLK_MASK                0x00000020
-#define MC_LOCKONCLOCK_PCLK_MASK                0x00000040
-#define MC_LOCKONCLOCK_IGPACLK_MASK             0x00000080
+#define MC_LOCKONCLOCK_CECCLK_MASK         0x00000001
+#define MC_LOCKONCLOCK_SPDIFCLK_MASK       0x00000004
+#define MC_LOCKONCLOCK_I2SCLK_MASK         0x00000008
+#define MC_LOCKONCLOCK_PREPCLK_MASK        0x00000010
+#define MC_LOCKONCLOCK_TCLK_MASK           0x00000020
+#define MC_LOCKONCLOCK_PCLK_MASK           0x00000040
+#define MC_LOCKONCLOCK_IGPACLK_MASK        0x00000080
+
+#define MC_HEACPHYRSTZ          0x00004007
+#define MC_HEACPHYRSTZ_MASK                0x00000001
+
+#define MC_LOCKONCLOCK2         0x00004009
+#define MC_LOCKONCLOCK_AHBDMA_MASK         0x00000001
+
+#define MC_AHBDMARSTZ           0x0000400A
+#define MC_AHBDMARSTZ_MASK                 0x00000001
 
 #endif  /* _DW_MC_H_ */

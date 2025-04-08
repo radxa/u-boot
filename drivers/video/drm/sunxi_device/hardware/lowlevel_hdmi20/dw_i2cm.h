@@ -11,7 +11,19 @@
 #ifndef _DW_I2CM_H
 #define _DW_I2CM_H
 
-
+/**
+ * @desc: dw ddc get rate.
+ * @return: ddc rate. (*100Hz.)
+ */
+int dw_i2cm_get_rate(void);
+/**
+ * @desc: dw i2c set mode and rate
+ * @mode: i2c mode. standard or fast mode
+ * @rate: i2c rate. (*100Hz)
+ * @return: 0 - suaccess
+ *         -1 - failed
+ */
+int dw_i2cm_set_ddc(u32 mode, u32 rate);
 /**
  * @desc: dw i2c master send and receive
  * @msgs: send or receive message buffer

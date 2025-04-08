@@ -63,10 +63,33 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
+
+			twi0_pins_a: twi0@0 {
+					allwinner,pins = "PD22", "PD23";
+					allwinner,pname = "twi0_scl", "twi0_sda";
+					allwinner,function = "twi0";
+					allwinner,muxsel = <6>;
+					allwinner,drive = <1>;
+					allwinner,pull = <1>;
+			};
+
+			twi0_pins_b: twi0@1 {
+					allwinner,pins = "PD22", "PD23";
+					allwinner,function = "gpio_out";
+					allwinner,muxsel = <1>;
+					allwinner,drive = <1>;
+					allwinner,pull = <1>;
+			};
+
+
 		};
 
 		twi6: s_twi@0x07081400 {
 		};
+
+		twi0: twi@0x07081401 {
+		};
+
 
 		power_sply:power_sply@4500000c {
 			device_type = "power_sply";
@@ -1187,6 +1210,7 @@ pwm: pwm@2000c00 {
 				<&clk_sdmmc2_bus>;
 			status = "okay";
 		};
+
 		combophy: phy@4f00000 {
 			compatible = "allwinner,inno-combphy";
 			reg = <0x0 0x04f00000 0x0 0x80000>, /* Sub-System Application Registers */

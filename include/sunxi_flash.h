@@ -83,6 +83,9 @@ int sunxi_sprite_upload_toc(void *buf, unsigned int len);
 int sunxi_flash_probe(void);
 int sunxi_flash_init_ext(void);
 int get_board_flash_type_exist(SUNXI_BOOT_STORAGE boardflash);
+#ifdef CONFIG_SUNXI_UFS
+	int sunxi_flash_ufs_blk_init_ext(void);
+#endif
 
 int sunxi_flash_sprite_init(int storage_type, int workmode);
 int sunxi_flash_sprite_switch(int storage_type, int workmode);

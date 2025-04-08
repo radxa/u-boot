@@ -121,9 +121,6 @@ __weak void ss_irq_disable(u32 task_id)
 
 __weak void ss_open(void)
 {
-	struct sunxi_ccm_reg *const ccm =
-		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
-	u32 reg_val;
 	static int initd;
 
 	ss_get_soc_status();
@@ -131,6 +128,10 @@ __weak void ss_open(void)
 	if (initd)
 		return;
 	initd = 1;
+
+#ifdef CE_CLK_REG_CLK_SRC_SEL_CLEAR_MASK
+	struct sunxi_ccm_reg *const ccm = (struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
+	u32 reg_val, *reg;
 
 	reg_val = readl(&ccm->ce_clk_cfg); /*ce CLOCK*/
 	reg_val &= (~((0x3 << 8) | (0xf << 0)));
@@ -164,16 +165,23 @@ __weak void ss_open(void)
 	reg_val |= CE_GATING_PASS << CE_SYS_GATING_BIT;
 	writel(reg_val, &ccm->ce_gate_reset);
 
-	reg_val = readl(&ccm->mbus_gate);
+#ifdef CE_MBUS_GATING_BIT
+#if defined(CONFIG_MACH_SUN60IW2)
+	reg = &ccm->mbus_gate_en_reg;
+#else
+	reg = &ccm->mbus_gate;
+#endif
+	reg_val = readl(reg);
 	reg_val &= ~(CE_MBUS_GATING_MASK << CE_MBUS_GATING_BIT);
 	reg_val |= CE_MBUS_GATING << CE_MBUS_GATING_BIT;
-	writel(reg_val, &ccm->mbus_gate);
-
+	writel(reg_val, reg);
+#endif
 	/*de-assert*/
 	reg_val = readl(&ccm->ce_gate_reset);
 	reg_val |= CE_DEASSERT << CE_RST_BIT;
 	reg_val |= CE_DEASSERT << CE_SYS_RST_BIT;
 	writel(reg_val, &ccm->ce_gate_reset);
+#endif
 }
 
 __weak void ss_close(void)

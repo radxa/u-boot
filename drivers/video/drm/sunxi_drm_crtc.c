@@ -395,6 +395,15 @@ static int sunxi_crtc_enable(struct display_state *state)
 	cfg.color_space = scrtc_state->color_space;
 	cfg.color_range = scrtc_state->color_range;
 	cfg.data_bits = scrtc_state->data_bits;
+	if ((scrtc_state->pixel_mode != 0) && (scrtc_state->pixel_mode != 1)
+	    && (scrtc_state->pixel_mode != 2) && (scrtc_state->pixel_mode != 4)
+	    && (scrtc_state->pixel_mode != 8)) {
+		DRM_ERROR("pixel_mode set for crtc is not support:%d, use default 1 pixel mode\n",
+			  scrtc_state->pixel_mode);
+		cfg.pixel_mode = 1;
+	} else {
+		cfg.pixel_mode = scrtc_state->pixel_mode;
+	}
 
 	if (sunxi_de_enable(scrtc->sunxi_de, &cfg) < 0)
 		pr_err("sunxi_de_enable failed\n");
@@ -471,6 +480,33 @@ static void wb_finish_proc(struct sunxi_drm_crtc *scrtc)
 	spin_unlock_irqrestore(&wb->signal_lock, flags);
 }
 
+int sunxi_drm_get_fps(struct sunxi_drm_crtc *scrtc)
+{
+	u32 pre_time_index, cur_time_index;
+	u32 pre_time, cur_time;
+
+	pre_time_index = scrtc->health_info.sync_time_index;
+	cur_time_index = (pre_time_index == 0) ? (DEBUG_TIME_SIZE - 1) : (pre_time_index - 1);
+
+	pre_time = scrtc->health_info.sync_time[pre_time_index];
+	cur_time = scrtc->health_info.sync_time[cur_time_index];
+
+	if (pre_time != cur_time) {
+		scrtc->fps = 10000 * DEBUG_TIME_SIZE / (cur_time - pre_time);
+	}
+
+	return 0;
+
+}
+
+static void sunxi_drm_sync_checkin(struct sunxi_drm_crtc *scrtc)
+{
+	u32 index = scrtc->health_info.sync_time_index;
+	scrtc->health_info.sync_time[index] = get_timer_masked();/*msecond*/
+	index++;
+	index = (index >= DEBUG_TIME_SIZE) ? 0 : index;
+	scrtc->health_info.sync_time_index = index;
+}
 
 static void sunxi_crtc_event_proc(void *parg)
 {
@@ -480,6 +516,7 @@ static void sunxi_crtc_event_proc(void *parg)
 	struct sunxi_drm_crtc *scrtc = scrtc_state->crtc;
 
 	scrtc->irqcnt++;
+	sunxi_drm_sync_checkin(scrtc);
 	if (scrtc_state->check_status(scrtc_state->vblank_enable_data))
 		scrtc->fifo_err++;
 
@@ -557,11 +594,12 @@ static int sunxi_crtc_print_state(struct display_state *state, struct drm_printe
 	struct sunxi_drm_crtc *scrtc = (struct sunxi_drm_crtc *)cstate->crtc;
 	int w = conn_state->mode.hdisplay;
 	int h = conn_state->mode.vdisplay;
-	int fps = drm_mode_vrefresh(&conn_state->mode);
+//	int fps = drm_mode_vrefresh(&conn_state->mode);
 
 	drm_printf(p, "\n\t%s: ", scrtc->enabled ? "on" : "off\n");
 	if (scrtc->enabled) {
-		drm_printf(p, "%dx%d@%d&%dMhz->tcon%d irqcnt=%d err=%d\n", w, h, fps,
+		sunxi_drm_get_fps(scrtc);
+		drm_printf(p, "%dx%d@%d.%d&%dMhz->tcon%d irqcnt=%d err=%d\n", w, h, scrtc->fps / 10, scrtc->fps % 10,
 			    (int)(scrtc->clk_freq / 1000000), cstate->tcon_id, scrtc->irqcnt, scrtc->fifo_err);
 		drm_printf(p, "\t    format_space: %d yuv_sampling: %d eotf:%d cs: %d"
 			    " color_range: %d data_bits: %d\n", cstate->px_fmt_space,

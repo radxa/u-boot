@@ -13,6 +13,7 @@
 
 #include <sunxi_flashmap.h>
 #include "../mmc/mmc_def.h"
+#include "../ufs/sunxi_ufs_map.h"
 #include <sunxi_board.h>
 #include <fdt_support.h>
 #include <boot_param.h>
@@ -46,6 +47,13 @@
 #define DEFAULT_MMC_LOGICAL_OFFSET (40960)
 #endif
 
+#ifdef CONFIG_UFS_LOGICAL_OFFSET
+#define DEFAULT_UFS_LOGICAL_OFFSET CONFIG_UFS_LOGICAL_OFFSET
+#else
+#define DEFAULT_UFS_LOGICAL_OFFSET (40960)
+#endif
+
+
 #ifdef CONFIG_SPINAND_LOGICAL_OFFSET
 #define DEFAULT_SPINAND_UBOOT_OFFSET CONFIG_SPINAND_LOGICAL_OFFSET
 #else
@@ -63,6 +71,12 @@
 #define DEFAULT_MMC_BOOTPARAM_COMMOM_OFFSET                                    \
 	(SUNXI_SDMMC_PARAMETER_REGION_LBA_START - MMC_BOOT_PARAM_COMMON_OFFSET)
 #define DEFAULT_MMC_BOOTPARAM_COMMOM_SIZE (BOOT_PARAM_SIZE / 512)
+
+#define UFS_BOOT_PARAM_COMMON_OFFSET 8
+#define DEFAULT_UFS_BOOTPARAM_COMMOM_OFFSET                                    \
+	(SUNXI_UFS_PARAMETER_REGION_LBA_START - UFS_BOOT_PARAM_COMMON_OFFSET)
+#define DEFAULT_UFS_BOOTPARAM_COMMOM_SIZE (BOOT_PARAM_SIZE / 512)
+
 
 #if FLASHMAP_DEBUG
 #define flashmap_debug(fmt, arg...)                                            \
@@ -199,8 +213,40 @@ struct flashmap_info global_flashmap[FLASHMAP_TYPE_COUNT] = {
 			.start = DEFAULT_SPINAND_UBOOT_OFFSET,
 			.size = 6144
 		}
-	}
+	},
+#ifdef CONFIG_SUNXI_UFS
+	[FLASHMAP_UFS] = {
+		.logic[LINUX_LOGIC_OFFSET] = {
+			.logicoffset = DEFAULT_UFS_LOGICAL_OFFSET, /*normal*/
+			.secure_logicoffset = DEFAULT_UFS_LOGICAL_OFFSET,
+		},
+		.logic[RTOS_LOGIC_OFFSET] = {
+			.logicoffset = DEFAULT_SUNXI_RTOS_LOGICAL_OFFSET, /*normal*/
+			.secure_logicoffset = DEFAULT_SUNXI_RTOS_LOGICAL_OFFSET,
+		},
 
+		.maps[BOOT_PARAM_COMMON] = {
+			.start = DEFAULT_UFS_BOOTPARAM_COMMOM_OFFSET,
+			.size = DEFAULT_UFS_BOOTPARAM_COMMOM_SIZE
+		},
+		.maps[BOOT_PARAM] = {
+			.start = SUNXI_UFS_PARAMETER_REGION_LBA_START,
+			.size = SUNXI_UFS_PARAMETER_REGION_SIZE_BYTE >> 9
+		},
+		.maps[TOC1] = {
+			.start = SUNXI_UFS_TOC_START_ADDRS,
+			.size = 4096
+		},
+		.maps[TOC1_BAK] = {
+			.start = UBOOT_BACKUP_START_SECTOR_IN_UFS,
+			.size = 4096
+		},
+		.maps[SEC_STORAGE] = {
+			.start = UFS_SECURE_STORAGE_START_ADD,
+			.size = 512
+		},
+	},
+#endif
 };
 
 

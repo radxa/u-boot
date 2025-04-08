@@ -17,10 +17,10 @@
 
 #include <common.h>
 #include <dm.h>
-#include <sys_config.h>
 #include <dm/pinctrl.h>
 #include <asm/arch/gic.h>
 #include <drm/drm_modes.h>
+#include <sys_config.h>
 #include <tcon_lcd.h>
 #include <sunxi_device/sunxi_tcon.h>
 #include <drm/drm_print.h>
@@ -31,7 +31,7 @@
 #include "sunxi_drm_connector.h"
 #include "sunxi_drm_drv.h"
 
-#if IS_ENABLED(CONFIG_MACH_SUN55IW6)
+#if IS_ENABLED(CONFIG_MACH_SUN55IW6) || IS_ENABLED(CONFIG_MACH_SUN60IW2)
 #define RGB_DISPLL_CLK
 #endif
 struct rgb_data {
@@ -45,6 +45,7 @@ struct sunxi_drm_rgb {
 	struct drm_display_mode mode;
 	struct disp_rgb_para rgb_para;
 	unsigned int tcon_id;
+	unsigned int tcon_top_id;
 	bool bound;
 	const struct rgb_data *rgb_data;
 	u32 rgb_id;
@@ -89,6 +90,7 @@ static int sunxi_rgb_connector_init(struct sunxi_drm_connector *conn, struct dis
 
 
 	scrtc_state->tcon_id = rgb->tcon_id;
+	scrtc_state->tcon_top_id = rgb->tcon_top_id;
 	scrtc_state->enable_vblank = sunxi_rgb_enable_vblank;
 	scrtc_state->check_status = sunxi_rgb_fifo_check;
 	scrtc_state->vblank_enable_data = rgb;
@@ -119,7 +121,9 @@ static int sunxi_rgb_connector_prepare(struct sunxi_drm_connector *conn,
 #else
 	disp_cfg.displl_clk = false;
 #endif
-
+	if (rgb->rgb_id == 1) {
+		disp_cfg.displl_clk = false;
+	}
 	drm_mode_to_sunxi_video_timings(&rgb->mode, &rgb->rgb_para.timings);
 	memcpy(&disp_cfg.rgb_para, &rgb->rgb_para,
 		sizeof(rgb->rgb_para));
@@ -132,7 +136,6 @@ static int sunxi_rgb_connector_prepare(struct sunxi_drm_connector *conn,
 	if (ret < 0) {
 		DRM_ERROR("%s:%d:fdt_set_all_pin fail!:%d\n", __func__, __LINE__, ret);
 	}
-	pinctrl_select_state(rgb->dev, "active");
 
 	return 0;
 }
@@ -197,6 +200,7 @@ static int sunxi_drm_rgb_probe(struct udevice *dev)
 		return -1;
 	}
 	rgb->tcon_id = sunxi_tcon_of_get_id(rgb->tcon_dev);
+	rgb->tcon_top_id = sunxi_tcon_of_get_top_id(rgb->tcon_dev);
 	rgb->phy = kmalloc(sizeof(struct phy), __GFP_ZERO);
 	sunxi_rgb_parse_dt(rgb->dev);
 

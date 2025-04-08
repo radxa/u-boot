@@ -840,7 +840,7 @@ sunxi_flash_desc sunxi_sdmmcs_desc = {
 int sdmmc_init_for_boot(int workmode, int card_no)
 {
 	pr_debug("MMC:	 %d\n", card_no);
-
+	//return -1;
 	if (!mmc_has_pre_init) {
 		mmc_has_pre_init = 1;
 		board_mmc_set_num(card_no);
@@ -868,6 +868,7 @@ int sdmmc_init_for_boot(int workmode, int card_no)
 int sdmmc_init_for_sprite(int workmode, int card_no)
 {
 	static int mmc_has_init;
+	//return -1;
 	if (!mmc_has_init) {
 		printf("try card %d\n", card_no);
 		mmc_has_init = 1;

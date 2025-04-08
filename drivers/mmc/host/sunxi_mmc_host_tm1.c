@@ -113,7 +113,57 @@ static void sunxi_mmc_clk_io_onoff(int sdc_no, int onoff, int reset_clk)
 	struct sunxi_mmc_priv *priv = &mmc_host[sdc_no];
 
 	/* config ahb clock */
-#if (!defined (CONFIG_MACH_SUN8IW7))
+#if defined(CONFIG_MACH_SUN300IW1)
+	if (onoff) {
+		rval = readl(priv->hclkrst);
+		rval |= (1 << (20 + sdc_no));
+		writel(rval, priv->hclkrst);
+		rval = readl(priv->hclkbase);
+		rval |= (1 << (20 + sdc_no));
+		writel(rval, priv->hclkbase);
+
+		rval = readl(priv->mclkreg);
+		rval |= (1U << 31);
+		writel(rval, priv->mclkreg);
+	} else {
+		rval = readl(priv->mclkreg);
+		rval &= ~(1U << 31);
+		writel(rval, priv->mclkreg);
+
+		rval = readl(priv->hclkbase);
+		rval &= ~(1 << (20 + sdc_no));
+		writel(rval, priv->hclkbase);
+
+		rval = readl(priv->hclkrst);
+		rval &= ~(1 << (20 + sdc_no));
+		writel(rval, priv->hclkrst);
+	}
+#elif (defined(CONFIG_MACH_SUN60IW1) || defined(CONFIG_MACH_SUN60IW2) || defined(CONFIG_MACH_SUN55IW6) || defined(CONFIG_MACH_SUN65IW1))
+	if (onoff) {
+		rval = readl(priv->hclkrst);
+		rval |= (1 << 16);
+		writel(rval, priv->hclkrst);
+		rval = readl(priv->hclkbase);
+		rval |= (1 << 0);
+		writel(rval, priv->hclkbase);
+
+		rval = readl(priv->mclkreg);
+		rval |= (1U << 31);
+		writel(rval, priv->mclkreg);
+	} else {
+		rval = readl(priv->mclkreg);
+		rval &= ~(1U << 31);
+		writel(rval, priv->mclkreg);
+
+		rval = readl(priv->hclkbase);
+		rval &= ~(1 << 0);
+		writel(rval, priv->hclkbase);
+
+		rval = readl(priv->hclkrst);
+		rval &= ~(1 << 16);
+		writel(rval, priv->hclkrst);
+	}
+#elif (!defined (CONFIG_MACH_SUN8IW7))
 	if (onoff) {
 		rval = readl(priv->hclkrst);
 		rval |= (1 << (16 + sdc_no));
@@ -163,7 +213,7 @@ static void sunxi_mmc_clk_io_onoff(int sdc_no, int onoff, int reset_clk)
 		rval &= ~(1 << 16);
 		writel(rval, priv->hclkrst);
 	}
-#elif defined(CONFIG_MACH_SUN60IW2)
+#elif defined(CONFIG_MACH_SUN60IW2) || defined(CONFIG_MACH_SUN65IW1)
 	if (onoff) {
 		rval = readl(priv->hclkrst);
 		rval |= (1 << 16);
@@ -226,7 +276,7 @@ static void sunxi_mmc_clk_io_onoff(int sdc_no, int onoff, int reset_clk)
 
 }
 
-static int mmc_config_delay(struct sunxi_mmc_priv *mmcpriv)
+int mmc_config_delay_tm1(struct sunxi_mmc_priv *mmcpriv)
 {
 	unsigned int rval = 0;
 	unsigned int spd_md, freq;
@@ -269,14 +319,20 @@ static int mmc_config_delay(struct sunxi_mmc_priv *mmcpriv)
 static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 {
 	unsigned int mod_hz, freq_id;
-#ifdef FPGA_PLATFORM
-#ifndef CONFIG_MACH_SUN20IW5
-	unsigned int rval;
-#endif
-#endif
 	struct mmc *mmc = priv->mmc;
-	u32 val = 0;
+	u32 val = 0, ret = 0;
 	mod_hz = 0;
+
+	/*Just to ensure that mass-produced platforms are not affected,
+	 * new platforms should not take this path*/
+	if (priv->clk_mode == SUNXI_MMC_CLK_ORGN || priv->clk_mode == SUNXI_MMC_CLK_FPGA) {
+		ret = priv->sunxi_mmc_set_clk(priv, hz, mod_hz, &freq_id);
+		if (ret < 0) {
+			MMCINFO("%s--%d set clk failed!!!!\n", __func__, __LINE__);
+			return -1;
+		}
+		return 0;
+	}
 
 	/*
 	 * The MMC clock has an extra /2 post-divider when operating in the new
@@ -287,195 +343,14 @@ static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 	else
 		mod_hz = hz * 2;
 
-#if !defined CONFIG_MACH_SUN55IW3
-	unsigned int pll, pll_hz, div, n;
-
-	if (mod_hz <= 24000000) {
-		pll = CCM_MMC_CTRL_OSCM24;
-		pll_hz = 24000000;
-	} else {
-		pll = sunxi_mmc_get_src_clk_no(priv->mmc_no, mod_hz, 1);
-		pll_hz = sunxi_host_src_clk(priv->mmc_no, (pll>>24), 1);
-	}
-
-	MMCDBG("pll config :%d : %d\n", pll, pll_hz);
-
-	div = pll_hz / mod_hz;
-	if (pll_hz % mod_hz)
-		div++;
-
-	n = 0;
-	while (div > 16) {
-		n++;
-		div = (div + 1) / 2;
-	}
-
-	if (n > 3) {
-		MMCINFO("mmc %u error cannot set clock to %u\n", priv->mmc_no,
-		       hz);
-		return -1;
-	}
-#else
-#ifdef CONFIG_CLK_SUNXI
-	int err = 0;
-	u32 rate = 0;
-	u32 rate_2 = 0;
-	u32 retry_time = 0;
-	struct clk *mclk = priv->cfg.clk_mmc;
-	struct clk *sclk;
-	struct clk *sclk_2;
-	u32 src_clk = 0;
-
-	/* hosc */
-	sclk = clk_get(NULL, priv->cfg.pll0);
-	if (IS_ERR_OR_NULL(sclk)) {
-		MMCINFO("Error to get source clock %s\n", priv->cfg.pll0);
+	ret = priv->sunxi_mmc_set_clk(priv, hz, mod_hz, &freq_id);
+	if (ret < 0) {
+		MMCINFO("%s--%d set clk failed!!!!\n", __func__, __LINE__);
 		return -1;
 	}
 
-	src_clk = clk_get_rate(sclk);
-	if (mod_hz > src_clk) {
-		clk_put(sclk);
-		sclk = clk_get(NULL, priv->cfg.pll1);
-	}
-	if (IS_ERR_OR_NULL(sclk)) {
-		MMCINFO("Error to get source clock %s\n", priv->cfg.pll1);
-		return -1;
-	}
-
-clk_set_retry:
-	err = clk_set_parent(mclk, sclk);
-	if (err) {
-		MMCINFO("set parent failed\n");
-		clk_put(sclk);
-		return -1;
-	}
-
-	rate = clk_round_rate(mclk, mod_hz);
-
-	MMCDBG("get round rate %d\n", rate);
-
-	if ((rate != mod_hz) && (mod_hz > src_clk) && (retry_time == 0)) {
-		sclk_2 = clk_get(NULL, priv->cfg.pll2);
-		if (IS_ERR_OR_NULL(sclk_2)) {
-			MMCINFO("Error to get source clock pll_periph_another\n");
-		} else {
-			err = clk_set_parent(mclk, sclk_2);
-			if (err) {
-				MMCINFO("%s: set parent failed\n", __func__);
-				clk_put(sclk_2);
-				retry_time++;
-				goto clk_set_retry;
-			}
-
-			rate_2 = clk_round_rate(mclk, mod_hz);
-
-			MMCDBG("get round rate_2 = %d\n", rate_2);
-
-			if (abs(mod_hz - rate_2) > abs(mod_hz - rate)) {
-				MMCDBG("another SourceClk is worse\n");
-				clk_put(sclk_2);
-				retry_time++;
-				goto clk_set_retry;
-			} else {
-				MMCDBG("another SourceClk is better and choose it\n");
-				clk_put(sclk);
-				sclk = sclk_2;
-				rate = rate_2;
-			}
-		}
-	}
-
-	err = clk_disable(mclk);
-	if (err) {
-		MMCINFO("disable mmc clk err\n");
-		return -1;
-	}
-
-	err = clk_set_rate(mclk, rate);
-	if (err) {
-		MMCINFO("set mclk rate error, rate %dHz\n",
-			rate);
-		clk_put(sclk);
-		return -1;
-	}
-
-	err = clk_prepare_enable(mclk);
-	if (err) {
-		MMCINFO("enable mmc clk err\n");
-		return -1;
-	}
-
-	src_clk = clk_get_rate(sclk);
-	clk_put(sclk);
-
-	MMCDBG("set round clock %d, soure clk is %d, mod_hz is %d\n", rate, src_clk, mod_hz);
-#else
-	MMCINFO("%s: need ccu config open, set clk = %d\n", __func__, mod_hz);
-	return -1;
-#endif
-#endif
-
-	freq_id = CLK_50M;
-	/* determine delays */
-	if (hz <= 400000) {
-		freq_id = CLK_400K;
-	} else if (hz <= 25000000) {
-		freq_id = CLK_25M;
-	} else if (hz <= 52000000) {
-		freq_id = CLK_50M;
-	} else if (hz <= 100000000)
-		freq_id = CLK_100M;
-	else if (hz <= 150000000)
-		freq_id = CLK_150M;
-	else if (hz <= 200000000)
-		freq_id = CLK_200M;
-	else {
-		/* hz > 52000000 */
-		freq_id = CLK_50M;
-	}
-
-	MMCDBG("freq_id:%d\n", freq_id);
-#if (defined (CONFIG_MACH_SUN8IW7))
-	val = 0x1 << 30;//CCM_MMC_CTRL_MODE_SEL_NEW;
-#endif
-#ifdef FPGA_PLATFORM
-#ifndef CONFIG_MACH_SUN20IW5
-	if (readl(IOMEM_ADDR(SUNXI_MMMC_1X_2X_MODE_CTL_REG)) & (0x1 << 3)) {
-		rval = readl(&priv->reg->ntsr);
-		rval |= SUNXI_MMC_NTSR_MODE_SEL_NEW;
-		writel(rval, &priv->reg->ntsr);
-	} else {
-		rval = readl(&priv->reg->ntsr);
-		rval &= ~SUNXI_MMC_NTSR_MODE_SEL_NEW;
-		writel(rval, &priv->reg->ntsr);
-	}
-#endif
-#else
 	setbits_le32(&priv->reg->ntsr, SUNXI_MMC_NTSR_MODE_SEL_NEW);
-#endif
 
-#ifdef FPGA_PLATFORM
-	if (mod_hz > (400000 * 2)) {
-		sunxi_r_op(priv, writel(CCM_MMC_CTRL_ENABLE,  priv->mclkreg));
-	} else {
-#if !defined CONFIG_MACH_SUN55IW3
-		sunxi_r_op(priv, writel(pll | CCM_MMC_CTRL_N(n) |
-			CCM_MMC_CTRL_M(div) | val, priv->mclkreg));
-#endif
-	}
-	if (hz <= 400000) {
-		sunxi_r_op(priv, writel(readl(&priv->reg->drv_dl) & ~(0x1 << 7), &priv->reg->drv_dl));
-	} else {
-		sunxi_r_op(priv, writel(readl(&priv->reg->drv_dl) | (0x1 << 7), &priv->reg->drv_dl));
-	}
-
-#else
-#if !defined CONFIG_MACH_SUN55IW3
-	sunxi_r_op(priv, writel(pll | CCM_MMC_CTRL_N(n) |
-	       CCM_MMC_CTRL_M(div) | val, priv->mclkreg));
-#endif
-#endif
 	val = readl(&priv->reg->clkcr);
 	val &= ~0xff;
 	if (mmc->speed_mode == HSDDR52_DDR50)
@@ -484,16 +359,10 @@ clk_set_retry:
 
 	priv->tm1.cur_spd_md = mmc->speed_mode;
 	priv->tm1.cur_freq = freq_id;
-
-	mmc_config_delay(priv);
-
+	mmc_config_delay_tm1(priv);
 
 	MMCDBG("mclk reg***%x\n", readl(priv->mclkreg));
 	MMCDBG("clkcr reg***%x\n", readl(&priv->reg->clkcr));
-#if !defined CONFIG_MACH_SUN55IW3
-	MMCDBG("mmc %u set mod-clk req %u parent %u n %u m %u rate %u\n",
-	      priv->mmc_no, mod_hz, pll_hz, 1u << n, div, pll_hz / (1u << n) / div);
-#endif
 
 	return 0;
 }

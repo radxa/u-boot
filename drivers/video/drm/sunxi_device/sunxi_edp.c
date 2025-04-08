@@ -16,6 +16,8 @@
 #include <generic-phy.h>
 //#include "hardware/lowlevel_edp/edp_lowlevel.h"
 
+void edp_hw_scrambling_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable);
+
 /*
  * Search EDID for CEA extension block.
  */
@@ -55,6 +57,9 @@ int edp_get_edid_block(void *data, u8 *block_raw_data,
 	int ret = 0;
 	struct sunxi_edp_hw_desc *edp_hw = (struct sunxi_edp_hw_desc *)(data);
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->read_edid_block)
 		ret = ops->read_edid_block(edp_hw, block_raw_data, block_id, len);
@@ -127,6 +132,9 @@ s32 edp_hw_init_early(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->init_early)
 		return ops->init_early(edp_hw);
 	else
@@ -136,6 +144,9 @@ s32 edp_hw_init_early(struct sunxi_edp_hw_desc *edp_hw)
 s32 edp_hw_controller_init(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->init)
 		return ops->init(edp_hw, edp_core);
@@ -164,6 +175,9 @@ s32 edp_hw_get_hotplug_state(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->get_hotplug_change && ops->get_hotplug_state) {
 		if (ops->get_hotplug_change(edp_hw))
 			return ops->get_hotplug_state(edp_hw);
@@ -177,6 +191,9 @@ s32 edp_hw_set_video_format(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core
 {
 	s32 ret = RET_OK;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->set_video_format)
 		ret = ops->set_video_format(edp_hw, edp_core);
@@ -194,6 +211,9 @@ s32 edp_hw_set_video_timings(struct sunxi_edp_hw_desc *edp_hw, struct disp_video
 	s32 ret = RET_OK;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->set_video_timings)
 		ret = ops->set_video_timings(edp_hw, tmgs);
 	else
@@ -210,6 +230,9 @@ s32 edp_hw_set_transfer_config(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_c
 	s32 ret = RET_OK;
 	struct edp_lane_para *lane_para = &edp_core->lane_para;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->config_tu)
 		ret = ops->config_tu(edp_hw, edp_core);
@@ -229,6 +252,9 @@ s32 edp_hw_enable(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->enable)
 		return ops->enable(edp_hw, edp_core);
 	else
@@ -238,6 +264,9 @@ s32 edp_hw_enable(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core
 s32 edp_hw_disable(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->disable)
 		return ops->disable(edp_hw, edp_core);
@@ -249,6 +278,9 @@ u64 edp_source_get_max_rate(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->support_max_rate)
 		return ops->support_max_rate(edp_hw);
 	else
@@ -258,6 +290,9 @@ u64 edp_source_get_max_rate(struct sunxi_edp_hw_desc *edp_hw)
 u32 edp_source_get_max_lane(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->support_max_lane)
 		return ops->support_max_lane(edp_hw);
@@ -269,6 +304,9 @@ bool edp_source_support_tps3(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return false;
+
 	if (ops->support_tps3)
 		return ops->support_tps3(edp_hw);
 	else
@@ -279,6 +317,9 @@ bool edp_source_support_fast_training(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return false;
+
 	if (ops->support_fast_training)
 		return ops->support_fast_training(edp_hw);
 	else
@@ -287,7 +328,10 @@ bool edp_source_support_fast_training(struct sunxi_edp_hw_desc *edp_hw)
 
 bool edp_source_support_audio(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->support_audio)
 		return ops->support_audio(edp_hw);
@@ -299,6 +343,9 @@ bool edp_source_support_ssc(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return false;
+
 	if (ops->support_ssc)
 		return ops->support_ssc(edp_hw);
 	else
@@ -308,6 +355,9 @@ bool edp_source_support_ssc(struct sunxi_edp_hw_desc *edp_hw)
 bool edp_source_support_fec(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->support_fec)
 		return ops->support_fec(edp_hw);
@@ -319,6 +369,9 @@ bool edp_source_support_psr(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return false;
+
 	if (ops->support_psr)
 		return ops->support_psr(edp_hw);
 	else
@@ -328,6 +381,9 @@ bool edp_source_support_psr(struct sunxi_edp_hw_desc *edp_hw)
 bool edp_source_support_psr2(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->support_psr2)
 		return ops->support_psr2(edp_hw);
@@ -339,6 +395,9 @@ bool edp_source_support_assr(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return false;
+
 	if (ops->support_assr)
 		return ops->support_assr(edp_hw);
 	else
@@ -348,6 +407,9 @@ bool edp_source_support_assr(struct sunxi_edp_hw_desc *edp_hw)
 bool edp_source_support_mst(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->support_mst)
 		return ops->support_mst(edp_hw);
@@ -359,6 +421,9 @@ bool edp_source_support_lane_remap(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return false;
+
 	if (ops->support_lane_remap)
 		return ops->support_lane_remap(edp_hw);
 	else
@@ -369,15 +434,47 @@ bool edp_source_support_lane_invert(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return false;
+
 	if (ops->support_lane_invert)
 		return ops->support_lane_invert(edp_hw);
 	else
 		return false;
 }
 
-bool edp_source_support_hdcp1x(struct sunxi_edp_hw_desc *edp_hw)
+bool edp_source_support_muti_pixel_mode(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return false;
+
+	if (ops->support_muti_pixel_mode)
+		return ops->support_muti_pixel_mode(edp_hw);
+	else
+		return false;
+}
+
+bool edp_source_need_reset_before_enable(struct sunxi_edp_hw_desc *edp_hw)
+{
+	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return false;
+
+	if (ops->need_reset_before_enable)
+		return ops->need_reset_before_enable(edp_hw);
+	else
+		return false;
+}
+
+bool edp_source_support_hdcp1x(struct sunxi_edp_hw_desc *edp_hw)
+{
+	struct sunxi_edp_hw_hdcp_ops *ops = edp_hw->hdcp_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->support_hdcp1x)
 		return ops->support_hdcp1x(edp_hw);
@@ -387,7 +484,10 @@ bool edp_source_support_hdcp1x(struct sunxi_edp_hw_desc *edp_hw)
 
 bool edp_source_support_hardware_hdcp1x(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_hdcp_ops *ops = edp_hw->hdcp_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->support_hw_hdcp1x)
 		return ops->support_hw_hdcp1x(edp_hw);
@@ -397,7 +497,10 @@ bool edp_source_support_hardware_hdcp1x(struct sunxi_edp_hw_desc *edp_hw)
 
 bool edp_source_support_hdcp2x(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_hdcp_ops *ops = edp_hw->hdcp_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->support_hdcp2x)
 		return ops->support_hdcp2x(edp_hw);
@@ -407,11 +510,40 @@ bool edp_source_support_hdcp2x(struct sunxi_edp_hw_desc *edp_hw)
 
 bool edp_source_support_hardware_hdcp2x(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_hdcp_ops *ops = edp_hw->hdcp_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->support_hw_hdcp2x)
 		return ops->support_hw_hdcp2x(edp_hw);
 	else
+		return false;
+}
+
+bool edp_source_support_enhance_frame(struct sunxi_edp_hw_desc *edp_hw)
+{
+	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return false;
+
+	if (ops->support_enhance_frame)
+		return ops->support_enhance_frame(edp_hw);
+	else
+		return false;
+}
+
+bool edp_set_use_inner_clk(struct sunxi_edp_hw_desc *edp_hw, u32 bypass)
+{
+	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return false;
+
+	if (ops->set_use_inner_clk) {
+		return ops->set_use_inner_clk(edp_hw, bypass);
+	} else
 		return false;
 }
 
@@ -476,6 +608,9 @@ s32 edp_hw_query_transfer_unit(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_c
 				 struct disp_video_timings *tmgs)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->query_tu_capability)
 		return ops->query_tu_capability(edp_hw, edp_core, tmgs);
@@ -589,6 +724,9 @@ s32 edp_hw_lane_remap(struct sunxi_edp_hw_desc *edp_hw, u32 lane_id, u32 remap_i
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->lane_remap)
 		return ops->lane_remap(edp_hw, lane_id, remap_id);
 	else
@@ -599,8 +737,24 @@ s32 edp_hw_lane_invert(struct sunxi_edp_hw_desc *edp_hw, u32 lane_id, bool inver
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->lane_invert)
 		return ops->lane_invert(edp_hw, lane_id, invert);
+	else
+		return RET_OK;
+}
+
+s32 edp_hw_set_pixel_mode(struct sunxi_edp_hw_desc *edp_hw, u32 pixel_mode)
+{
+	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
+
+	if (ops->set_pixel_mode)
+		return ops->set_pixel_mode(edp_hw, pixel_mode);
 	else
 		return RET_OK;
 }
@@ -612,6 +766,9 @@ void edp_hw_set_lane_para(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *
 	u64 bit_rate = lane_para->bit_rate;
 	u32 lane_cnt = lane_para->lane_cnt;
 	u32 i = 0;
+
+	if (ops == NULL)
+		return;
 
 	if (ops->set_lane_rate)
 		ops->set_lane_rate(edp_hw, bit_rate);
@@ -649,6 +806,9 @@ void edp_hw_set_training_para(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_co
 	u32 param_type = edp_core->training_param_type;
 	u32 i = 0;
 
+	if (ops == NULL)
+		return;
+
 	sw[0] = edp_core->lane_para.lane_sw[0];
 	sw[1] = edp_core->lane_para.lane_sw[1];
 	sw[2] = edp_core->lane_para.lane_sw[2];
@@ -675,11 +835,18 @@ void edp_hw_set_training_para(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_co
 s32 edp_dpcd_set_lane_para(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core)
 {
 	char tmp_tx_buf[16];
+	char tmp_rx_buf[16];
 	s32 ret = RET_FAIL;
 
 	memset(tmp_tx_buf, 0, sizeof(tmp_tx_buf));
+	memset(tmp_rx_buf, 0, sizeof(tmp_rx_buf));
+	ret = edp_hw_aux_read(edp_hw, DPCD_0101H, 1, &tmp_rx_buf[0]);
+	if (ret)
+		return ret;
+
 	tmp_tx_buf[0] = edp_core->lane_para.bit_rate / 10000000 / 27;
-	tmp_tx_buf[1] = edp_core->lane_para.lane_cnt;
+	tmp_tx_buf[1] = (tmp_rx_buf[0] & ~(DPCD_LANE_CNT_MASK)) |
+				edp_core->lane_para.lane_cnt;
 
 	ret = edp_hw_aux_write(edp_hw, DPCD_0100H, 2,  &tmp_tx_buf[0]);
 
@@ -808,8 +975,7 @@ bool edp_eq_training_done(char *link_status, u32 lane_count, u32 *fail_lane)
 
 	if ((align_status & DPCD_ALIGN_DONE) != DPCD_ALIGN_DONE) {
 		EDP_CORE_DBG("EQ training align fail!\n");
-		*fail_lane = eq_fail;
-		return false;
+		eq_fail |= (1 << 8);
 	}
 
 	if (eq_fail) {
@@ -1009,11 +1175,12 @@ s32 edp_link_eq_training(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *e
 		}
 	}
 
-	EDP_ERR("EQ training result: lane0:%s lane1:%s lane2:%s lane3:%s\n",
+	EDP_ERR("EQ training result: lane0:%s lane1:%s lane2:%s lane3:%s align:%s\n",
 		fail_lane & (1 << 0) ? "FAIL" : "PASS",
 		fail_lane & (1 << 1) ? "FAIL" : "PASS",
 		fail_lane & (1 << 2) ? "FAIL" : "PASS",
-		fail_lane & (1 << 3) ? "FAIL" : "PASS");
+		fail_lane & (1 << 3) ? "FAIL" : "PASS",
+		fail_lane & (1 << 8) ? "FAIL" : "PASS");
 	EDP_ERR("retry 5 times but still fail, training2(equalization training) fail!\n");
 	return RET_FAIL;
 }
@@ -1084,6 +1251,8 @@ s32 edp_full_link_train(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *ed
 	if (ret < 0)
 		return ret;
 
+	edp_hw_link_soft_reset(edp_hw);
+
 	ret = edp_link_cr_training(edp_hw, edp_core);
 	if (ret < 0)
 		return ret;
@@ -1110,28 +1279,62 @@ s32 edp_main_link_setup(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *ed
 	s32 ret = 0;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	/* DP Link CTS need ech training start from level-0 */
 	edp_lane_training_para_reset(&edp_core->lane_para);
 
 	// disable scrambling before training, because TP1/2/3 use
 	// unscrambled patterns
-	if (ops->scrambling_enable)
-		ops->scrambling_enable(edp_hw, false);
+	edp_hw_scrambling_enable(edp_hw, false);
 
 	ret = edp_link_training(edp_hw, edp_core);
 	if (ret < 0)
 		return ret;
 	ret = edp_training_pattern_clear(edp_hw, edp_core);
 
-	if (ops->scrambling_enable)
-		ops->scrambling_enable(edp_hw, true);
+	edp_hw_scrambling_enable(edp_hw, true);
 
+	return ret;
+}
+
+s32 edp_hw_link_soft_reset(struct sunxi_edp_hw_desc *edp_hw)
+{
+	int ret;
+	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
+
+	if (ops->link_soft_reset) {
+		ret = ops->link_soft_reset(edp_hw);
+	} else
+		ret = RET_OK;
+	return ret;
+}
+
+s32 edp_hw_video_soft_reset(struct sunxi_edp_hw_desc *edp_hw)
+{
+	int ret;
+	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
+
+	if (ops->video_soft_reset) {
+		ret = ops->video_soft_reset(edp_hw);
+	} else
+		ret = RET_OK;
 	return ret;
 }
 
 s32 edp_hw_link_start(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->main_link_start)
 		return ops->main_link_start(edp_hw);
@@ -1142,6 +1345,9 @@ s32 edp_hw_link_start(struct sunxi_edp_hw_desc *edp_hw)
 s32 edp_hw_link_stop(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->main_link_stop)
 		return ops->main_link_stop(edp_hw);
@@ -1169,6 +1375,9 @@ void edp_hw_irq_handler(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *ed
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return;
+
 	if (ops->irq_handle)
 		ops->irq_handle(edp_hw, edp_core);
 }
@@ -1176,6 +1385,9 @@ void edp_hw_irq_handler(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *ed
 s32 edp_hw_irq_enable(struct sunxi_edp_hw_desc *edp_hw, u32 irq_id, bool en)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->irq_enable && ops->irq_disable) {
 		if (en)
@@ -1188,27 +1400,19 @@ s32 edp_hw_irq_enable(struct sunxi_edp_hw_desc *edp_hw, u32 irq_id, bool en)
 
 s32 edp_hw_aux_read(struct sunxi_edp_hw_desc *edp_hw, s32 addr, s32 lenth, char *buf)
 {
-	u32 retry_cnt = 0;
 	s32 ret = 0;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->aux_read) {
-		while (retry_cnt < 7) {
-			ret = ops->aux_read(edp_hw, addr, lenth, buf, retry_cnt ? true : false);
-			/*
-			 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
-			 * AUX_TIMEOUT, AUX_NO_STOP
-			 */
-			if ((ret != RET_AUX_NACK) &&
-			    (ret != RET_AUX_TIMEOUT) &&
-			    (ret != RET_AUX_DEFER) &&
-			    (ret != RET_AUX_NO_STOP) &&
-			    (ret != RET_AUX_RPLY_ERR))
-				break;
-			/* at least 400us between two request is request in dp cts */
-			udelay(500);
-			retry_cnt++;
-		}
+		/*
+		 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
+		 * AUX_TIMEOUT, AUX_NO_STOP, lowlevel must implement with 7
+		 * retry cnt
+		 */
+		ret = ops->aux_read(edp_hw, addr, lenth, buf);
 	} else
 		ret = RET_OK;
 
@@ -1220,26 +1424,19 @@ s32 edp_hw_aux_read(struct sunxi_edp_hw_desc *edp_hw, s32 addr, s32 lenth, char 
 
 s32 edp_hw_aux_write(struct sunxi_edp_hw_desc *edp_hw, s32 addr, s32 lenth, char *buf)
 {
-	u32 retry_cnt = 0;
 	s32 ret = 0;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->aux_write) {
-		while (retry_cnt < 7) {
-			ret = ops->aux_write(edp_hw, addr, lenth, buf, retry_cnt ? true : false);
-			/*
-			 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
-			 * AUX_TIMEOUT, AUX_NO_STOP
-			 */
-			if ((ret != RET_AUX_NACK) &&
-			    (ret != RET_AUX_TIMEOUT) &&
-			    (ret != RET_AUX_DEFER) &&
-			    (ret != RET_AUX_NO_STOP))
-				break;
-			/* at least 400us between two request is request in dp cts */
-			udelay(500);
-			retry_cnt++;
-		}
+		/*
+		 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
+		 * AUX_TIMEOUT, AUX_NO_STOP, lowlevel must implement with 7
+		 * retry cnt
+		 */
+		ret = ops->aux_write(edp_hw, addr, lenth, buf);
 	} else
 		ret = RET_OK;
 
@@ -1251,26 +1448,19 @@ s32 edp_hw_aux_write(struct sunxi_edp_hw_desc *edp_hw, s32 addr, s32 lenth, char
 
 s32 edp_hw_aux_i2c_read(struct sunxi_edp_hw_desc *edp_hw, s32 i2c_addr, s32 addr, s32 lenth, char *buf)
 {
-	u32 retry_cnt = 0;
 	s32 ret = 0;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->aux_i2c_read) {
-		while (retry_cnt < 7) {
-			ret = ops->aux_i2c_read(edp_hw, i2c_addr, addr, lenth, buf, retry_cnt ? true : false);
-			/*
-			 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
-			 * AUX_TIMEOUT, AUX_NO_STOP
-			 */
-			if ((ret != RET_AUX_NACK) &&
-			    (ret != RET_AUX_TIMEOUT) &&
-			    (ret != RET_AUX_DEFER) &&
-			    (ret != RET_AUX_NO_STOP))
-				break;
-			/* at least 400us between two request is request in dp cts */
-			udelay(500);
-			retry_cnt++;
-		}
+		/*
+		 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
+		 * AUX_TIMEOUT, AUX_NO_STOP, lowlevel must implement with 7
+		 * retry cnt
+		 */
+		ret = ops->aux_i2c_read(edp_hw, i2c_addr, addr, lenth, buf);
 	} else
 		ret = RET_OK;
 
@@ -1282,26 +1472,19 @@ s32 edp_hw_aux_i2c_read(struct sunxi_edp_hw_desc *edp_hw, s32 i2c_addr, s32 addr
 
 s32 edp_hw_aux_i2c_write(struct sunxi_edp_hw_desc *edp_hw, s32 i2c_addr, s32 addr, s32 lenth, char *buf)
 {
-	u32 retry_cnt = 0;
 	s32 ret = 0;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->aux_i2c_write) {
-		while (retry_cnt < 7) {
-			ret = ops->aux_i2c_write(edp_hw, i2c_addr, addr, lenth, buf, retry_cnt ? true : false);
-			/*
-			 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
-			 * AUX_TIMEOUT, AUX_NO_STOP
-			 */
-			if ((ret != RET_AUX_NACK) &&
-			    (ret != RET_AUX_TIMEOUT) &&
-			    (ret != RET_AUX_DEFER) &&
-			    (ret != RET_AUX_NO_STOP))
-				break;
-			/* at least 400us between two request is request in dp cts */
-			udelay(500);
-			retry_cnt++;
-		}
+		/*
+		 * for CTS 4.2.1.1, 4.2.2.5, add retry when AUX_NACK, AUX_DEFER,
+		 * AUX_TIMEOUT, AUX_NO_STOP, lowlevel must implement with 7
+		 * retry cnt
+		 */
+		ret = ops->aux_i2c_write(edp_hw, i2c_addr, addr, lenth, buf);
 	} else
 		ret = RET_OK;
 
@@ -1311,29 +1494,24 @@ s32 edp_hw_aux_i2c_write(struct sunxi_edp_hw_desc *edp_hw, s32 i2c_addr, s32 add
 	return ret;
 }
 
-s32 edp_hw_audio_enable(struct sunxi_edp_hw_desc *edp_hw)
+void edp_hw_scrambling_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
-	if (ops->audio_enable)
-		return ops->audio_enable(edp_hw);
-	else
-		return RET_OK;
+	if (ops == NULL)
+		return;
+
+	if (ops->scrambling_enable)
+		ops->scrambling_enable(edp_hw, enable);
 }
 
-s32 edp_hw_audio_disable(struct sunxi_edp_hw_desc *edp_hw)
-{
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
-
-	if (ops->audio_disable)
-		return ops->audio_disable(edp_hw);
-	else
-		return RET_OK;
-}
 
 s32 edp_hw_ssc_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->ssc_enable)
 		return ops->ssc_enable(edp_hw, enable);
@@ -1345,6 +1523,9 @@ bool edp_hw_ssc_is_enabled(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return false;
+
 	if (ops->ssc_is_enabled)
 		return ops->ssc_is_enabled(edp_hw);
 	else
@@ -1354,6 +1535,9 @@ bool edp_hw_ssc_is_enabled(struct sunxi_edp_hw_desc *edp_hw)
 s32 edp_hw_ssc_get_mode(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->ssc_get_mode)
 		return ops->ssc_get_mode(edp_hw);
@@ -1365,6 +1549,9 @@ s32 edp_hw_ssc_set_mode(struct sunxi_edp_hw_desc *edp_hw, u32 mode)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->ssc_set_mode)
 		return ops->ssc_set_mode(edp_hw, mode);
 	else
@@ -1375,6 +1562,9 @@ s32 edp_hw_psr_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->psr_enable)
 		return ops->psr_enable(edp_hw, enable);
 	else
@@ -1384,6 +1574,9 @@ s32 edp_hw_psr_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
 bool edp_hw_psr_is_enabled(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->psr_is_enabled)
 		return ops->psr_is_enabled(edp_hw);
@@ -1396,6 +1589,9 @@ s32 edp_hw_assr_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
 	s32 ret = RET_FAIL;
 	char tmp_rx_buf[16];
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->assr_enable) {
 		ret = ops->assr_enable(edp_hw, enable);
@@ -1419,9 +1615,39 @@ s32 edp_hw_assr_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
 	return ret;
 }
 
+s32 edp_hw_enhance_frame_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable)
+{
+	s32 ret = RET_OK;
+	char tmp_rx_buf[16];
+	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
+
+	if (ops->enhance_frame_enable)
+		ops->enhance_frame_enable(edp_hw, enable);
+
+	memset(tmp_rx_buf, 0, sizeof(tmp_rx_buf));
+	ret = edp_hw_aux_read(edp_hw, DPCD_0101H, 1, &tmp_rx_buf[0]);
+	if (ret)
+		return ret;
+
+	if (enable)
+		tmp_rx_buf[0] |= DPCD_ENHANCE_FRAME_ENABLE_MASK;
+	else
+		tmp_rx_buf[0] &= ~DPCD_ENHANCE_FRAME_ENABLE_MASK;
+
+	ret = edp_hw_aux_write(edp_hw, DPCD_0101H, 1,  &tmp_rx_buf[0]);
+
+	return ret;
+}
+
 bool edp_hw_check_controller_error(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->check_controller_error)
 		return ops->check_controller_error(edp_hw);
@@ -1433,6 +1659,9 @@ s32 edp_hw_set_pattern(struct sunxi_edp_hw_desc *edp_hw, u32 pattern, u32 lane_c
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->set_pattern)
 		return ops->set_pattern(edp_hw, pattern, lane_cnt);
 	else
@@ -1443,6 +1672,9 @@ void edp_hw_set_mst(struct sunxi_edp_hw_desc *edp_hw, u32 mst_cnt)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return;
+
 	if (ops->config_mst)
 		ops->config_mst(edp_hw, mst_cnt);
 }
@@ -1451,15 +1683,34 @@ s32 edp_hw_get_color_fmt(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return RET_OK;
+
 	if (ops->get_color_format)
 		return ops->get_color_format(edp_hw);
 	else
 		return RET_OK;
 }
 
+u32 edp_hw_get_pixel_mode(struct sunxi_edp_hw_desc *edp_hw)
+{
+	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return 1;
+
+	if (ops->get_pixel_mode)
+		return ops->get_pixel_mode(edp_hw);
+	else
+		return 1;
+}
+
 u32 edp_hw_get_pixclk(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return 0;
 
 	if (ops->get_pixel_clk)
 		return ops->get_pixel_clk(edp_hw);
@@ -1471,6 +1722,9 @@ u32 edp_hw_get_pattern(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return 0;
+
 	if (ops->get_pattern)
 		return ops->get_pattern(edp_hw);
 	else
@@ -1480,6 +1734,9 @@ u32 edp_hw_get_pattern(struct sunxi_edp_hw_desc *edp_hw)
 s32 edp_hw_get_lane_para(struct sunxi_edp_hw_desc *edp_hw, struct edp_lane_para *tmp_lane_para)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+
+	if (ops == NULL)
+		return RET_OK;
 
 	if (ops->get_lane_para)
 		return ops->get_lane_para(edp_hw, tmp_lane_para);
@@ -1493,6 +1750,9 @@ u32 edp_hw_get_tu_size(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return 0;
+
 	if (ops->get_tu_size)
 		return ops->get_tu_size(edp_hw);
 	else
@@ -1503,15 +1763,77 @@ u32 edp_hw_get_valid_symbol_per_tu(struct sunxi_edp_hw_desc *edp_hw)
 {
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
 
+	if (ops == NULL)
+		return 0;
+
 	if (ops->get_tu_valid_symbol)
 		return ops->get_tu_valid_symbol(edp_hw);
 	else
 		return 0;
 }
 
+s32 edp_hw_audio_config(struct sunxi_edp_hw_desc *edp_hw, int interface,
+		      int chn_cnt, int data_width, int data_rate)
+{
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return RET_OK;
+
+	if (ops->audio_config)
+		return ops->audio_config(edp_hw, interface,
+					 chn_cnt, data_width, data_rate);
+	else
+		return RET_OK;
+
+}
+
+s32 edp_hw_audio_enable(struct sunxi_edp_hw_desc *edp_hw)
+{
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return RET_OK;
+
+	if (ops->audio_enable)
+		return ops->audio_enable(edp_hw);
+	else
+		return RET_OK;
+}
+
+s32 edp_hw_audio_disable(struct sunxi_edp_hw_desc *edp_hw)
+{
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return RET_OK;
+
+	if (ops->audio_disable)
+		return ops->audio_disable(edp_hw);
+	else
+		return RET_OK;
+}
+
+s32 edp_hw_audio_mute(struct sunxi_edp_hw_desc *edp_hw,
+		      bool enable, int direction)
+{
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return RET_OK;
+
+	if (ops->audio_mute)
+		return ops->audio_mute(edp_hw, enable, direction);
+	else
+		return RET_OK;
+}
+
 bool edp_hw_audio_is_enabled(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->audio_is_enabled)
 		return ops->audio_is_enabled(edp_hw);
@@ -1519,52 +1841,77 @@ bool edp_hw_audio_is_enabled(struct sunxi_edp_hw_desc *edp_hw)
 		return false;
 }
 
-s32 edp_hw_get_audio_if(struct sunxi_edp_hw_desc *edp_hw)
+u32 edp_hw_audio_get_max_channel(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return 0;
+
+	if (ops->get_audio_max_channel)
+		return ops->get_audio_max_channel(edp_hw);
+	else
+		return 0;
+}
+
+u32 edp_hw_get_audio_if(struct sunxi_edp_hw_desc *edp_hw)
+{
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return 0;
 
 	if (ops->get_audio_if)
 		return ops->get_audio_if(edp_hw);
 	else
-		return RET_OK;
+		return 0;
 }
 
-s32 edp_hw_audio_is_mute(struct sunxi_edp_hw_desc *edp_hw)
+bool edp_hw_audio_is_mute(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return false;
 
 	if (ops->audio_is_muted)
 		return ops->audio_is_muted(edp_hw);
 	else
-		return RET_OK;
+		return false;
 }
 
-s32 edp_hw_get_audio_chn_cnt(struct sunxi_edp_hw_desc *edp_hw)
+u32 edp_hw_get_audio_chn_cnt(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return 0;
 
 	if (ops->get_audio_chn_cnt)
 		return ops->get_audio_chn_cnt(edp_hw);
 	else
-		return RET_OK;
+		return 0;
 }
 
-s32 edp_hw_get_audio_data_width(struct sunxi_edp_hw_desc *edp_hw)
+u32 edp_hw_get_audio_data_width(struct sunxi_edp_hw_desc *edp_hw)
 {
-	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
+	struct sunxi_edp_hw_audio_ops *ops = edp_hw->audio_ops;
+
+	if (ops == NULL)
+		return 0;
 
 	if (ops->get_audio_data_width)
 		return ops->get_audio_data_width(edp_hw);
 
 	else
-		return RET_OK;
+		return 0;
 }
 
 
 s32 sunxi_edp_hw_callback_init(struct sunxi_edp_hw_desc *edp_hw)
 {
 	edp_hw->video_ops = sunxi_edp_get_hw_video_ops();
-	//edp_hw->audio_ops = sunxi_edp_get_hw_aduio_ops();
+	edp_hw->audio_ops = sunxi_edp_get_hw_audio_ops();
 	edp_hw->hdcp_ops = sunxi_dp_get_hw_hdcp_ops();
 
 	return RET_OK;

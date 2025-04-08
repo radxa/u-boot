@@ -317,7 +317,18 @@ int sunxi_partition_get_partno_byname(const char *part_name)
 	disk_partition_t info;
 	char temp_part_name[16] = {0};
 
+#ifdef CONFIG_SUNXI_UFS
+	int storage_type = get_boot_storage_type();
+
+	if (storage_type == STORAGE_UFS && (!strcmp(part_name, "private")))
+		desc = blk_get_devnum_by_typename("sunxi_flash_ufs", 0);
+	else {
+		desc = blk_get_devnum_by_typename("sunxi_flash", 0);
+	}
+#else
 	desc = blk_get_devnum_by_typename("sunxi_flash", 0);
+#endif
+
 	if (desc == NULL) {
 		printf("%s: get desc fail\n", __func__);
 		ret = -ENODEV;
@@ -425,6 +436,10 @@ int sunxi_partition_get_info(const char *part_name, disk_partition_t *info)
 		storage_type == STORAGE_EMMC || storage_type == STORAGE_EMMC3
 		|| storage_type == STORAGE_SD || storage_type == STORAGE_EMMC0) {
 		logic_offset = sunxi_flashmap_logical_offset(FLASHMAP_SDMMC, LINUX_LOGIC_OFFSET);
+#ifdef CONFIG_SUNXI_UFS
+	} else if (storage_type == STORAGE_UFS) {
+		logic_offset = sunxi_flashmap_logical_offset(FLASHMAP_UFS, LINUX_LOGIC_OFFSET);
+#endif
 	} else {
 		logic_offset = 0;
 	}

@@ -20,9 +20,12 @@
 #include <part_efi.h>
 #include <linux/compiler.h>
 #include <linux/ctype.h>
+#include <sunxi_board.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
+#ifndef SUNXI_UFS_ALIGN_SECTOR
+#define SUNXI_UFS_ALIGN_SECTOR 8
+#endif
 
 #ifdef CONFIG_HAVE_BLOCK_DEVICE
 /*
@@ -273,9 +276,16 @@ void part_print_efi(struct blk_desc *dev_desc)
 int part_get_info_efi(struct blk_desc *dev_desc, int part,
 		      disk_partition_t *info)
 {
+#ifdef CONFIG_SUNXI_UFS
+	ALLOC_CACHE_ALIGN_BUFFER_PAD(gpt_header, gpt_head, 1, dev_desc->blksz*SUNXI_UFS_ALIGN_SECTOR);
+#else
 	ALLOC_CACHE_ALIGN_BUFFER_PAD(gpt_header, gpt_head, 1, dev_desc->blksz);
+#endif
 	gpt_entry *gpt_pte = NULL;
-
+#ifdef CONFIG_SUNXI_UFS
+	int storage_type = 0;
+	storage_type = get_boot_storage_type();
+#endif
 	/* "part" argument must be at least 1 */
 	if (part < 1) {
 		printf("%s: Invalid Argument(s)\n", __func__);
@@ -285,8 +295,14 @@ int part_get_info_efi(struct blk_desc *dev_desc, int part,
 	/* This function validates AND fills in the GPT header and PTE */
 	if (is_gpt_valid(dev_desc, GPT_PRIMARY_PARTITION_TABLE_LBA,
 			gpt_head, &gpt_pte) != 1) {
+		u64 lba = dev_desc->lba;
+#ifdef CONFIG_SUNXI_UFS
+		if ((storage_type == STORAGE_UFS) &&
+			(dev_desc->blksz != 4096))
+			lba /= SUNXI_UFS_ALIGN_SECTOR;
+#endif
 		printf("%s: *** ERROR: Invalid GPT ***\n", __func__);
-		if (is_gpt_valid(dev_desc, (dev_desc->lba - 1),
+		if (is_gpt_valid(dev_desc, (lba - 1),
 				 gpt_head, &gpt_pte) != 1) {
 			printf("%s: *** ERROR: Invalid Backup GPT ***\n",
 			       __func__);
@@ -310,6 +326,13 @@ int part_get_info_efi(struct blk_desc *dev_desc, int part,
 	/* The ending LBA is inclusive, to calculate size, add 1 to it */
 	info->size = (lbaint_t)le64_to_cpu(gpt_pte[part - 1].ending_lba) + 1
 		     - info->start;
+#ifdef CONFIG_SUNXI_UFS
+	if ((storage_type == STORAGE_UFS) &&
+			(dev_desc->blksz != 4096)) {
+		info->start *= SUNXI_UFS_ALIGN_SECTOR;
+		info->size *= SUNXI_UFS_ALIGN_SECTOR;
+	}
+#endif
 	info->blksz = dev_desc->blksz;
 
 	sprintf((char *)info->name, "%s",
@@ -931,6 +954,11 @@ static int is_pmbr_valid(legacy_mbr * mbr)
 static int is_gpt_valid(struct blk_desc *dev_desc, u64 lba,
 			gpt_header *pgpt_head, gpt_entry **pgpt_pte)
 {
+#ifdef CONFIG_SUNXI_UFS
+	int storage_type = 0;
+	storage_type = get_boot_storage_type();
+#endif
+
 	/* Confirm valid arguments prior to allocation. */
 	if (!dev_desc || !pgpt_head) {
 		printf("%s: Invalid Argument(s)\n", __func__);
@@ -945,14 +973,36 @@ static int is_gpt_valid(struct blk_desc *dev_desc, u64 lba,
 		return 0;
 	}
 
-	/* Read GPT Header from device */
-	if (blk_dread(dev_desc, (lbaint_t)lba, 1, pgpt_head) != 1) {
-		printf("*** ERROR: Can't read GPT header ***\n");
-		return 0;
+#ifdef CONFIG_SUNXI_UFS
+	if ((storage_type == STORAGE_UFS) &&
+		(dev_desc->blksz != 4096)) {
+		/* Read GPT Header from device */
+		if (blk_dread(dev_desc, (lbaint_t)(lba*SUNXI_UFS_ALIGN_SECTOR), 1, pgpt_head) != 1) {
+			printf("*** ERROR: Can't read GPT header ***\n");
+			return 0;
+		}
+	} else
+#endif
+	{
+		/* Read GPT Header from device */
+		if (blk_dread(dev_desc, (lbaint_t)lba, 1, pgpt_head) != 1) {
+			printf("*** ERROR: Can't read GPT header ***\n");
+			return 0;
+		}
 	}
 
-	if (validate_gpt_header(pgpt_head, (lbaint_t)lba, dev_desc->lba))
-		return 0;
+#ifdef CONFIG_SUNXI_UFS
+	if ((storage_type == STORAGE_UFS) &&
+		(dev_desc->blksz != 4096)) {
+		if (validate_gpt_header(pgpt_head, (lbaint_t)lba, dev_desc->lba/SUNXI_UFS_ALIGN_SECTOR))
+			return 0;
+	 } else
+#endif
+	 {
+			if (validate_gpt_header(pgpt_head, (lbaint_t)lba, dev_desc->lba))
+			return 0;
+	 }
+
 
 	if (dev_desc->sig_type == SIG_TYPE_NONE) {
 		efi_guid_t empty = {};
@@ -998,6 +1048,11 @@ static gpt_entry *alloc_read_gpt_entries(struct blk_desc *dev_desc,
 	lbaint_t blk;
 	gpt_entry *pte = NULL;
 
+#ifdef CONFIG_SUNXI_UFS
+	int storage_type = 0;
+	storage_type = get_boot_storage_type();
+#endif
+
 	if (!dev_desc || !pgpt_head) {
 		printf("%s: Invalid Argument(s)\n", __func__);
 		return NULL;
@@ -1013,8 +1068,17 @@ static gpt_entry *alloc_read_gpt_entries(struct blk_desc *dev_desc,
 
 	/* Allocate memory for PTE, remember to FREE */
 	if (count != 0) {
-		pte = memalign(ARCH_DMA_MINALIGN,
-			       PAD_TO_BLOCKSIZE(count, dev_desc));
+#ifdef CONFIG_SUNXI_UFS
+		if ((storage_type == STORAGE_UFS) &&
+			(dev_desc->blksz != 4096)) {
+			pte = memalign(ARCH_DMA_MINALIGN,
+					PAD_TO_BLOCKSIZE(count, dev_desc) * SUNXI_UFS_ALIGN_SECTOR);
+		} else
+#endif
+		{
+			pte = memalign(ARCH_DMA_MINALIGN,
+					PAD_TO_BLOCKSIZE(count, dev_desc));
+		}
 	}
 
 	if (count == 0 || pte == NULL) {
@@ -1023,8 +1087,17 @@ static gpt_entry *alloc_read_gpt_entries(struct blk_desc *dev_desc,
 		return NULL;
 	}
 
-	/* Read GPT Entries from device */
-	blk = le64_to_cpu(pgpt_head->partition_entry_lba);
+#ifdef CONFIG_SUNXI_UFS
+	if ((storage_type == STORAGE_UFS) &&
+		(dev_desc->blksz != 4096)) {
+		/* Read GPT Entries from device */
+		blk = le64_to_cpu(pgpt_head->partition_entry_lba)*SUNXI_UFS_ALIGN_SECTOR;
+	} else
+#endif
+	{
+		/* Read GPT Entries from device */
+		blk = le64_to_cpu(pgpt_head->partition_entry_lba);
+	}
 	blk_cnt = BLOCK_CNT(count, dev_desc);
 	if (blk_dread(dev_desc, blk, (lbaint_t)blk_cnt, pte) != blk_cnt) {
 		printf("*** ERROR: Can't read GPT Entries ***\n");

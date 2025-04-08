@@ -12,6 +12,7 @@
 
 #define AXP519_CHIP_VER			(0x3)
 #define AXP2601_CHIP_VER		(0x18)
+#define AXP2602_CHIP_VER		(0x1c)
 
 #define AXP519_DEVICE_ADDR		(0x3A3)
 #define AXP2601_DEVICE_ADDR		(0x3A3)

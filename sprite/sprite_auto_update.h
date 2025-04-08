@@ -7,5 +7,5 @@
 #ifndef __SPRITE_AUTO_UPDATE_H__
 #define __SPRITE_AUTO_UPDATE_H__
 
-extern loff_t fat_fs_read(const char *filename, void *buf, int offset, int len);
+extern loff_t fat_fs_read(const char *filename, void *buf, uint offset, int len);
 #endif /* __SPRITE_AUTO_UPDATE_H__ */

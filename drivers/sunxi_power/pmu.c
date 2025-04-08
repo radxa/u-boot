@@ -101,6 +101,16 @@ int pmu_set_power_off(void)
 	return -1;
 }
 
+/*Set reboot flag*/
+int pmu_set_reboot_flag(void)
+{
+	if ((sunxi_pmu_dev) && (sunxi_pmu_dev->set_reboot_flag))
+		return sunxi_pmu_dev->set_reboot_flag();
+	axp_err("not imple:%s\n", __func__);
+	return -1;
+}
+
+
 /*Sets the state of the next mode */
 int pmu_set_sys_mode(int status)
 {
@@ -165,3 +175,19 @@ unsigned char pmu_set_reg_value(unsigned char reg_addr, unsigned char reg_value)
 	return -1;
 }
 
+/*get pmu name*/
+const char *pmu_get_name(void)
+{
+	if ((sunxi_pmu_dev) && (sunxi_pmu_dev->pmu_name))
+		return sunxi_pmu_dev->pmu_name;
+
+	return NULL;
+}
+
+/* Get the reason for triggering the boot, (button to power on, power on)*/
+int pmu_get_poweron_source(void)
+{
+	if ((sunxi_pmu_dev) && (sunxi_pmu_dev->get_poweron_source))
+		return sunxi_pmu_dev->get_poweron_source();
+	return -1;
+}

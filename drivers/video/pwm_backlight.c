@@ -67,7 +67,7 @@ static int pwm_backlight_enable(struct udevice *dev)
 	dm_gpio_set_value(&priv->enable, 1);
 #else
 	if (priv->regulator) {
-		sunxi_drm_power_enable(priv->regulator);
+		sunxi_drm_power_enable(priv->regulator, 0);
 		mdelay(120);
 	}
 	duty_cycle = priv->period_ns * (priv->default_level - priv->min_level) /

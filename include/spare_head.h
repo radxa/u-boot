@@ -52,6 +52,7 @@
 #define SUNXI_FASTBOOT_FLAG             (0x5F)
 #define SUNXI_UBOOT_FLAG                (0x60)
 #define SUNXI_CHARGING_FLAG		(0x61)
+#define SUNXI_REBOOT_FLAG               (0x62)
 
 #define SUNXI_VBUS_UNKNOWN                      (0)
 #define SUNXI_VBUS_EXIST                        (1)

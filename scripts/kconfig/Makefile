@@ -108,8 +108,19 @@ silentoldconfig: syncconfig
 	@echo "            What you want is probably \"oldconfig\"."
 	@echo "            \"silentoldconfig\" will be removed after Linux 4.19"
 
+export SUNXI_UBOOT_DEFCONF
+
+ifeq (x$(SUNXI_UBOOT_DEFCONF), x)
+ifeq (x$(CONFIG_SUNXI_NOR_IMG), xy)
+    SUNXI_UBOOT_DEFCONF=$(LICHEE_BRANDY_DEFCONF:%_defconfig=%)_nor_defconfig
+else
+    SUNXI_UBOOT_DEFCONF=$(LICHEE_BRANDY_DEFCONF)
+endif
+endif
+
 savedefconfig: $(obj)/conf
 	$< $(silent) --$@=defconfig $(Kconfig)
+	$< $(silent) --$@=$(srctree)/configs/$(SUNXI_UBOOT_DEFCONF) $(Kconfig)
 
 defconfig: $(obj)/conf
 ifeq ($(KBUILD_DEFCONFIG),)

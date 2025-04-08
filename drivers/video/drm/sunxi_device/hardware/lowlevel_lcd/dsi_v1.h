@@ -17,6 +17,7 @@
 #include "dsi_v1_type.h"
 #include <drm/drm_mipi_dsi.h>
 #include <drm_mipi_dsi.h>
+#include "dsc_type.h"
 //#include "tcon_lcd.h"
 
 
@@ -28,6 +29,7 @@ extern u32 dsi_bits_per_pixel[4];
 struct sunxi_dsi_lcd {
 	int dsi_index;
 	volatile struct dsi_lcd_reg *reg;
+	volatile struct dsc_dsi_reg *dsc_reg;
 };
 
 enum disp_lcd_frm {
@@ -260,5 +262,8 @@ u16 dsi_crc_pro_pd_repeat(u8 pd, u32 pd_bytes);
 u16 dsi_crc_pro(u8 *pd_p, u32 pd_bytes);
 s32 dsi_mode_switch(struct sunxi_dsi_lcd *dsi, __u32 cmd_en, __u32 lp_en);
 s32 dsi_get_status(struct sunxi_dsi_lcd *dsi);
-
+s32 dsc_set_reg_base(struct sunxi_dsi_lcd *dsi, uintptr_t base);
+void dsc_config_pps(struct sunxi_dsi_lcd *dsi, const struct drm_dsc_config *dsc_cfg);
+void dec_dsc_config(struct sunxi_dsi_lcd *dsi, struct disp_video_timings *timings);
+s32 dsi_get_timing(struct sunxi_dsi_lcd *dsi, struct disp_video_timings *tt);
 #endif

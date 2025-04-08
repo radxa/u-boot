@@ -14,6 +14,8 @@
 #include <sys_partition.h>
 #include <sunxi_keybox.h>
 #include <sprite.h>
+#include <efuse_map.h>
+
 DECLARE_GLOBAL_DATA_PTR;
 volatile int sunxi_usb_burn_from_boot_handshake, sunxi_usb_burn_from_boot_init,
 	sunxi_usb_burn_from_boot_setup, sunxi_auto_fel_from_boot_handshake;
@@ -515,6 +517,11 @@ int __sunxi_burn_key(u8 *buff, uint buff_len)
 		return -1;
 	}
 #endif
+
+#ifdef CONFIG_SUNXI_SET_EFUSE_POWER
+	/* set efuse voltage before burn efuse */
+	set_efuse_voltage(1);
+#endif
 	for(;key_count>0;key_count--, key_list++)
 	{
 		key_list = (sunxi_usb_burn_key_info_t *)p_buff;
@@ -624,6 +631,10 @@ int __sunxi_burn_key(u8 *buff, uint buff_len)
 		}
 #endif
 	}
+#ifdef CONFIG_SUNXI_SET_EFUSE_POWER
+	/* close efuse power after burn efuse */
+	set_efuse_voltage(0);
+#endif
 #ifdef	CONFIG_SUNXI_SECURE_STORAGE
 	if(sunxi_secure_storage_exit())
 	{

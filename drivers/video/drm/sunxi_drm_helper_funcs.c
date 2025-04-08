@@ -285,7 +285,7 @@ int sunxi_drm_gpio_set_value(ulong p_handler, u32 value)
 	return gpio_write_one_pin_value(p_handler, value, NULL);
 }
 
-int sunxi_drm_power_enable(uint32_t phandle)
+int sunxi_drm_power_enable(uint32_t phandle, unsigned int vol)
 {
 	int ret = 0, offset;
 	char *name;
@@ -303,11 +303,11 @@ int sunxi_drm_power_enable(uint32_t phandle)
 #if defined(CONFIG_SUNXI_PMU)
 	/*TODO:bmu*/
 	ret = pmu_set_voltage(name, 0, 1);
-	if (!ret)
+	if (ret < 0)
 		DRM_ERROR("enable power %s, ret=%d\n", name, ret);
 #ifdef CONFIG_SUNXI_PMU_EXT
 	ret = pmu_ext_set_voltage(name, 0, 1);
-	if (!ret)
+	if (ret < 0)
 		DRM_ERROR("enable power_ext %s, ret=%d\n", name, ret);
 #endif
 #else
@@ -335,11 +335,11 @@ int sunxi_drm_power_disable(uint32_t phandle)
 #if defined(CONFIG_SUNXI_PMU)
 	/*TODO:bmu*/
 	ret = pmu_set_voltage(name, 0, 0);
-	if (!ret)
+	if (ret < 0)
 		DRM_ERROR("disable power %s, ret=%d\n", name, ret);
 #ifdef CONFIG_SUNXI_PMU_EXT
 	ret = pmu_ext_set_voltage(name, 0, 0);
-	if (!ret)
+	if (ret < 0)
 		DRM_ERROR("disable power_ext %s, ret=%d\n", name, ret);
 #endif
 #else
@@ -347,6 +347,83 @@ int sunxi_drm_power_disable(uint32_t phandle)
 #endif
 
 	return 0;
+}
+
+/* get phy from phandle, otherwise from phandle's parent node if fail */
+int sunxi_phy_get_by_index(struct udevice *dev, int index,
+			     struct phy *phy)
+{
+	struct ofnode_phandle_args args;
+	struct phy_ops *ops;
+	int ret;
+	struct udevice *phydev;
+
+	debug("%s(dev=%p, index=%d, phy=%p)\n", __func__, dev, index, phy);
+
+	assert(phy);
+	phy->dev = NULL;
+	ret = dev_read_phandle_with_args(dev, "phys", "#phy-cells", 0, index,
+					 &args);
+	if (ret) {
+		debug("%s: dev_read_phandle_with_args failed: err=%d\n",
+		      __func__, ret);
+		return ret;
+	}
+
+	ret = uclass_get_device_by_ofnode(UCLASS_PHY, args.node, &phydev);
+	if (ret) {
+		debug("%s: uclass_get_device_by_ofnode failed: err=%d node_offset:%ld\n",
+		      __func__, ret, args.node.of_offset);
+		ret = uclass_get_device_by_ofnode(UCLASS_PHY, ofnode_get_parent(args.node), &phydev);
+		if (ret) {
+			pr_err("%s: uclass_get_device_by_ofnode from parent failed: err=%d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+
+	phy->dev = phydev;
+
+	ops = (struct phy_ops *)phydev->driver->ops;
+
+	if (ops->of_xlate) {
+		ret = ops->of_xlate(phy, &args);
+		if (ret) {
+			debug("of_xlate() failed: %d\n", ret);
+			goto err;
+		}
+	} else {
+		if (args.args_count > 1) {
+			debug("Invaild args_count: %d\n", args.args_count);
+			return -EINVAL;
+		}
+
+		if (args.args_count)
+			phy->id = args.args[0];
+		else
+			phy->id = 0;
+	}
+
+	return 0;
+
+err:
+	return ret;
+}
+
+int sunxi_phy_get_by_name(struct udevice *dev, const char *phy_name,
+			    struct phy *phy)
+{
+	int index;
+
+	debug("%s(dev=%p, name=%s, phy=%p)\n", __func__, dev, phy_name, phy);
+
+	index = dev_read_stringlist_search(dev, "phy-names", phy_name);
+	if (index < 0) {
+		debug("dev_read_stringlist_search() failed: %d\n", index);
+		return index;
+	}
+
+	return sunxi_phy_get_by_index(dev, index, phy);
 }
 
 

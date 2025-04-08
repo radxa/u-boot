@@ -19,3 +19,12 @@ config AW_INNO_COMBOPHY
 	help
 	  Enable this to support the Allwinner PCIe/USB3.0 combo PHY
 	  with INNOSILICON IP block.
+
+config AW_CADENCE_COMBOPHY
+	bool "Allwinner CADENCE COMBO PHY Driver"
+	default n
+	depends on ARCH_SUNXI
+	select PHY
+	help
+	  Enable this to support the Allwinner PCIe/USB3.0/DisplayPort combo PHY
+	  with CADENCE IP block.

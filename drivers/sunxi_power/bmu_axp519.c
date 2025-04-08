@@ -35,6 +35,40 @@ int bmu_axp519_set_ntc_onff(int onoff, int ntc_cur)
 	return 0;
 }
 
+void bmu_axp519_set_necessary_reg(void)
+{
+	pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_VBUSOUT_VOL_SET_H, 0x19); //set boost to 5V
+	pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_VBUSOUT_LIM_SET, 0); //set boost to 0.5A
+	pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_VSYS_SET, 0xE);//set vsys to 5.8v
+	pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_LINLIM_SET, 0x32);//set input limit to 3A
+	pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_VBATLIM_SET, 0x1D);//set bat input limit to 3A
+	bmu_axp519_set_ntc_onff(0, 0);//set ntc default off
+	pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_CTRL, BIT(2));//set gate b default open
+}
+
+int bmu_axp260x_check_startup_en(void)
+{
+	u8 reg_value;
+	static int check_en = -1;
+
+	if (check_en > -1)
+		return check_en;
+
+	if (pmic_bus_read(AXP2601_RUNTIME_ADDR, AXP2601_RESET_CFG, &reg_value)) {
+		tick_printf("axp2601 pmic_bus_read fail\n", __func__);
+		return -1;
+	}
+	if (reg_value & BIT(0)) {
+		check_en = 0;
+		pmic_bus_clrbits(AXP2601_RUNTIME_ADDR, AXP2601_RESET_CFG, BIT(0));
+		mdelay(500);
+	} else {
+		check_en = 1;
+	}
+
+	return check_en;
+}
+
 int bmu_axp519_probe(void)
 {
 	u8 bmu_chip_id[2];
@@ -55,6 +89,8 @@ int bmu_axp519_probe(void)
 		return -1;
 	}
 
+	bmu_axp260x_check_startup_en();
+
 	if (pmic_bus_read(AXP2601_RUNTIME_ADDR, AXP2601_CHIP_ID, &bmu_chip_id[1])) {
 		tick_printf("axp2601 pmic_bus_read fail\n", __func__);
 		return -1;
@@ -63,31 +99,18 @@ int bmu_axp519_probe(void)
 	bmu_chip_id[0] &= 0x7;
 	bmu_chip_id[1] &= 0x1F;
 
-	if (bmu_chip_id[1] != AXP2601_CHIP_VER) {
-		pmic_bus_clrbits(AXP2601_RUNTIME_ADDR, AXP2601_RESET_CFG, BIT(0));
-		mdelay(500);
-		if (pmic_bus_read(AXP2601_RUNTIME_ADDR, AXP2601_CHIP_ID, &bmu_chip_id[1])) {
-			tick_printf("axp2601 pmic_bus_read fail\n", __func__);
-			return -1;
-		}
-		bmu_chip_id[1] &= 0x1F;
-	}
-
-
 	if (bmu_chip_id[0] == AXP519_CHIP_VER) {
 		if (bmu_chip_id[1] == AXP2601_CHIP_VER) {
 			tick_printf("EXT: AXP519 & AXP2601\n");
-
-			pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_VBUSOUT_VOL_SET_H, 0x19); //set boost to 5V
-			pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_VBUSOUT_LIM_SET, 0); //set boost to 0.5A
-			pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_VSYS_SET, 0xE);//set vsys to 5.8v
-			pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_LINLIM_SET, 0x32);//set input limit to 3A
-			pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_VBATLIM_SET, 0x1D);//set bat input limit to 3A
-			bmu_axp519_set_ntc_onff(0, 0);//set ntc default off
-			pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_CTRL, BIT(2));//set gate b default open
-			axp519_exist = true;
-			return 0;
+		} else if (bmu_chip_id[1] == AXP2602_CHIP_VER) {
+			tick_printf("EXT: AXP519 & AXP2602\n");
+		} else {
+			tick_printf("EXT: AXP260x probe fail\n");
+			return -1;
 		}
+		bmu_axp519_set_necessary_reg();
+		axp519_exist = true;
+		return 0;
 	}
 
 	tick_printf("EXT: NO FOUND\n");
@@ -127,6 +150,11 @@ int bmu_axp519_get_vbus_status(void)
 int bmu_axp519_get_poweron_source(int poweron_source)
 {
 	unsigned int reg_value = 0;
+	int work_mode = get_boot_work_mode();
+
+	if (!bmu_get_exist()) {
+		poweron_source = pmu_get_poweron_source();
+	}
 
 	switch (poweron_source) {
 	case AXP_BOOT_SOURCE_IRQ_LOW:
@@ -136,28 +164,122 @@ int bmu_axp519_get_poweron_source(int poweron_source)
 				if (pmu_get_sys_mode() == SUNXI_CHARGING_FLAG) {
 					pmu_set_sys_mode(0);
 					poweron_source = AXP_BOOT_SOURCE_CHARGER;
+					break;
 				}
 				if (bmu_get_power_on_flag() == 0) {
 					poweron_source = AXP_BOOT_SOURCE_CHARGER;
+					break;
+				}
+				if (!bmu_get_exist()) {
+					poweron_source = AXP_BOOT_SOURCE_CHARGER;
+					break;
 				}
 			}
 		}
+		break;
+	case AXP_BOOT_SOURCE_PS_L_TO_H:
+	if (!bmu_get_exist()) {
+		if (!bmu_axp260x_check_startup_en()) {
+			if (work_mode == WORK_MODE_BOOT) {
+				if (axp_get_battery_exist() != BATTERY_NONE) {
+					tick_printf("EXT: not startup while battery insert\n");
+					pmu_set_power_off();
+				}
+			}
+		}
+	}
 	default:
 		bmu_set_power_on_flag(1);
 		return poweron_source;
 	}
 
 	bmu_set_power_on_flag(1);
+
 	return poweron_source;
+}
+
+int _bmu_axp519_get_adc_vol(void)
+{
+	unsigned char reg_value[2];
+	int temp, tmp;
+
+	if (pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_ADC_H, &reg_value[0])) {
+		return -1;
+	}
+	if (pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_ADC_L, &reg_value[1])) {
+		return -1;
+	}
+
+	temp = (reg_value[0] << 4) | (reg_value[1] & 0x0F);
+	tmp = temp * 75 / 10;
+
+	return tmp;
+}
+
+int _bmu_axp519_get_battery_probe(void)
+{
+	int battery_status = 1, tmp;
+	u8 data;
+
+	pmic_bus_clrbits(AXP519_RUNTIME_ADDR, AXP519_WORK_CFG, BIT(4));
+
+	pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_ADC_CFG, &data);
+	data &= ~(0x0f);
+	data |= 0x0a;
+	pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_ADC_CFG, data);
+
+	mdelay(1);
+
+	tmp = _bmu_axp519_get_adc_vol();
+	pr_msg("[AXP519] battery vol_1:%d\n", tmp);
+	if (tmp < 6000) {
+		pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
+		pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_WORK_CFG, BIT(4));
+		mdelay(100);
+		tmp = _bmu_axp519_get_adc_vol();
+		pr_msg("[AXP519] battery vol_2:%d\n", tmp);
+		if (tmp > 8000) {
+			/* no battery: check twice after 500ms */
+			mdelay(500);
+			tmp = _bmu_axp519_get_adc_vol();
+			pr_msg("[AXP519] battery vol_3:%d\n", tmp);
+			if (tmp > 8000) {
+				battery_status = -1;
+			}
+		}
+	}
+
+	return battery_status;
+}
+
+void _bmu_axp519_necessary_set_by_battery_status(int battery_status)
+{
+	char *pmu_name;
+
+	if (bmu_get_exist() || (battery_status > 0))
+		return;
+
+	pmu_name = (char *)pmu_get_name();
+	if (!pmu_name)
+		return;
+
+	if (!strncmp(pmu_name, "pmu_axp8191", strlen(pmu_name))) {
+		pmu_set_reg_value(0xF0, 0x06);
+		pmu_set_reg_value(0xF1, 0x04);
+		pmu_set_reg_value(0xFF, 0x01);
+		pmu_set_reg_value(0x00, 0xC0);
+		pmu_set_reg_value(0xFF, 0x00);
+		pmu_set_reg_value(0xF1, 0x00);
+		pmu_set_reg_value(0xF0, 0x00);
+	}
 }
 
 int bmu_axp519_get_battery_probe(void)
 {
 	int battery_status;
-	unsigned char reg_value[2];
-	int temp, ret, tmp, bat_exist = 1;
-	u8 data;
+	int ret, bat_exist = 1;
 	static int check;
+	u8 data;
 
 	if (check > 0) {
 		battery_status = check - 2;
@@ -172,6 +294,7 @@ int bmu_axp519_get_battery_probe(void)
 		bat_exist = 1;
 
 	if (!bat_exist) {
+		pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
 		check = 1;
 		return -1;
 	}
@@ -185,53 +308,27 @@ int bmu_axp519_get_battery_probe(void)
 		return -1;
 	}
 
-	pmic_bus_clrbits(AXP519_RUNTIME_ADDR, AXP519_WORK_CFG, BIT(4));
-	pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_ADC_CFG, &data);
-	data &= ~(0x0f);
-	data |= 0x0a;
-	pmic_bus_write(AXP519_RUNTIME_ADDR, AXP519_ADC_CFG, data);
+	/* get_vbus_status:
+	   0: batter is exist
+	   1: need to check battery */
 
-	mdelay(1);
-	if (pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_ADC_H, &reg_value[0])) {
-		return -1;
-	}
-	if (pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_ADC_L, &reg_value[1])) {
-		return -1;
-	}
-
-	temp = (reg_value[0] << 4) | (reg_value[1] & 0x0F);
-	tmp = temp * 75 / 10;
-
-	if (tmp < 6000) {
-		pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
-		pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_WORK_CFG, BIT(4));
-		mdelay(100);
-		if (pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_ADC_H, &reg_value[0])) {
-			return -1;
-		}
-		if (pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_ADC_L, &reg_value[1])) {
-			return -1;
-		}
-		temp = (reg_value[0] << 4) | (reg_value[1] & 0x0F);
-		tmp = temp * 75 / 10;
-
-		if (tmp > 8000) {
-			battery_status = -1;
-		} else {
-			battery_status = 1;
-		}
-	} else {
+	if (bmu_axp519_get_vbus_status() != AXP_VBUS_EXIST)
 		battery_status = 1;
+	else
+		battery_status = _bmu_axp519_get_battery_probe();
+
+	if (battery_status > 0) {
+		pmic_bus_clrbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
+	} else {
+		pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
 	}
+
+	pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_WORK_CFG, BIT(4));
 
 	check = battery_status + 2;
 
-	if (battery_status > 0)
-		pmic_bus_clrbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
-	else
-		pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
+	_bmu_axp519_necessary_set_by_battery_status(battery_status);
 
-	pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_WORK_CFG, BIT(4));
 	return battery_status;
 }
 
@@ -372,12 +469,14 @@ int bmu_axp2601_battery_check(int ratio)
 			return -1;
 		}
 		if (dcin_exist == AXP_VBUS_EXIST) {
+			pmic_bus_setbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
 			bmu_ext_set_discharge();
 			mdelay(500);
 			pmic_bus_setbits(AXP2601_RUNTIME_ADDR, AXP2601_RESET_CFG, BIT(2));
 			pmic_bus_clrbits(AXP2601_RUNTIME_ADDR, AXP2601_RESET_CFG, BIT(2));
 			mdelay(500);
 			bmu_ext_set_charge();
+			pmic_bus_clrbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
 			tick_printf("%s adapt reset gauge: soc = 0\n", __func__);
 			reg = readl(AXP2601_FLAGE_REG);
 			reg &= ~(0xFF);

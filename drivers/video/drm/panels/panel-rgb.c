@@ -63,7 +63,7 @@ static int panel_rgb_prepare(struct sunxi_drm_panel *panel)
 
 	for (i = 0; i < POWER_MAX; i++) {
 		if (rgb->supply[i]) {
-			err = sunxi_drm_power_enable(rgb->supply[i]);
+			err = sunxi_drm_power_enable(rgb->supply[i], 0);
 			if (err < 0) {
 				DRM_ERROR("failed to enable supply%d: %d\n",
 					i, err);

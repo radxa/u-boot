@@ -10,7 +10,7 @@
 #define __SUNXI_GPADC_H__
 #include <common.h>
 
-
+int sunxi_get_gpadc_vol(int channel);
 int sunxi_gpadc_init(void);
 int sunxi_gpadc_read(int channel);
 

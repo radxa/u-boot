@@ -289,9 +289,10 @@ static int sunxi_pcie_host_wait_for_link(struct sunxi_pcie_port *pp)
 			printf("pcie link up success\n");
 			return 0;
 		}
-		mdelay(1);
+		udelay(LINK_WAIT_USLEEP_MAX);
 	}
 
+	printf("Link up timeout\n");
 	return -ETIMEDOUT;
 }
 
@@ -318,7 +319,7 @@ static int sunxi_pcie_host_wait_for_speed_change(struct sunxi_pcie *pci)
 		tmp = sunxi_pcie_readl_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL);
 		if (!(tmp & PORT_LOGIC_SPEED_CHANGE))
 			return 0;
-		mdelay(1);
+		udelay(SPEED_CHANGE_USLEEP_MAX);
 	}
 
 	printf("Speed change timeout\n");
@@ -357,21 +358,21 @@ static int sunxi_pcie_host_speed_change(struct sunxi_pcie *pci, int gen)
 static void sunxi_pcie_host_init(struct udevice *dev)
 {
 	struct sunxi_pcie *pci = dev_get_priv(dev);
-	unsigned int pcie_reset_gpio = -1;
-	pcie_reset_gpio = sunxi_name_to_gpio(CONFIG_PCIE_PERST_GPIO);
-
-	if (pcie_reset_gpio == -1) {
-		printf("pcie requesst perst gpio failed\r\n");
-	}
-
-	/* set cfg, ouput */
-	sunxi_gpio_set_cfgpin(pcie_reset_gpio, 1);
+	unsigned int pcie_reset_gpio = sunxi_name_to_gpio(CONFIG_PCIE_PERST_GPIO);
+	unsigned int pcie_wake_gpio = sunxi_name_to_gpio(CONFIG_PCIE_WAKE_GPIO);
 
 	sunxi_pcie_plat_ltssm_disable(pci);
 
-	gpio_set_value(pcie_reset_gpio, 0);
-	mdelay(100);
-	gpio_set_value(pcie_reset_gpio, 1);
+	if (pcie_reset_gpio >= 0 && pcie_wake_gpio >= 0) {
+		/* set cfg, ouput */
+		sunxi_gpio_set_cfgpin(pcie_reset_gpio, 1);
+		sunxi_gpio_set_cfgpin(pcie_wake_gpio, 1);
+
+		gpio_set_value(pcie_wake_gpio, 1);
+		gpio_set_value(pcie_reset_gpio, 0);
+		mdelay(100);
+		gpio_set_value(pcie_reset_gpio, 1);
+	}
 
 	sunxi_pcie_host_setup_rc(&pci->pcie_port);
 
@@ -385,9 +386,20 @@ static int sunxi_pcie_probe(struct udevice *dev)
 	struct sunxi_pcie *pcie = dev_get_priv(dev);
 	struct udevice *ctlr = pci_get_controller(dev);
 	struct pci_controller *hose = dev_get_uclass_priv(ctlr);
+	int ret;
 
 	pcie->first_busno = dev->seq;
 	pcie->dev = dev;
+	pcie->drvdata = (struct sunxi_pcie_of_data *)dev_get_driver_data(dev);
+	pcie->link_gen = dev_read_u32_default(dev, "max-link-speed", 1);
+	pcie->pcie1v8_supply = dev_read_string(dev, "pcie1v8_supply");
+	pcie->pcie3v3_supply = dev_read_string(dev, "pcie3v3_supply");
+	pcie->phy = kmalloc(sizeof(struct phy), __GFP_ZERO);
+	ret = generic_phy_get_by_name(dev, "pcie-phy", pcie->phy);
+	if (ret < 0) {
+		pr_err("failed get pcie-phy %d\n", ret);
+		return -EINVAL;
+	}
 
 	/* PCI I/O space */
 	pci_set_region(&hose->regions[0],
@@ -402,8 +414,6 @@ static int sunxi_pcie_probe(struct udevice *dev)
 			SUNXI_PCIE_MEM_ADDR,
 			SUNXI_PCIE_MEM_SIZE, PCI_REGION_MEM);
 	hose->region_count = 2;
-
-	sunxi_combphy_cfg_init();
 
 	sunxi_pcie_plat_init(dev);
 
@@ -425,10 +435,22 @@ static const struct sunxi_pcie_of_data	sunxi_pcie_rc_v210_of_data = {
 	.cpu_pcie_addr_quirk = true,
 };
 
+static const struct sunxi_pcie_of_data	sunxi_pcie_rc_v300_of_data = {
+	.mode = SUNXI_PCIE_RC_TYPE,
+	.has_pcie_slv_clk = true,
+	.need_pcie_rst = true,
+	.pcie_slv_clk_400m = true,
+	.has_pcie_its_clk = true,
+};
+
 static const struct udevice_id sunxi_pcie_ids[] = {
 	{
 		.compatible = "allwinner,sunxi-pcie-v210-rc",
 		.data = (ulong)&sunxi_pcie_rc_v210_of_data,
+	},
+	{
+		.compatible = "allwinner,sunxi-pcie-v300-rc",
+		.data = (ulong)&sunxi_pcie_rc_v300_of_data,
 	},
 	{ }
 };

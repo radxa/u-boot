@@ -49,6 +49,7 @@ extern int sunxi_flash_try_partition(struct blk_desc *desc, const char *str,
 
 extern int update_pmu_ext_info_to_kernel(void);
 extern int update_no_ext_info_to_kernel(void);
+extern int update_bmu_info_to_kernel(void);
 
 extern void sunxi_update_subsequent_processing(int next_work);
 extern void fastboot_partition_init(void);

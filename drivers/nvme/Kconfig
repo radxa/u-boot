@@ -4,7 +4,9 @@
 
 config NVME
 	bool "NVM Express device support"
-	depends on BLK && PCI
+	# depends on BLK && PCI
+	depends on PCI
+	select AW_BLK
 	select HAVE_BLOCK_DEVICE
 	help
 	  This option enables support for NVM Express devices.

@@ -35,9 +35,7 @@
 #include <asm/arch/ce.h>
 #include <boot_param.h>
 #include <sunxi_nsi.h>
-#ifdef CONFIG_SUNXI_PMU_EXT
 #include <sunxi_power/power_manage.h>
-#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -62,6 +60,11 @@ int  __attribute__((weak)) update_pmu_ext_info_to_kernel()
 }
 
 int  __attribute__((weak)) update_no_ext_info_to_kernel()
+{
+	return 0;
+}
+
+int  __attribute__((weak)) update_bmu_info_to_kernel()
 {
 	return 0;
 }
@@ -789,6 +792,9 @@ int sunxi_update_bootcmd(void)
 	    (storage_type == STORAGE_EMMC3) || (storage_type == STORAGE_EMMC0)) {
 		sunxi_str_replace(boot_commond, "setargs_nand", "setargs_mmc");
 		debug("bootcmd set setargs_mmc\n");
+	} else if ((storage_type == STORAGE_UFS)) {
+		sunxi_str_replace(boot_commond, "setargs_nand", "setargs_ufs");
+		debug("bootcmd set setargs_ufs\n");
 	} else if (storage_type == STORAGE_NOR) {
 		sunxi_str_replace(boot_commond, "setargs_nand", "setargs_nor");
 	} else if (storage_type == STORAGE_NAND) {
@@ -1161,6 +1167,13 @@ int sunxi_update_fdt_para_for_kernel(void)
 						if (ret)
 							fdt_enable_node("mmc2", 1);
 					}
+					if (get_board_flash_type_exist(
+								STORAGE_UFS)) {
+						ret = fdt_enable_node("/soc/ufs", 1);
+						if (ret)
+							printf("enable ufs failed\n");
+						}
+
 				} else {
 					ret = fdt_enable_node("sunxi-mmc2", 1);
 					if (ret)
@@ -1209,6 +1222,8 @@ int sunxi_update_fdt_para_for_kernel(void)
 		fdt_enable_node("/soc/spif/spif-nor", 0);
 #endif
 		break;
+	case STORAGE_UFS:
+		fdt_enable_node("/soc/ufs", 1);
 	default:
 		break;
 	}
@@ -1374,6 +1389,10 @@ extern void edp_update_param_to_kernel(void);
 
 #ifdef CONFIG_SUNXI_RNG_SEED
 	sunxi_update_fdt_rng_para();
+#endif
+
+#ifdef CONFIG_SUNXI_POWER
+	update_bmu_info_to_kernel();
 #endif
 
 	tick_printf("update dts\n");

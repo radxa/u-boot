@@ -93,7 +93,9 @@ ifeq ($(buildconfig), $(wildcard $(buildconfig)))
 	LICHEE_BOARD=$(shell cat $(buildconfig) | grep -w "LICHEE_BOARD" | awk -F= '{printf $$2}')
 	LICHEE_PLAT_OUT=$(shell cat $(buildconfig) | grep -w "LICHEE_PLAT_OUT" | awk -F= '{printf $$2}')
 	LICHEE_BOARD_CONFIG_DIR=$(shell cat $(buildconfig) | grep -w "LICHEE_BOARD_CONFIG_DIR" | awk -F= '{printf $$2}')
-	export LICHEE_BUSSINESS LICHEE_CHIP_CONFIG_DIR LICHEE_IC LICHEE_ARCH LICHEE_CHIP LICHEE_BOARD LICHEE_PLAT_OUT LICHEE_BOARD_CONFIG_DIR
+	LICHEE_BRANDY_DEFCONF=$(shell cat $(buildconfig) | grep -w "LICHEE_BRANDY_DEFCONF" | awk -F= '{printf $$2}')
+	export LICHEE_BUSSINESS LICHEE_CHIP_CONFIG_DIR LICHEE_IC LICHEE_ARCH LICHEE_CHIP LICHEE_BOARD \
+		LICHEE_PLAT_OUT LICHEE_BRANDY_DEFCONF
 endif
 
 # If the user is running make -s (silent mode), suppress echoing of
@@ -259,16 +261,20 @@ ifeq (x$(defconfig_check), xyes)
 	CONFIG_ARM=$(shell cat $(defconfig) | grep -w "CONFIG_ARM" | awk -F= '{printf $$2}')
 	CONFIG_RISCV=$(shell cat $(defconfig) | grep -w "CONFIG_RISCV" | awk -F= '{printf $$2}')
 	CONFIG_ARCH_RV32I=$(shell cat $(defconfig) | grep -w "CONFIG_ARCH_RV32I" | awk -F= '{printf $$2}')
+	CONFIG_CPU_E90X=$(shell cat $(defconfig) | grep -w "CONFIG_CPU_E90X" | awk -F= '{printf $$2}')
 else
 ifeq (x$(config_check), xyes)
 	CONFIG_ARM=$(shell cat .config | grep -w "CONFIG_ARM" | awk -F= '{printf $$2}')
 	CONFIG_RISCV=$(shell cat .config | grep -w "CONFIG_RISCV" | awk -F= '{printf $$2}')
 	CONFIG_ARCH_RV32I=$(shell cat .config | grep -w "CONFIG_ARCH_RV32I" | awk -F= '{printf $$2}')
+	CONFIG_CPU_E90X=$(shell cat .config | grep -w "CONFIG_CPU_E90X" | awk -F= '{printf $$2}')
 endif
 endif
 
 #########################################################################
-ifeq (x$(CONFIG_ARCH_RV32I), xy)
+ifeq (x$(CONFIG_CPU_E90X), xy)
+RISCV_PATH=Xuantie-900-gcc-linux-5.10.4-glibc-x86_64-V2.8.1
+else ifeq (x$(CONFIG_ARCH_RV32I), xy)
 RISCV_PATH=nds32le-linux-glibc-v5d
 else
 RISCV_PATH=riscv64-linux-x86_64-20200528
@@ -289,7 +295,10 @@ endif
 
 
 ifeq (x$(CONFIG_RISCV), xy)
-ifeq (x$(CONFIG_ARCH_RV32I), xy)
+ifeq (x$(CONFIG_CPU_E90X), xy)
+CROSS_COMPILE=$(srctree)/../tools/toolchain/$(RISCV_PATH)/bin/riscv64-unknown-linux-gnu-
+DTS_PATH := $(PWD)/arch/riscv/dts
+else ifeq (x$(CONFIG_ARCH_RV32I), xy)
 CROSS_COMPILE := $(srctree)/../tools/toolchain/$(RISCV_PATH)/bin/riscv32-unknown-linux-
 DTS_PATH := $(PWD)/arch/riscv/dts
 else
@@ -798,6 +807,8 @@ libs-$(CONFIG_SUNXI_FLASH) += drivers/sunxi_flash/
 libs-$(CONFIG_SUNXI_NAND) += drivers/sunxi_flash/nand/
 libs-$(CONFIG_SUNXI_SPINOR) += drivers/sunxi_flash/spinor/
 libs-$(CONFIG_SUNXI_SDMMC) += drivers/sunxi_flash/mmc/
+libs-$(CONFIG_SUNXI_UFS) += drivers/sunxi_flash/ufs/
+#libs-y += drivers/sunxi_flash/ufs/
 libs-$(CONFIG_SUNXI_USB) += drivers/sunxi_usb/
 libs-$(CONFIG_SUNXI_SPRITE) += sprite/
 libs-y += drivers/sunxi_crypto/

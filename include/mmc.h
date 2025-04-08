@@ -17,7 +17,7 @@
 #include <clk/clk.h>
 #include <linux/err.h>
 
-#ifndef CONFIG_MACH_SUN20IW5
+#ifndef CONFIG_MACH_SUN300IW1
 #define CONFIG_MMC_SUNXI_USE_DMA
 #endif
 
@@ -641,6 +641,7 @@ struct mmc_config {
 	uint sample_mode;
 
 	uint io_is_1v8;
+	uint sdc_mbus;
 
 	uint cal_delay_unit;
 #define BOOT0_PARA_USE_INTERNAL_DEFAULT_TIMING_PARA (1U<<0)

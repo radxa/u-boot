@@ -326,6 +326,10 @@ static void gic_spi_set_target(int irq_no, int cpu_id)
 int arch_interrupt_init(void)
 {
 	int i;
+
+#if defined(CONFIG_MACH_SUN60IW2)
+	clock_set_gic();
+#endif
 #if defined(CONFIG_MACH_SUN55IW3)
 	clock_set_gic();
 #endif

@@ -405,6 +405,7 @@ static int sunxi_gmac_send(struct eth_device *dev, void *packet, int length)
 	timeout = get_timer(0) + 5 * CONFIG_SYS_HZ;
 	while (tx_p->desc0.tx.own || (send_status != GMAC_TX_DMA_STOP
 			&& send_status != GMAC_TX_DMA_SUSPEND)) {
+		invalidate_dcache_range((ulong)tx_p, (ulong)((ulong)tx_p + ALIGN(sizeof(*tx_p), CACHE_LINE_SIZE)));
 		if (get_timer(0) > timeout) {
 			printf("Error: Gmac send timeout\n");
 			break;

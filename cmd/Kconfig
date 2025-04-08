@@ -1945,6 +1945,12 @@ config CMD_SUNXI_BOOTRV
 	help
 	  enable sunxi bootrv
 
+config CMD_SUNXI_BOOT_HYPER
+	bool "enable boot hyper"
+	default n
+	help
+	  enabe sunxi boot hyper
+
 config CMD_SUNXI_CE_TEST
 	bool "sunxi ce test cmd"
 	default n

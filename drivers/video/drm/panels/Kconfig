@@ -2,6 +2,7 @@ menuconfig AW_DRM_PANEL
 	tristate "Support panel based on DRM framework"
 	depends on AW_DRM
 	select PANEL
+	select SUNXI_PMU_GENERAL
 	default n
 	help
 		If you want use DRM panel, select it.

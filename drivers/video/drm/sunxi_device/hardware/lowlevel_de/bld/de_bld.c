@@ -87,27 +87,53 @@ static void bld_set_block_dirty(
 	}
 }
 
-static int de_bld_set_pipe_fcolor(struct de_bld_handle *hdl, u32 pipe, u32 color)
+static int de_bld_set_pipe_fcolor(struct de_bld_handle *hdl, u32 pipe, u32 color, bool apply)
 {
 	struct de_bld_private *priv = hdl->private;
 	struct bld_reg *reg = get_bld_reg(priv);
+	struct bld_reg *hwreg = get_bld_hw_reg(priv);
 
+	if (apply) {
+		hwreg->pipe.en.bits.pipe0_fcolor_en = 1;
+		hwreg->pipe.attr[0].fcolor.dwval = color;
+	}
 	reg->pipe.en.bits.pipe0_fcolor_en = 1;
 	reg->pipe.attr[0].fcolor.dwval = color;
+
 	bld_set_block_dirty(priv, BLD_REG_BLK_ATTR, 1);
 	return 0;
 }
 
-int de_bld_output_set_attr(struct de_bld_handle *hdl, u32 width, u32 height, u32 fmt_space)
+int de_bld_output_set_attr(struct de_bld_handle *hdl, u32 width, u32 height, u32 fmt_space, bool apply)
 {
 	struct de_bld_private *priv = hdl->private;
 	struct bld_reg *reg = get_bld_reg(priv);
+	struct bld_reg *hwreg = get_bld_hw_reg(priv);
 
+	if (apply) {
+		hwreg->out_size.dwval = (width ? ((width - 1) & 0x1FFF) : 0)
+			| (height ? (((height - 1) & 0x1FFF) << 16) : 0);
+		hwreg->out_ctl.bits.fmt_space = fmt_space;
+		hwreg->out_ctl.bits.premul_en = 0;
+	}
 	reg->out_size.dwval = (width ? ((width - 1) & 0x1FFF) : 0)
 		| (height ? (((height - 1) & 0x1FFF) << 16) : 0);
 	reg->out_ctl.bits.fmt_space = fmt_space;
 	reg->out_ctl.bits.premul_en = 0;
+	if (fmt_space != DE_FORMAT_SPACE_RGB) {
+		if (apply)
+			hwreg->bg_color.dwval = 0x108080;
+		reg->bg_color.dwval = 0x108080;
+		de_bld_set_pipe_fcolor(hdl, 0, 0xff108080, apply);
+	} else {
+		if (apply)
+			hwreg->bg_color.dwval = 0;
+		reg->bg_color.dwval = 0;
+		de_bld_set_pipe_fcolor(hdl, 0, 0xff000000, apply);
+	}
+
 	bld_set_block_dirty(priv, BLD_REG_BLK_CTL, 1);
+	bld_set_block_dirty(priv, BLD_REG_BLK_CK, 1);
 	return 0;
 }
 
@@ -217,7 +243,7 @@ int de_bld_pipe_set_attr(struct de_bld_handle *hdl, unsigned int pipe_id, unsign
 	de_bld_en_pipe(hdl, pipe_id, 1);
 	de_bld_set_blend_mode(hdl, pipe_id, DE_BLD_MODE_SRCOVER);
 	if (pipe_id == 0) {
-		de_bld_set_pipe_fcolor(hdl, pipe_id, 0xff000000);
+		de_bld_set_pipe_fcolor(hdl, pipe_id, 0xff000000, false);
 	}
 	dwval = (w ? ((w - 1) & 0x1FFF) : 0) |
 		    (h ? (((h - 1) & 0x1FFF) << 16) : 0);
@@ -257,7 +283,7 @@ void dump_bld_state(struct drm_printer *p, struct de_bld_handle *hdl)
 	}
 }
 
-struct de_bld_handle *de_blender_create(struct module_create_info *info)
+struct de_bld_handle *de_blender_create(struct module_create_info *info, unsigned int chn_mode)
 {
 	int i;
 	struct de_bld_handle *hdl;
@@ -266,10 +292,27 @@ struct de_bld_handle *de_blender_create(struct module_create_info *info)
 	struct de_bld_private *priv;
 	u8 __iomem *reg_base;
 	const struct de_bld_desc *dsc;
+	bool chnnels_not_zero = false;
 
 	dsc = get_bld_dsc(info);
 	if (!dsc)
 		return NULL;
+
+	for (i = 0; i < dsc->mode_cnt; i++) {
+		if (dsc->mode[i].mode_id != chn_mode &&
+		    dsc->mode[i].mode_id != CHN_MODE_FIX)
+			continue;
+
+		if (dsc->mode[i].channel_cnt > 0) {
+			chnnels_not_zero = true;
+			break;
+		}
+	}
+	if (!chnnels_not_zero) {
+		DRM_INFO("[SUNXI-DE] chn_cfg_mode %d de%d chnnels num is zero\n", chn_mode, info->id);
+		return NULL;
+	}
+
 	hdl = kmalloc(sizeof(*hdl), GFP_KERNEL | __GFP_ZERO);
 	hdl->private = kmalloc(sizeof(*hdl->private), GFP_KERNEL | __GFP_ZERO);
 	hdl->disp_reg_base = dsc->disp_base;

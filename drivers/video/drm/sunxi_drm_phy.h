@@ -51,6 +51,7 @@ struct sunxi_drm_phy_cfg {
 	enum phy_mode mode;
 	enum phy_submode submode;
 	struct phy_configure_opts_mipi_dphy mipi_dphy;
+	bool phy_print;
 };
 
 #endif /*End of file*/

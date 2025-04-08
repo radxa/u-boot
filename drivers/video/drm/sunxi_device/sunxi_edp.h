@@ -85,6 +85,11 @@ enum dp_hdcp_mode {
 #define RET_AUX_NO_STOP (-4)
 #define RET_AUX_TIMEOUT (-5)
 #define RET_AUX_RPLY_ERR (-6)
+#define RET_I2C_AUX_DEFER (-7)
+#define RET_I2C_AUX_NACK  (-8)
+/* some platform has do retry in lowlevel, if lowlevel rerry
+fail in lowlevel, it's not need to do in framework again */
+#define RET_AUX_RETRY_FAIL (-9)
 
 #define TRY_CNT_MAX					5
 #define TRY_CNT_TIMEOUT				20
@@ -113,7 +118,10 @@ enum dp_hdcp_mode {
 #define DPCD_0005H 0x0005
 #define DPCD_0006H 0x0006
 #define DPCD_0100H 0x0100
+
 #define DPCD_0101H 0x0101
+#define DPCD_ENHANCE_FRAME_ENABLE_MASK	(1 << 7)
+#define DPCD_LANE_CNT_MASK				(0x1f << 0)
 
 #define DPCD_0102H 0x0102
 #define DPCD_SCRAMBLING_DISABLE_FLAG	(1 << 5)
@@ -275,50 +283,50 @@ enum dp_hdcp_mode {
 #define HDCP1_DEV_CNT_PER_KSV_LIST_FIFO		(3)
 #define HDCP1_V_PRIME_BYTES				(20)
 
-#define EDP_DBG(fmt, ...)			pr_debug("[EDP_DBG]: "fmt, ##__VA_ARGS__)
-#define EDP_ERR(fmt, ...)			pr_err("[EDP_ERR]: "fmt, ##__VA_ARGS__)
-#define EDP_WRN(fmt, ...)			pr_warn("[EDP_WRN]: "fmt, ##__VA_ARGS__)
-#define EDP_INFO(fmt, ...)			pr_info("[EDP_INFO]: "fmt, ##__VA_ARGS__)
-#define EDP_DEV_ERR(dev, fmt, ...)	dev_err(dev, "[EDP_ERR]: "fmt, ##__VA_ARGS__)
+#define EDP_DBG(fmt, ...)                      pr_debug("[EDP_DBG]: "fmt, ##__VA_ARGS__)
+#define EDP_ERR(fmt, ...)                      pr_err("[EDP_ERR]: "fmt, ##__VA_ARGS__)
+#define EDP_WRN(fmt, ...)                      pr_warn("[EDP_WRN]: "fmt, ##__VA_ARGS__)
+#define EDP_INFO(fmt, ...)                     pr_info("[EDP_INFO]: "fmt, ##__VA_ARGS__)
+#define EDP_DEV_ERR(dev, fmt, ...)     dev_err(dev, "[EDP_ERR]: "fmt, ##__VA_ARGS__)
 
 #define EDP_DRV_DBG(fmt, ...) \
 			do { \
 				if (loglevel_debug & 0x1) \
-					pr_err(NULL, "[EDP_DRV]: "fmt, ##__VA_ARGS__); \
+					pr_err("[EDP_DRV]: "fmt, ##__VA_ARGS__); \
 				else \
-					pr_debug(NULL, "[EDP_DRV]: "fmt, ##__VA_ARGS__); \
+					pr_debug("[EDP_DRV]: "fmt, ##__VA_ARGS__); \
 			} while (0)
 
 #define EDP_CORE_DBG(fmt, ...) \
 			do { \
 				if (loglevel_debug & 0x2) \
-					pr_err(NULL, "[EDP_CORE]: "fmt, ##__VA_ARGS__); \
+					pr_err("[EDP_CORE]: "fmt, ##__VA_ARGS__); \
 				else \
-					pr_debug(NULL, "[EDP_CORE]: "fmt, ##__VA_ARGS__); \
+					pr_debug("[EDP_CORE]: "fmt, ##__VA_ARGS__); \
 			} while (0)
 
 #define EDP_LOW_DBG(fmt, ...) \
 			do { \
 				if (loglevel_debug & 0x4) \
-					pr_err(NULL, "[EDP_LOW]: "fmt, ##__VA_ARGS__); \
+					pr_err("[EDP_LOW]: "fmt, ##__VA_ARGS__); \
 				else \
-					pr_debug(NULL, "[EDP_LOW]: "fmt, ##__VA_ARGS__); \
+					pr_debug("[EDP_LOW]: "fmt, ##__VA_ARGS__); \
 			} while (0)
 
 #define EDP_EDID_DBG(fmt, ...) \
 			do { \
 				if (loglevel_debug & 0x8) \
-					pr_err(NULL, "[EDP_EDID]: "fmt, ##__VA_ARGS__); \
+					pr_err("[EDP_EDID]: "fmt, ##__VA_ARGS__); \
 				else \
-					pr_debug(NULL, "[EDP_EDID]: "fmt, ##__VA_ARGS__); \
+					pr_debug("[EDP_EDID]: "fmt, ##__VA_ARGS__); \
 			} while (0)
 
 #define EDP_HDCP_DBG(fmt, ...) \
 			do { \
 				if (loglevel_debug & 0x10) \
-					pr_err(NULL, "[EDP_HDCP]: "fmt, ##__VA_ARGS__); \
+					pr_err("[EDP_HDCP]: "fmt, ##__VA_ARGS__); \
 				else \
-					pr_debug(NULL, "[EDP_HDCP]: "fmt, ##__VA_ARGS__); \
+					pr_debug("[EDP_HDCP]: "fmt, ##__VA_ARGS__); \
 			} while (0)
 
 /*edp bit rate  unit:Hz*/
@@ -351,6 +359,8 @@ struct edp_lane_para {
 
 struct sunxi_edp_hw_desc;
 struct sunxi_edp_hw_video_ops;
+struct sunxi_edp_hw_audio_ops;
+struct sunxi_edp_hw_hdcp_ops;
 
 
 
@@ -371,6 +381,11 @@ struct edp_tx_cap {
 	bool hdcp2x_support;
 	bool hardware_hdcp1x_support;
 	bool hardware_hdcp2x_support;
+	bool enhance_frame_support;
+	bool lane_remap_support;
+	bool lane_invert_support;
+	bool muti_pixel_mode_support;
+	bool need_reset_before_enable;
 };
 
 struct edp_rx_cap {
@@ -388,6 +403,7 @@ struct edp_rx_cap {
 	bool is_edp_device;
 	bool assr_support;
 	bool enhance_frame_support;
+	bool framing_change_support;
 
 	/*parse from edid*/
 	u32 mfg_week;
@@ -411,13 +427,14 @@ struct edp_rx_cap {
 struct edp_tx_core {
 	u32 ssc_en;
 	s32 ssc_mode;
+	u32 pixel_mode;
+	u32 pclk_limit_khz;
 	u32 psr_en;
 	u32 training_param_type;
 	u32 interval_CR;
 	u32 interval_EQ;
 	/* 0:edp_mode  1:dp-mode*/
 	u32 controller_mode;
-	u32 pixel_count;
 	bool interlace;
 	bool sync_clock;
 	struct edp_lane_para lane_para;
@@ -442,6 +459,7 @@ struct sunxi_edp_hw_desc {
 	u64 cur_bit_rate;
 	struct mutex aux_lock;
 	struct sunxi_edp_hw_video_ops *video_ops;
+	struct sunxi_edp_hw_audio_ops *audio_ops;
 	struct sunxi_edp_hw_hdcp_ops *hdcp_ops;
 };
 
@@ -453,16 +471,10 @@ struct sunxi_edp_hw_video_ops {
 	u32 (*get_cur_line)(struct sunxi_edp_hw_desc *edp_hw);
 	u32 (*get_tu_size)(struct sunxi_edp_hw_desc *edp_hw);
 	u32 (*get_pixel_clk)(struct sunxi_edp_hw_desc *edp_hw);
+	u32 (*get_pixel_mode)(struct sunxi_edp_hw_desc *edp_hw);
 	s32 (*get_color_format)(struct sunxi_edp_hw_desc *edp_hw);
 	u32 (*get_pattern)(struct sunxi_edp_hw_desc *edp_hw);
 	s32 (*get_lane_para)(struct sunxi_edp_hw_desc *edp_hw, struct edp_lane_para *tmp_lane_para);
-	s32 (*audio_is_muted)(struct sunxi_edp_hw_desc *edp_hw);
-	s32 (*audio_enable)(struct sunxi_edp_hw_desc *edp_hw);
-	s32 (*audio_disable)(struct sunxi_edp_hw_desc *edp_hw);
-	bool (*audio_is_enabled)(struct sunxi_edp_hw_desc *edp_hw);
-	s32 (*get_audio_chn_cnt)(struct sunxi_edp_hw_desc *edp_hw);
-	s32 (*get_audio_data_width)(struct sunxi_edp_hw_desc *edp_hw);
-	s32 (*get_audio_if)(struct sunxi_edp_hw_desc *edp_hw);
 	u32 (*get_tu_valid_symbol)(struct sunxi_edp_hw_desc *edp_hw);
 	s32 (*set_pattern)(struct sunxi_edp_hw_desc *edp_hw, u32 pattern, u32 lane_cnt);
 	s32 (*assr_enable)(struct sunxi_edp_hw_desc *edp_hw, bool enable);
@@ -475,24 +487,27 @@ struct sunxi_edp_hw_video_ops {
 	s32 (*ssc_set_mode)(struct sunxi_edp_hw_desc *edp_hw, u32 mode);
 	s32 (*ssc_get_mode)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*ssc_is_enabled)(struct sunxi_edp_hw_desc *edp_hw);
-	s32 (*aux_read)(struct sunxi_edp_hw_desc *edp_hw, s32 addr, s32 len, char *buf, bool retry);
-	s32 (*aux_write)(struct sunxi_edp_hw_desc *edp_hw, s32 addr, s32 len, char *buf, bool retry);
-	s32 (*aux_i2c_read)(struct sunxi_edp_hw_desc *edp_hw, s32 i2c_addr, s32 addr, s32 len, char *buf, bool retry);
-	s32 (*aux_i2c_write)(struct sunxi_edp_hw_desc *edp_hw, s32 i2c_addr, s32 addr, s32 len, char *buf, bool retry);
+	s32 (*aux_read)(struct sunxi_edp_hw_desc *edp_hw, s32 addr, s32 len, char *buf);
+	s32 (*aux_write)(struct sunxi_edp_hw_desc *edp_hw, s32 addr, s32 len, char *buf);
+	s32 (*aux_i2c_read)(struct sunxi_edp_hw_desc *edp_hw, s32 i2c_addr, s32 addr, s32 len, char *buf);
+	s32 (*aux_i2c_write)(struct sunxi_edp_hw_desc *edp_hw, s32 i2c_addr, s32 addr, s32 len, char *buf);
 	s32 (*read_edid_block)(struct sunxi_edp_hw_desc *edp_hw, u8 *raw_edid, unsigned int block_id, size_t len);
 	s32 (*irq_enable)(struct sunxi_edp_hw_desc *edp_hw, u32 irq_id);
 	s32 (*irq_disable)(struct sunxi_edp_hw_desc *edp_hw, u32 irq_id);
 	void (*irq_handle)(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core);
+	s32 (*link_soft_reset)(struct sunxi_edp_hw_desc *edp_hw);
+	s32 (*video_soft_reset)(struct sunxi_edp_hw_desc *edp_hw);
 	s32 (*main_link_start)(struct sunxi_edp_hw_desc *edp_hw);
 	s32 (*main_link_stop)(struct sunxi_edp_hw_desc *edp_hw);
 	void (*scrambling_enable)(struct sunxi_edp_hw_desc *edp_hw, bool enable);
-	void (*enhanced_frame_enable)(struct sunxi_edp_hw_desc *edp_hw, bool enable);
+	void (*enhance_frame_enable)(struct sunxi_edp_hw_desc *edp_hw, bool enable);
 	void (*fec_enable)(struct sunxi_edp_hw_desc *edp_hw, bool enable);
 	void (*set_lane_sw_pre)(struct sunxi_edp_hw_desc *edp_hw, u32 lane_id, u32 sw, u32 pre, u32 param_type);
 	void (*set_lane_cnt)(struct sunxi_edp_hw_desc *edp_hw, u32 lane_cnt);
 	void (*set_lane_rate)(struct sunxi_edp_hw_desc *edp_hw, u64 bit_rate);
 	s32 (*lane_remap)(struct sunxi_edp_hw_desc *edp_hw, u32 lane_id, u32 remap_id);
 	s32 (*lane_invert)(struct sunxi_edp_hw_desc *edp_hw, u32 lane_id, bool invert);
+	s32 (*set_pixel_mode)(struct sunxi_edp_hw_desc *edp_hw, u32 pixel_mode);
 	s32 (*init_early)(struct sunxi_edp_hw_desc *edp_hw);
 	s32 (*init)(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core);
 	s32 (*enable)(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core);
@@ -506,22 +521,41 @@ struct sunxi_edp_hw_video_ops {
 	u32 (*support_max_lane)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_tps3)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_fast_training)(struct sunxi_edp_hw_desc *edp_hw);
-	bool (*support_audio)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_psr)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_psr2)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_ssc)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_mst)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_fec)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_assr)(struct sunxi_edp_hw_desc *edp_hw);
+	bool (*support_lane_remap)(struct sunxi_edp_hw_desc *edp_hw);
+	bool (*support_lane_invert)(struct sunxi_edp_hw_desc *edp_hw);
+	bool (*support_muti_pixel_mode)(struct sunxi_edp_hw_desc *edp_hw);
+	bool (*need_reset_before_enable)(struct sunxi_edp_hw_desc *edp_hw);
+	bool (*support_enhance_frame)(struct sunxi_edp_hw_desc *edp_hw);
+	bool (*set_use_inner_clk)(struct sunxi_edp_hw_desc *edp_hw, u32 bypass);
+};
+
+struct sunxi_edp_hw_audio_ops {
+	bool (*support_audio)(struct sunxi_edp_hw_desc *edp_hw);
+	bool (*audio_is_muted)(struct sunxi_edp_hw_desc *edp_hw);
+	bool (*audio_is_enabled)(struct sunxi_edp_hw_desc *edp_hw);
+	s32 (*audio_enable)(struct sunxi_edp_hw_desc *edp_hw);
+	s32 (*audio_disable)(struct sunxi_edp_hw_desc *edp_hw);
+	s32 (*audio_mute)(struct sunxi_edp_hw_desc *edp_hw,
+					  bool enable, int direction);
+	s32 (*audio_config)(struct sunxi_edp_hw_desc *edp_hw, int interface,
+		      int chn_cnt, int data_width, int data_rate);
+	u32 (*get_audio_chn_cnt)(struct sunxi_edp_hw_desc *edp_hw);
+	u32 (*get_audio_data_width)(struct sunxi_edp_hw_desc *edp_hw);
+	u32 (*get_audio_if)(struct sunxi_edp_hw_desc *edp_hw);
+	u32 (*get_audio_max_channel)(struct sunxi_edp_hw_desc *edp_hw);
+};
+
+struct sunxi_edp_hw_hdcp_ops {
 	bool (*support_hdcp1x)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_hw_hdcp1x)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_hdcp2x)(struct sunxi_edp_hw_desc *edp_hw);
 	bool (*support_hw_hdcp2x)(struct sunxi_edp_hw_desc *edp_hw);
-	bool (*support_lane_remap)(struct sunxi_edp_hw_desc *edp_hw);
-	bool (*support_lane_invert)(struct sunxi_edp_hw_desc *edp_hw);
-};
-
-struct sunxi_edp_hw_hdcp_ops {
 	void (*hdcp_enable)(struct sunxi_edp_hw_desc *edp_hw, bool enable);
 	void (*hdcp_set_mode)(struct sunxi_edp_hw_desc *edp_hw, enum dp_hdcp_mode mode);
 	u64 (*hdcp1_get_an)(struct sunxi_edp_hw_desc *edp_hw);
@@ -656,6 +690,7 @@ struct sunxi_dp_hdcp {
 
 int edp_get_edid_block(void *data, u8 *edid,
 			  unsigned int block, size_t len);
+int edp_phy_validate_lane_cnt(struct edp_tx_core *edp_core, int lane_cnt);
 s32 edp_edid_put(struct edid *edid);
 s32 edp_edid_cea_db_offsets(const u8 *cea, s32 *start, s32 *end);
 u8 *sunxi_drm_find_edid_extension(const struct edid *edid,
@@ -667,7 +702,6 @@ u32 edp_source_get_max_lane(struct sunxi_edp_hw_desc *edp_hw);
 
 bool edp_source_support_tps3(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_source_support_fast_training(struct sunxi_edp_hw_desc *edp_hw);
-bool edp_source_support_audio(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_source_support_ssc(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_source_support_psr(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_source_support_psr2(struct sunxi_edp_hw_desc *edp_hw);
@@ -678,19 +712,27 @@ bool edp_source_support_hdcp1x(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_source_support_hdcp2x(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_source_support_hardware_hdcp1x(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_source_support_hardware_hdcp2x(struct sunxi_edp_hw_desc *edp_hw);
+bool edp_source_support_enhance_frame(struct sunxi_edp_hw_desc *edp_hw);
+bool edp_set_use_inner_clk(struct sunxi_edp_hw_desc *edp_hw, u32 bypass);
+bool edp_source_support_lane_remap(struct sunxi_edp_hw_desc *edp_hw);
+bool edp_source_support_lane_invert(struct sunxi_edp_hw_desc *edp_hw);
+bool edp_source_support_muti_pixel_mode(struct sunxi_edp_hw_desc *edp_hw);
+bool edp_source_need_reset_before_enable(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_hw_check_controller_error(struct sunxi_edp_hw_desc *edp_hw);
 
 bool edp_hw_ssc_is_enabled(struct sunxi_edp_hw_desc *edp_hw);
 bool edp_hw_psr_is_enabled(struct sunxi_edp_hw_desc *edp_hw);
-bool edp_hw_audio_is_enabled(struct sunxi_edp_hw_desc *edp_hw);
 
 void edp_hw_set_reg_base(struct sunxi_edp_hw_desc *edp_hw, ulong base);
 void edp_hw_set_top_base(struct sunxi_edp_hw_desc *edp_hw, ulong base);
 void edp_hw_show_builtin_patten(struct sunxi_edp_hw_desc *edp_hw, u32 pattern);
 void edp_hw_irq_handler(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core);
+void edp_hw_scrambling_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable);
 
 s32 edp_hw_get_hotplug_state(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_list_standard_mode_num(struct sunxi_edp_hw_desc *edp_hw);
+s32 edp_hw_video_soft_reset(struct sunxi_edp_hw_desc *edp_hw);
+s32 edp_hw_link_soft_reset(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_hw_link_start(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_hw_link_stop(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_low_power_en(struct sunxi_edp_hw_desc *edp_hw, bool en);
@@ -712,24 +754,34 @@ s32 edp_hw_ssc_set_mode(struct sunxi_edp_hw_desc *edp_hw, u32 mode);
 s32 edp_hw_ssc_get_mode(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_hw_psr_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable);
 s32 edp_hw_assr_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable);
+s32 edp_hw_enhance_frame_enable(struct sunxi_edp_hw_desc *edp_hw, bool enable);
 s32 edp_hw_get_color_fmt(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_hw_set_pattern(struct sunxi_edp_hw_desc *edp_hw, u32 pattern, u32 lane_cnt);
 u32 edp_hw_get_pixclk(struct sunxi_edp_hw_desc *edp_hw);
+u32 edp_hw_get_pixel_mode(struct sunxi_edp_hw_desc *edp_hw);
 u32 edp_hw_get_pattern(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_hw_get_lane_para(struct sunxi_edp_hw_desc *edp_hw, struct edp_lane_para *tmp_lane_para);
 u32 edp_hw_get_tu_size(struct sunxi_edp_hw_desc *edp_hw);
 u32 edp_hw_get_valid_symbol_per_tu(struct sunxi_edp_hw_desc *edp_hw);
-s32 edp_hw_get_audio_if(struct sunxi_edp_hw_desc *edp_hw);
-s32 edp_hw_audio_is_mute(struct sunxi_edp_hw_desc *edp_hw);
-s32 edp_hw_get_audio_chn_cnt(struct sunxi_edp_hw_desc *edp_hw);
-s32 edp_hw_get_audio_data_width(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_hw_set_video_format(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core);
 s32 edp_hw_set_video_timings(struct sunxi_edp_hw_desc *edp_hw, struct disp_video_timings *tmgs);
+s32 edp_hw_set_pixel_mode(struct sunxi_edp_hw_desc *edp_hw, u32 pixel_mode);
 s32 edp_hw_set_transfer_config(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core);
 void edp_hw_set_mst(struct sunxi_edp_hw_desc *edp_hw, u32 mst_cnt);
 s32 edp_hw_query_lane_capability(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core,
 								   struct disp_video_timings *tmgs);
-
+bool edp_source_support_audio(struct sunxi_edp_hw_desc *edp_hw);
+bool edp_hw_audio_is_enabled(struct sunxi_edp_hw_desc *edp_hw);
+bool edp_hw_audio_is_mute(struct sunxi_edp_hw_desc *edp_hw);
+s32 edp_hw_audio_enable(struct sunxi_edp_hw_desc *edp_hw);
+s32 edp_hw_audio_disable(struct sunxi_edp_hw_desc *edp_hw);
+u32 edp_hw_get_audio_if(struct sunxi_edp_hw_desc *edp_hw);
+u32 edp_hw_get_audio_chn_cnt(struct sunxi_edp_hw_desc *edp_hw);
+u32 edp_hw_get_audio_data_width(struct sunxi_edp_hw_desc *edp_hw);
+u32 edp_hw_audio_get_max_channel(struct sunxi_edp_hw_desc *edp_hw);
+s32 edp_hw_audio_config(struct sunxi_edp_hw_desc *edp_hw, int interface,
+		      int chn_cnt, int data_width, int data_rate);
+s32 edp_hw_audio_mute(struct sunxi_edp_hw_desc *edp_hw, bool enable, int direction);
 s32 edp_main_link_setup(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core);
 s32 sunxi_edp_hw_callback_init(struct sunxi_edp_hw_desc *edp_hw);
 
@@ -751,6 +803,7 @@ s32 sunxi_edp_hw_callback_init(struct sunxi_edp_hw_desc *edp_hw);
 
 #if IS_ENABLED(CONFIG_AW_DRM_EDP_CONTROLLER_USED)
 struct sunxi_edp_hw_video_ops *sunxi_edp_get_hw_video_ops(void);
+struct sunxi_edp_hw_audio_ops *sunxi_edp_get_hw_audio_ops(void);
 
 #if IS_ENABLED(CONFIG_AW_DRM_DP_HDCP)
 /* hdcp*/
@@ -788,6 +841,12 @@ static inline bool dprx_hdcp1_capable(struct sunxi_dp_hdcp *hdcp)
 
 #else
 static inline struct sunxi_edp_hw_video_ops *sunxi_edp_get_hw_video_ops(void)
+{
+	EDP_ERR("there is no controller selected for sunxi edp!\n");
+	return NULL;
+}
+
+static inline struct sunxi_edp_hw_audio_ops *sunxi_edp_get_hw_audio_ops(void)
 {
 	EDP_ERR("there is no controller selected for sunxi edp!\n");
 	return NULL;

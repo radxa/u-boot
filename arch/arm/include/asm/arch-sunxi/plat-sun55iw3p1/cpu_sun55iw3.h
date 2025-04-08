@@ -11,6 +11,7 @@
 #define SUNXI_EHCI0_BASE              (SUNXI_USB0_BASE + 0x1000)
 #define SUNXI_EHCI1_BASE              (SUNXI_USB1_BASE)
 #define SUNXI_USBOTG_BASE             (SUNXI_USB0_BASE)
+#define SUNXI_PCIE_BASE               (SUNXI_PCIE_SYS_BASE)
 #define SUNXI_KEYADC_BASE             (SUNXI_LRADC_BASE)
 #if defined(CONFIG_SOUND_SUNXI_DSP_DMAC)
 #define SUNXI_DMA_BASE                (SUNXI_DSP_DMA_BASE)

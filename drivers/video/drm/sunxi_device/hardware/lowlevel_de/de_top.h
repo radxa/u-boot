@@ -29,6 +29,7 @@ struct de_top_display_cfg {
 	unsigned int device_index;
 	unsigned long rcq_header_addr;
 	unsigned int rcq_header_byte;
+	unsigned int pixel_mode;
 };
 
 enum de_rtwb_mode {

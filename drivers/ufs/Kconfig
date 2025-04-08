@@ -1,0 +1,15 @@
+menu "UFS Host controller Support"
+
+config UFS
+	bool "UFS  support"
+	#default ARM || PPC || SANDBOX
+	default n
+	select HAVE_BLOCK_DEVICE
+	#select CMD_MMC
+	help
+	  This selects UFS.
+
+	  If you want UFS, you should say Y here and
+	  also to your specific host controller driver.
+endmenu
+

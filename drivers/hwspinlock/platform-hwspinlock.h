@@ -19,4 +19,7 @@
 #include "platform/hwspinlock-sun55iw3.h"
 #endif
 
+#if defined(CONFIG_MACH_SUN60IW2)
+#include "platform/hwspinlock-sun60iw2.h"
+#endif
 #endif /* __HWSPINLOCK_PLATFORM_H__ */

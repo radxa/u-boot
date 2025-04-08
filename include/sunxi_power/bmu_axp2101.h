@@ -49,6 +49,7 @@
 #define   AXP2101_TS_L            (0x37)
 #define   AXP2101_TS_CFG          (0x50)
 
+#define   AXP2101_BAT_DET             	(0x68)
 #define   AXP2101_FUEL_GAUGE_CTL       	(0x18)
 #define   AXP210X_REG_CONFIG    			(0xA2)
 #define   AXP2101_BAT_PERCEN_CAL			(0xA4)

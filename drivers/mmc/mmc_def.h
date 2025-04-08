@@ -25,7 +25,7 @@ typedef volatile void __iomem *iom;
 #define MMC_MSG_EN	(1U)
 #define MMCMSG(d, fmt, args...) do {if ((d)->msglevel & MMC_MSG_EN)  pr_err("[mmc]: "fmt, ##args); } while (0)
 
-#define DRIVER_VER  "uboot2018:2023-08-29 10:12:00"
+#define DRIVER_VER  "uboot2018:2024-10-18 9:01:00"
 
 //secure storage relate
 #define MAX_SECURE_STORAGE_MAX_ITEM             32

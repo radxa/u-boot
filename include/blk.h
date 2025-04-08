@@ -34,7 +34,7 @@ enum if_type {
 	IF_TYPE_NVME,
 	IF_TYPE_EFI,
 	IF_TYPE_SUNXI_FLASH,
-
+	IF_TYPE_SUNXI_FLASH_UFS,
 	IF_TYPE_COUNT,			/* Number of interface types */
 };
 
@@ -139,6 +139,9 @@ struct blk_desc {
 					unsigned start,
 					unsigned blkcnt);
 	void		*priv;		/* driver private struct pointer */
+#if CONFIG_IS_ENABLED(AW_BLK)
+	struct udevice *bdev;
+#endif
 #endif
 };
 
@@ -442,6 +445,237 @@ int blk_select_hwpart(struct udevice *dev, int hwpart);
 int blk_get_from_parent(struct udevice *parent, struct udevice **devp);
 
 #else
+
+#if CONFIG_IS_ENABLED(AW_BLK)
+struct udevice;
+
+/* Operations on block devices */
+struct blk_ops {
+	/**
+	 * read() - read from a block device
+	 *
+	 * @dev:	Device to read from
+	 * @start:	Start block number to read (0=first)
+	 * @blkcnt:	Number of blocks to read
+	 * @buffer:	Destination buffer for data read
+	 * @return number of blocks read, or -ve error number (see the
+	 * IS_ERR_VALUE() macro
+	 */
+	unsigned long (*read)(struct udevice *dev, lbaint_t start,
+			      lbaint_t blkcnt, void *buffer);
+
+	/**
+	 * write() - write to a block device
+	 *
+	 * @dev:	Device to write to
+	 * @start:	Start block number to write (0=first)
+	 * @blkcnt:	Number of blocks to write
+	 * @buffer:	Source buffer for data to write
+	 * @return number of blocks written, or -ve error number (see the
+	 * IS_ERR_VALUE() macro
+	 */
+	unsigned long (*write)(struct udevice *dev, lbaint_t start,
+			       lbaint_t blkcnt, const void *buffer);
+
+	/**
+	 * erase() - erase a section of a block device
+	 *
+	 * @dev:	Device to (partially) erase
+	 * @start:	Start block number to erase (0=first)
+	 * @blkcnt:	Number of blocks to erase
+	 * @return number of blocks erased, or -ve error number (see the
+	 * IS_ERR_VALUE() macro
+	 */
+	unsigned long (*erase)(struct udevice *dev, lbaint_t start,
+			       lbaint_t blkcnt);
+
+	/**
+	 * select_hwpart() - select a particular hardware partition
+	 *
+	 * Some devices (e.g. MMC) can support partitioning at the hardware
+	 * level. This is quite separate from the normal idea of
+	 * software-based partitions. MMC hardware partitions must be
+	 * explicitly selected. Once selected only the region of the device
+	 * covered by that partition is accessible.
+	 *
+	 * The MMC standard provides for two boot partitions (numbered 1 and 2),
+	 * rpmb (3), and up to 4 addition general-purpose partitions (4-7).
+	 *
+	 * @desc:	Block device to update
+	 * @hwpart:	Hardware partition number to select. 0 means the raw
+	 *		device, 1 is the first partition, 2 is the second, etc.
+	 * @return 0 if OK, -ve on error
+	 */
+	int (*select_hwpart)(struct udevice *dev, int hwpart);
+};
+
+#define blk_get_ops(dev)	((struct blk_ops *)(dev)->driver->ops)
+
+/*
+ * These functions should take struct udevice instead of struct blk_desc,
+ * but this is convenient for migration to driver model. Add a 'd' prefix
+ * to the function operations, so that blk_read(), etc. can be reserved for
+ * functions with the correct arguments.
+ */
+unsigned long aw_blk_dread(struct blk_desc *block_dev, lbaint_t start,
+			lbaint_t blkcnt, void *buffer);
+unsigned long aw_blk_dwrite(struct blk_desc *block_dev, lbaint_t start,
+			 lbaint_t blkcnt, const void *buffer);
+unsigned long aw_blk_derase(struct blk_desc *block_dev, lbaint_t start,
+			 lbaint_t blkcnt);
+
+/**
+ * blk_find_device() - Find a block device
+ *
+ * This function does not activate the device. The device will be returned
+ * whether or not it is activated.
+ *
+ * @if_type:	Interface type (enum if_type_t)
+ * @devnum:	Device number (specific to each interface type)
+ * @devp:	the device, if found
+ * @return 0 if found, -ENODEV if no device found, or other -ve error value
+ */
+int blk_find_device(int if_type, int devnum, struct udevice **devp);
+
+/**
+ * blk_get_device() - Find and probe a block device ready for use
+ *
+ * @if_type:	Interface type (enum if_type_t)
+ * @devnum:	Device number (specific to each interface type)
+ * @devp:	the device, if found
+ * @return 0 if found, -ENODEV if no device found, or other -ve error value
+ */
+int blk_get_device(int if_type, int devnum, struct udevice **devp);
+
+/**
+ * blk_first_device() - Find the first device for a given interface
+ *
+ * The device is probed ready for use
+ *
+ * @devnum:	Device number (specific to each interface type)
+ * @devp:	the device, if found
+ * @return 0 if found, -ENODEV if no device, or other -ve error value
+ */
+int blk_first_device(int if_type, struct udevice **devp);
+
+/**
+ * blk_next_device() - Find the next device for a given interface
+ *
+ * This can be called repeatedly after blk_first_device() to iterate through
+ * all devices of the given interface type.
+ *
+ * The device is probed ready for use
+ *
+ * @devp:	On entry, the previous device returned. On exit, the next
+ *		device, if found
+ * @return 0 if found, -ENODEV if no device, or other -ve error value
+ */
+int blk_next_device(struct udevice **devp);
+
+/**
+ * blk_create_device() - Create a new block device
+ *
+ * @parent:	Parent of the new device
+ * @drv_name:	Driver name to use for the block device
+ * @name:	Name for the device
+ * @if_type:	Interface type (enum if_type_t)
+ * @devnum:	Device number, specific to the interface type, or -1 to
+ *		allocate the next available number
+ * @blksz:	Block size of the device in bytes (typically 512)
+ * @lba:	Total number of blocks of the device
+ * @devp:	the new device (which has not been probed)
+ */
+int blk_create_device(struct udevice *parent, const char *drv_name,
+		      const char *name, int if_type, int devnum, int blksz,
+		      lbaint_t lba, struct udevice **devp);
+
+/**
+ * blk_create_devicef() - Create a new named block device
+ *
+ * @parent:	Parent of the new device
+ * @drv_name:	Driver name to use for the block device
+ * @name:	Name for the device (parent name is prepended)
+ * @if_type:	Interface type (enum if_type_t)
+ * @devnum:	Device number, specific to the interface type, or -1 to
+ *		allocate the next available number
+ * @blksz:	Block size of the device in bytes (typically 512)
+ * @lba:	Total number of blocks of the device
+ * @devp:	the new device (which has not been probed)
+ */
+int blk_create_devicef(struct udevice *parent, const char *drv_name,
+		       const char *name, int if_type, int devnum, int blksz,
+		       lbaint_t lba, struct udevice **devp);
+
+/**
+ * blk_prepare_device() - Prepare a block device for use
+ *
+ * This reads partition information from the device if supported.
+ *
+ * @dev:	Device to prepare
+ * @return 0 if ok, -ve on error
+ */
+int blk_prepare_device(struct udevice *dev);
+
+/**
+ * blk_unbind_all() - Unbind all device of the given interface type
+ *
+ * The devices are removed and then unbound.
+ *
+ * @if_type:	Interface type to unbind
+ * @return 0 if OK, -ve on error
+ */
+int blk_unbind_all(int if_type);
+
+/**
+ * blk_find_max_devnum() - find the maximum device number for an interface type
+ *
+ * Finds the last allocated device number for an interface type @if_type. The
+ * next number is safe to use for a newly allocated device.
+ *
+ * @if_type:	Interface type to scan
+ * @return maximum device number found, or -ENODEV if none, or other -ve on
+ * error
+ */
+int blk_find_max_devnum(enum if_type if_type);
+
+/**
+ * blk_select_hwpart() - select a hardware partition
+ *
+ * Select a hardware partition if the device supports it (typically MMC does)
+ *
+ * @dev:	Device to update
+ * @hwpart:	Partition number to select
+ * @return 0 if OK, -ve on error
+ */
+int blk_select_hwpart(struct udevice *dev, int hwpart);
+
+/**
+ * blk_get_from_parent() - obtain a block device by looking up its parent
+ *
+ * All devices with
+ */
+int blk_get_from_parent(struct udevice *parent, struct udevice **devp);
+
+
+struct blk_desc *aw_blk_get_devnum_by_type(enum if_type if_type, int devnum);
+struct blk_desc *aw_blk_get_devnum_by_typename(const char *if_typename,
+					    int devnum);
+int aw_blk_dselect_hwpart(struct blk_desc *desc, int hwpart);
+int aw_blk_list_part(enum if_type if_type);
+void aw_blk_list_devices(enum if_type if_type);
+int aw_blk_show_device(enum if_type if_type, int devnum);
+int aw_blk_print_device_num(enum if_type if_type, int devnum);
+int aw_blk_print_part_devnum(enum if_type if_type, int devnum);
+ulong aw_blk_read_devnum(enum if_type if_type, int devnum, lbaint_t start,
+		      lbaint_t blkcnt, void *buffer);
+ulong aw_blk_write_devnum(enum if_type if_type, int devnum, lbaint_t start,
+		       lbaint_t blkcnt, const void *buffer);
+int aw_blk_select_hwpart_devnum(enum if_type if_type, int devnum, int hwpart);
+const char *aw_blk_get_if_type_name(enum if_type if_type);
+int aw_blk_common_cmd(int argc, char * const argv[], enum if_type if_type,
+		   int *cur_devnump);
+#endif
+
 #include <errno.h>
 /*
  * These functions should take struct udevice instead of struct blk_desc,
@@ -452,6 +686,11 @@ int blk_get_from_parent(struct udevice *parent, struct udevice **devp);
 static inline ulong blk_dread(struct blk_desc *block_dev, lbaint_t start,
 			      lbaint_t blkcnt, void *buffer)
 {
+#ifdef CONFIG_AW_BLK
+	if (block_dev->if_type == IF_TYPE_NVME)
+		return aw_blk_dread(block_dev, start, blkcnt, buffer);
+#endif
+
 	ulong blks_read;
 	if (blkcache_read(block_dev->if_type, block_dev->devnum,
 			  start, blkcnt, block_dev->blksz, buffer))
@@ -473,6 +712,11 @@ static inline ulong blk_dread(struct blk_desc *block_dev, lbaint_t start,
 static inline ulong blk_dwrite(struct blk_desc *block_dev, lbaint_t start,
 			       lbaint_t blkcnt, const void *buffer)
 {
+#ifdef CONFIG_AW_BLK
+	if (block_dev->if_type == IF_TYPE_NVME)
+		return aw_blk_dwrite(block_dev, start, blkcnt, buffer);
+#endif
+
 	blkcache_invalidate(block_dev->if_type, block_dev->devnum);
 	return block_dev->block_write(block_dev, start, blkcnt, buffer);
 }
@@ -480,6 +724,11 @@ static inline ulong blk_dwrite(struct blk_desc *block_dev, lbaint_t start,
 static inline ulong blk_derase(struct blk_desc *block_dev, lbaint_t start,
 			       lbaint_t blkcnt)
 {
+#ifdef CONFIG_AW_BLK
+	if (block_dev->if_type == IF_TYPE_NVME)
+		return aw_blk_derase(block_dev, start, blkcnt);
+#endif
+
 	blkcache_invalidate(block_dev->if_type, block_dev->devnum);
 	return block_dev->block_erase(block_dev, start, blkcnt);
 }

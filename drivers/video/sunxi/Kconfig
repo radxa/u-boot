@@ -128,7 +128,7 @@ config DISP2_AMP_PREVIEW_DISPLAY_TMP_TEST
 menuconfig AW_HDMI_TX_DISP2
        tristate "HDMI Tx Driver Support(sunxi-disp2)"
        depends on (DISP2_SUNXI)
-       default y
+       default n
        help
        hdmi tx driver for sunxi based boards
 
@@ -327,14 +327,14 @@ config EINK200_SUNXI
 config COMPATIBLE_PANEL
 	bool "LCD compatible panel"
 	depends on (DISP2_SUNXI)
-	default y
+	default n
 	---help---
     LCD COMPATIBLE PANEL
 
 config COMPATIBLE_PANEL_RECORD
 	bool "record LCD compatible panel"
 	depends on (COMPATIBLE_PANEL)
-	default y
+	default n
 	---help---
 	if y, record the using panel and NOT try every compatible
 	panel after the first boot to reduce boot time.
@@ -365,3 +365,15 @@ config SUNXI_FASTLOGO_JPEG
 	default n
 	---help---
 	  fastlogo jepg decode support
+
+config SUNXI_KSC
+	bool "SUNXI_KSC"
+	default n
+	help
+	  ksc smooth display support
+
+config SUNXI_PRAM_MEM
+	bool "Using pram to malloc memory"
+	default n
+	help
+	  CONFIG_PRAM must be greater then 0.

@@ -323,6 +323,22 @@ int sunxi_flash_boot_init(int storage_type, int workmode)
 	} break;
 #endif
 
+
+#ifdef CONFIG_SUNXI_UFS
+	case STORAGE_UFS: {
+		if (workmode == WORK_MODE_CARD_PRODUCT)
+			current_flash = &sunxi_ufss_desc;
+		else
+			current_flash = &sunxi_ufs_desc;
+		state		      = current_flash->init(workmode, 0);
+
+#ifdef CONFIG_SUNXI_RECOVERY_BOOT0_COPY0
+		sunxi_flash_ufs_recover_boot0_copy0();
+#endif
+	} break;
+#endif
+
+
 #ifdef CONFIG_SUNXI_SPINOR
 	case STORAGE_NOR: {
 		current_flash = &sunxi_spinor_desc;
@@ -361,6 +377,16 @@ int sunxi_flash_probe(void)
 			break;
 		printf("try emmc fail\n");
 #endif
+
+#ifdef CONFIG_SUNXI_UFS
+		current_flash = &sunxi_ufss_desc;
+		state	 = current_flash->probe();
+		if (state == 0)
+			break;
+		printf("try UFS fail\n");
+#endif
+
+
 
 #ifdef CONFIG_SUNXI_NAND
 		current_flash = &sunxi_nand_desc;
@@ -406,6 +432,7 @@ bit 0 -- nand exist
 #define BAORD_NAND_MASK 0x1
 #define BAORD_EMMC_MASK 0x2
 #define BAORD_NOR_MASK 0x4
+#define BAORD_UFS_MASK 0x8
 
 void set_board_flash_type(SUNXI_BOOT_STORAGE boardflash)
 {
@@ -418,6 +445,9 @@ void set_board_flash_type(SUNXI_BOOT_STORAGE boardflash)
 		break;
 	case STORAGE_NOR:
 		global_boardflash |= BAORD_NOR_MASK;
+		break;
+	case STORAGE_UFS:
+		global_boardflash |= BAORD_UFS_MASK;
 		break;
 	default:
 		printf("no support board flash");
@@ -433,6 +463,8 @@ int get_board_flash_type_exist(SUNXI_BOOT_STORAGE boardflash)
 		return global_boardflash & BAORD_EMMC_MASK;
 	case STORAGE_NOR:
 		return global_boardflash & BAORD_NOR_MASK;
+	case STORAGE_UFS:
+		return global_boardflash & BAORD_UFS_MASK;
 	default:
 		return 0;
 	}
@@ -459,6 +491,17 @@ int sunxi_board_flash_probe(void)
 		}
 		printf("try emmc fail\n");
 #endif
+
+#ifdef CONFIG_SUNXI_UFS
+		board_flash = &sunxi_ufss_desc;
+		state	    = board_flash->probe();
+		if (state == 0) {
+			set_board_flash_type(STORAGE_UFS);
+		}
+		printf("try UFS fail\n");
+#endif
+
+
 
 #ifdef CONFIG_SUNXI_NAND
 		board_flash = &sunxi_nand_desc;
@@ -648,6 +691,13 @@ int sunxi_flash_upload_boot0(char *buffer, int size, int backup_id)
 		ret = card_read_boot0(buffer, size, backup_id);
 		break;
 #endif
+#ifdef CONFIG_SUNXI_UFS
+	case STORAGE_UFS:
+		ret = card_read_boot0(buffer, size, backup_id);
+		break;
+#endif
+
+
 	default:
 		pr_debug("%s:not support storage type %d\n", __func__, storage_type);
 		ret = -1;
@@ -836,6 +886,14 @@ int read_boot_package(int storage_type, void *package_buf)
 		ret = sunxi_flash_phyread(sunxi_flashmap_offset(FLASHMAP_SDMMC, TOC1), read_len/512, package_buf);
 		break;
 #endif
+
+#ifdef CONFIG_SUNXI_UFS
+	case STORAGE_UFS:
+		ret = sunxi_flash_phyread(sunxi_flashmap_offset(FLASHMAP_UFS, TOC1)/8, read_len/4096, package_buf);
+		break;
+#endif
+
+
 #ifdef CONFIG_SUNXI_SPINOR
 	case STORAGE_NOR:
 		ret = sunxi_flash_phyread(sunxi_flashmap_offset(FLASHMAP_SPI_NOR, TOC1), read_len/512, package_buf);
@@ -954,10 +1012,11 @@ static unsigned long sunxi_block_read(struct blk_desc *block_dev,
 				      void *buffer)
 {
 	int storage_type = get_boot_storage_type();
-	/* debug("addr = %d, len = %d\n", (uint)start, (uint)blkcnt); */
+	/*debug("addr = %d, len = %d\n", (uint)start, (uint)blkcnt);*/
 	if (get_boot_work_mode() == WORK_MODE_CARD_PRODUCT ||
 		(storage_type == STORAGE_SD) || (storage_type == STORAGE_EMMC)
-			|| (storage_type == STORAGE_EMMC0))
+			|| (storage_type == STORAGE_EMMC0)
+			|| (storage_type == STORAGE_UFS))
 		return sunxi_flash_phyread((uint)start, (uint)blkcnt, (void *)buffer);
 	else
 		return sunxi_flash_read((uint)start, (uint)blkcnt, (void *)buffer);
@@ -968,10 +1027,11 @@ static unsigned long sunxi_block_write(struct blk_desc *block_dev,
 				       const void *buffer)
 {
 	int storage_type = get_boot_storage_type();
-	/* debug("addr = %d, len = %d\n", (uint)start, (uint)blkcnt); */
+	/*debug("addr = %d, len = %d\n", (uint)start, (uint)blkcnt);*/
 	if (get_boot_work_mode() == WORK_MODE_CARD_PRODUCT ||
 		(storage_type == STORAGE_SD) || (storage_type == STORAGE_EMMC)
-			|| (storage_type == STORAGE_EMMC0))
+			|| (storage_type == STORAGE_EMMC0)
+			|| (storage_type == STORAGE_UFS))
 		return sunxi_flash_phywrite((uint)start, (uint)blkcnt, (void *)buffer);
 	else
 		return sunxi_flash_write((uint)start, (uint)blkcnt, (void *)buffer);

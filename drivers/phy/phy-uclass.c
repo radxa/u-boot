@@ -55,7 +55,13 @@ int generic_phy_get_by_index(struct udevice *dev, int index,
 	if (ret) {
 		debug("%s: uclass_get_device_by_ofnode failed: err=%d\n",
 		      __func__, ret);
-		return ret;
+		ret = uclass_get_device_by_ofnode(UCLASS_PHY, ofnode_get_parent(args.node),
+					 &phydev);
+		if (ret) {
+			debug("%s: uclass_get_device_by_ofnode from parent failed: err=%d\n",
+				__func__, ret);
+			return ret;
+		}
 	}
 
 	phy->dev = phydev;

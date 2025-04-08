@@ -41,6 +41,27 @@
 
 #ifndef USE_HOSTCC
 
+#ifdef CONFIG_SUNXI_COMP_DETECT
+/*
+ * Compression type and magic number mapping table.
+ */
+struct comp_magic_map {
+	int		comp_id;
+	const char	*name;
+	unsigned char	magic[2];
+};
+
+static const struct comp_magic_map image_comp[] = {
+	{	IH_COMP_BZIP2,	"bzip2",	{0x42, 0x5a},},
+	{	IH_COMP_GZIP,	"gzip",		{0x1f, 0x8b},},
+	{	IH_COMP_LZMA,	"lzma",		{0x5d, 0x00},},
+	{	IH_COMP_LZO,	"lzo",		{0x89, 0x4c},},
+	{	IH_COMP_LZ4,    "lz4",          {0x04, 0x22},},
+	//{	IH_COMP_ZSTD,   "zstd",         {0x28, 0xb5},},
+	{	IH_COMP_NONE,	"none",		{},	},
+};
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 bootm_headers_t images;		/* pointers to os/initrd/fdt images */
@@ -439,6 +460,23 @@ static int handle_decomp_error(int comp_type, size_t uncomp_size,
 	return BOOTM_ERR_RESET;
 }
 
+#ifdef CONFIG_SUNXI_COMP_DETECT
+int image_decomp_type(const unsigned char *buf, ulong len)
+{
+	const struct comp_magic_map *cmagic = image_comp;
+
+	if (len < 2)
+		return -EINVAL;
+
+	for (; cmagic->comp_id > 0; cmagic++) {
+		if (!memcmp(buf, cmagic->magic, 2))
+			break;
+	}
+
+	return cmagic->comp_id;
+}
+#endif
+
 int bootm_decomp_image(int comp, ulong load, ulong image_start, int type,
 		       void *load_buf, void *image_buf, ulong image_len,
 		       uint unc_len, ulong *load_end)
@@ -446,17 +484,30 @@ int bootm_decomp_image(int comp, ulong load, ulong image_start, int type,
 	int ret = 0;
 
 #ifdef CONFIG_SUNXI_COMP_DETECT
-
-	#define GZIP_MAGIC 0x8b1f
-
 	if (comp == IH_COMP_DETECT) {
-		if ((*(unsigned int *)image_buf & 0xffff) == GZIP_MAGIC) {
-			comp = IH_COMP_GZIP;
+		//image_decomp_type() cp from uboot-2023
+		comp = image_decomp_type(image_buf, sizeof(u32));
+		switch (comp) {
+		case IH_COMP_GZIP:
 			printf("Detect comp gzip\n");
-		} else {
+			break;
+		case IH_COMP_BZIP2:
+			printf("Detect comp bzip2\n");
+			break;
+		case IH_COMP_LZMA:
+			printf("Detect comp lzma\n");
+			break;
+		case IH_COMP_LZO:
+			printf("Detect comp lzo\n");
+			break;
+		case IH_COMP_LZ4:
+			printf("Detect comp lz4\n");
+			break;
+		default:
 			comp = IH_COMP_NONE;
 			printf("Detect comp none\n");
 		}
+
 	}
 #endif
 

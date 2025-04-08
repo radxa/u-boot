@@ -43,6 +43,11 @@ timing mode
 #define SUNXI_MMC_TIMING_MODE_4 4U
 #define SUNXI_MMC_TIMING_MODE_5 5U
 
+#define SUNXI_MMC_CLK_FPGA	0U
+#define SUNXI_MMC_CLK_ORGN	1U
+#define SUNXI_MMC_CLK_COM	2u
+#define SUNXI_MMC_CLK_TYP1	3u
+
 #define MMC_CLK_SAMPLE_POINIT_MODE_0 8U
 #define MMC_CLK_SAMPLE_POINIT_MODE_1 3U
 #define MMC_CLK_SAMPLE_POINIT_MODE_2 2U
@@ -260,7 +265,6 @@ struct mmc_des_v4p1 {
 		own:1; /* des owner:1-idma owns it, 0-host owns it */
 
 #define SDXC_DES_NUM_SHIFT 12  /* smhc2!! */
-#define SDXC_DES_BUFFER_MAX_LEN	(1 << SDXC_DES_NUM_SHIFT)
 	u32	data_buf1_sz:16,
 		data_buf2_sz:16;
 
@@ -295,6 +299,8 @@ struct sunxi_mmc_priv {
 
 	/*sample delay and output deley setting*/
 	u32 timing_mode;
+	/*clk set mode*/
+	u32 clk_mode;
 	struct sunxi_mmc_timing_mode0 tm0;
 	struct sunxi_mmc_timing_mode1 tm1;
 	struct sunxi_mmc_timing_mode2 tm2;
@@ -327,6 +333,7 @@ struct sunxi_mmc_priv {
 			struct mmc *mmc);
 	void (*sunxi_mmc_core_init)(struct mmc *mmc);
 	void (*sunxi_mmc_clk_io_onoff)(int sdc_no, int onoff, int reset_clk);
+	int (*sunxi_mmc_set_clk)(struct sunxi_mmc_priv *priv, unsigned int hz, unsigned int mod_hz, unsigned int *fid);
 };
 
 struct sunxi_mmc_plat {

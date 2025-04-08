@@ -123,13 +123,22 @@ static struct de_version_bld de350 = {
 	.bld = &de350_blds[0],
 };
 
-
-/* 2 bld, 1 mode */
-static const struct de_bld_port_mux_mode de355_modes[2][1] = {
+/* 2 bld, 2 mode */
+static const struct de_bld_port_mux_mode de355_modes[2][2] = {
 	{
 		{
-			.name = "v0u0u1",
+			.name = "v0v2u0u1u2",
 			.mode_id = 0,
+			.channel_cnt = 5,
+			.channel_id[0] = VIDEO_CHANNEL_ID(0),
+			.channel_id[1] = VIDEO_CHANNEL_ID(2),
+			.channel_id[2] = UI_CHANNEL_ID(0),
+			.channel_id[3] = UI_CHANNEL_ID(1),
+			.channel_id[4] = UI_CHANNEL_ID(2),
+		},
+		{
+			.name = "v0u0u1",
+			.mode_id = 1,
 			.channel_cnt = 3,
 			.channel_id[0] = VIDEO_CHANNEL_ID(0),
 			.channel_id[1] = UI_CHANNEL_ID(0),
@@ -138,8 +147,14 @@ static const struct de_bld_port_mux_mode de355_modes[2][1] = {
 	},
 	{
 		{
-			.name = "v2u2",
+			// single display is null
+			.name = "null",
 			.mode_id = 0,
+			.channel_cnt = 0,
+		},
+		{
+			.name = "v2u2",
+			.mode_id = 1,
 			.channel_cnt = 2,
 			.channel_id[0] = VIDEO_CHANNEL_ID(2),
 			.channel_id[1] = UI_CHANNEL_ID(2),

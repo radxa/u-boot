@@ -1,0 +1,1 @@
+ksc110_reg_obj = ksc_reg.o

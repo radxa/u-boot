@@ -14,6 +14,10 @@ config SUNXI_PMU_EXT
 	bool "Sunxi pmu_ext support"
 	---help---
 	Select this to enable support for PMU_EXT
+config SUNXI_PMU_GENERAL
+	bool "Sunxi pmu_general support"
+	---help---
+	Select this to enable support for CONFIG_SUNXI_PMU_GENERAL
 config SUNXI_BMU_EXT
 	bool "Sunxi bmu_ext support"
 	---help---
@@ -40,13 +44,22 @@ config AXP858_POWER
 	Say y here to enable support for the axp858 pmic found on some
 	A50 PMU dev board
 
-config AXP2585_POWER
-	bool "bmu axp2585 pmic support"
+config AXP515_POWER
+	bool "bmu axp515 pmic support"
 	depends on SUNXI_BMU
 	select AXP_PMIC_BUS
 	select CMD_POWEROFF
 	---help---
-	Say y here to enable support for the axp2585 pmic found on some
+	Say y here to enable support for the axp515 pmic found on some
+	A50 BMU dev board
+
+config AXP517_POWER
+	bool "bmu axp517 pmic support"
+	depends on SUNXI_BMU
+	select AXP_PMIC_BUS
+	select CMD_POWEROFF
+	---help---
+	Say y here to enable support for the axp517 pmic found on some
 	A50 BMU dev board
 
 config AXP2101_POWER
@@ -139,6 +152,22 @@ config SY8827G_POWER
 	Say y here to enable support for the sy8827g pmic found on some
 	sun50iw10p1 PMU dev board, with axp2202
 
+config OCP2131_POWER
+	bool "pmu ocp2131 pmic support"
+	depends on SUNXI_PMU_GENERAL
+	select AXP_PMIC_BUS
+	select CMD_POWEROFF
+	---help---
+	Say y here to enable support for the ocp2131 pmic
+
+config AW37501_POWER
+	bool "pmu aw37501 pmic support"
+	depends on SUNXI_PMU_GENERAL
+	select AXP_PMIC_BUS
+	select CMD_POWEROFF
+	---help---
+	Say y here to enable support for the aw37501 pmic
+
 config ETA6973_POWER
 	bool "bmu eta6973 pmic support"
 	depends on SUNXI_BMU_EXT
@@ -157,10 +186,24 @@ config AXP519_POWER
 	Say y here to enable support for the axp519 & axp2601 pmic found on some
 	sun55iw3p1 PMU dev board, with axp2202
 
+config AXP2601_POWER
+	bool "bmu axp2601 pmic support"
+	depends on SUNXI_BMU
+	select AXP_PMIC_BUS
+	select CMD_POWEROFF
+	---help---
+	Say y here to enable support for the single axp2601 pmic
+
 config SUNXI_UBOOT_POWER_OFF
 	bool "Sunxi uboot power off"
 	---help---
 	Select this to enable support for uboot power off
+
+config SUNXI_GPIO_NOT_CTRL_BY_POWER
+	default y if SUNXI_GPIO_POWER_VOL_MODE
+	bool "Sunxi gpio function not control by power manager"
+	---help---
+	Select this to disable power manager control gpio
 
 endif
 

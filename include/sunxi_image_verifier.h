@@ -27,6 +27,9 @@ extern int verify_image_by_vbmeta(const char *image_name,
 #ifdef CONFIG_SUNXI_VERIFY_DSP
 extern int sunxi_verify_dsp(ulong img_addr, u32 img_len, u32 dsp_id);
 #endif
+#ifdef CONFIG_SUNXI_VERIFY_RISCV
+extern int sunxi_verify_riscv(ulong img_addr, u32 img_len, u32 riscv_id);
+#endif
 
 int sunxi_verify_mips(void *buff, uint len, void *cert, unsigned cert_len);
 

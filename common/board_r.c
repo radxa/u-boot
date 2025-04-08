@@ -551,6 +551,15 @@ static int initr_sunxi_plat(void)
 		ret = sunxi_flash_init_ext();
 		if (ret)
 			return ret;
+
+#ifdef CONFIG_SUNXI_UFS
+	int storage_type = get_boot_storage_type();
+	if (workmode == WORK_MODE_BOOT && storage_type == STORAGE_UFS) {
+		ret = sunxi_flash_ufs_blk_init_ext();
+		if (ret)
+			return ret;
+	}
+#endif
 #endif
 	}
 #ifdef CONFIG_SUNXI_MELIS_AUTO_UPDATE

@@ -99,7 +99,7 @@ uint32_t sunxi_get_boot_device(void)
 	return -1;		/* Never reached */
 }
 
-void reset_cpu(ulong addr)
+__weak void sunxi_board_reset_cpu(ulong addr)
 {
 #if defined(CONFIG_SUNXI_WDT_V2)
 	static const struct sunxi_wdog *wdog = (struct sunxi_wdog *)SUNXI_WDT_BASE;
@@ -160,6 +160,11 @@ void reset_cpu(ulong addr)
 		while (1) { }
 
 #endif
+}
+
+void reset_cpu(ulong addr)
+{
+	sunxi_board_reset_cpu(addr);
 }
 
 void * board_fdt_blob_setup(void)

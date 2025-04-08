@@ -7,11 +7,20 @@
  * sunxi-inno-combophy.c:	chenhuaqiang <chenhuaqiang@allwinnertech.com>
  */
 
-#include <common.h>
-#include <linux/types.h>
-#include <asm/arch/clock.h>
-#include <asm/io.h>
+#include <dm.h>
+#include <fdtdec.h>
+#include <fdt_support.h>
+#include <iotrace.h>
+#include <dm/device.h>
+#include <dm/ofnode.h>
+#include <dm/of_access.h>
+#include <generic-phy.h>
 #include <dt-bindings/phy/phy.h>
+#include <clk/clk.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+#include <linux/bitops.h>
+#include <asm/arch/clock.h>
 
 #define SUNXI_COMBOPHY_CTL_BASE	0x04f00000
 #define SUNXI_COMBOPHY_CLK_BASE	0x04f80000
@@ -110,8 +119,6 @@ struct sunxi_combphy {
 	struct regulator *select3v3_supply;
 	bool initialized;
 };
-
-struct sunxi_combphy combphy;
 
 static void sunxi_combphy_usb3_phy_set(struct sunxi_combphy *combphy, bool enable)
 {
@@ -429,9 +436,9 @@ static int sunxi_combphy_set_mode(struct sunxi_combphy *combphy)
 	return 0;
 }
 
-int sunxi_combphy_init(void *phy)
+static int sunxi_inno_phy_init(struct phy *phy)
 {
-	struct sunxi_combphy *combphy = (struct sunxi_combphy *)(phy);
+	struct sunxi_combphy *combphy = dev_get_priv(phy->dev);
 	int ret;
 
 	ret = sunxi_combphy_set_mode(combphy);
@@ -529,9 +536,8 @@ static void pcie_usb3_sub_system_enable(struct sunxi_combphy *combphy)
 	combphy->vernum = combo_sysver_get(combphy);
 }
 
-static int pcie_usb3_sub_system_init(void *phy)
+static int pcie_usb3_sub_system_init(struct sunxi_combphy *combphy)
 {
-	struct sunxi_combphy *combphy = (struct sunxi_combphy *)(phy);
 	unsigned long reg_value = 0;
 	struct sunxi_ccm_reg *const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
@@ -559,23 +565,46 @@ static int pcie_usb3_sub_system_init(void *phy)
 	return 0;
 }
 
+static int sunxi_inno_phy_probe(struct udevice *dev)
+{
+	struct sunxi_combphy *combphy = dev_get_priv(dev);
+	int ret;
+
+	memset(combphy, 0, sizeof(*combphy));
+	combphy->drvdata = (struct sunxi_combophy_of_data *)dev_get_driver_data(dev);
+	combphy->user = PHY_USE_BY_PCIE;	/* 0:PCIE; 1:USB3 */
+	combphy->mode = PHY_TYPE_PCIE;
+	combphy->phy_ctl = (void *)SUNXI_COMBOPHY_CTL_BASE;
+	combphy->phy_clk = (void *)SUNXI_COMBOPHY_CLK_BASE;
+	combphy->ref = EXTER_DIF_REF_CLK;
+
+	ret = pcie_usb3_sub_system_init(combphy);
+	if (ret)
+		printf("failed to init sub system\n");
+
+	return 0;
+}
+
 static const struct sunxi_combophy_of_data sunxi_inno_v1_of_data = {
 	.has_cfg_clk = false,
 };
 
-void sunxi_combphy_cfg_init(void)
-{
-	int ret;
+static const struct phy_ops sunxi_inno_phy_ops = {
+	.init		= sunxi_inno_phy_init,
+};
 
-	memset(&combphy, 0, sizeof(combphy));
-	combphy.drvdata = &sunxi_inno_v1_of_data;
-	combphy.user = PHY_USE_BY_PCIE;	/* 0:PCIE; 1:USB3 */
-	combphy.mode = PHY_TYPE_PCIE;
-	combphy.phy_ctl = (void *)SUNXI_COMBOPHY_CTL_BASE;
-	combphy.phy_clk = (void *)SUNXI_COMBOPHY_CLK_BASE;
-	combphy.ref = EXTER_DIF_REF_CLK;
+static const struct udevice_id sunxi_inno_phy_of_match_table[] = {
+	{
+		.compatible = "allwinner,inno-combphy",
+		.data = (ulong)&sunxi_inno_v1_of_data,
+	},
+};
 
-	ret = pcie_usb3_sub_system_init(&combphy);
-	if (ret)
-		printf("failed to init sub system\n");
-}
+U_BOOT_DRIVER(sunxi_inno_combophy) = {
+	.name	= "sunxi_inno_combophy",
+	.id	= UCLASS_PHY,
+	.of_match = sunxi_inno_phy_of_match_table,
+	.ops = &sunxi_inno_phy_ops,
+	.probe = sunxi_inno_phy_probe,
+	.priv_auto_alloc_size = sizeof(struct sunxi_combphy),
+};
