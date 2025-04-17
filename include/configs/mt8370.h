@@ -85,7 +85,7 @@
 	"fdtoverlay_addr_r=0x44c00000\0" \
 	"fdt_resize=0x3000\0" \
 	"kernel_addr_r=0x45000000\0" \
-	"ramdisk_addr_r=0x46000000\0" \
+	"ramdisk_addr_r=0x49000000\0" \
 	"fdtfile=" CONFIG_DEFAULT_FDT_FILE ".dtb\0" \
 	"splashimage=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
 	"splashsource=mmc_fs\0" \
@@ -100,7 +100,7 @@
 	"fdtoverlay_addr_r=0x44c00000\0" \
 	"fdt_resize=0x3000\0" \
 	"kernel_addr_r=0x45000000\0" \
-	"ramdisk_addr_r=0x46000000\0" \
+	"ramdisk_addr_r=0x49000000\0" \
 	"fdtfile=" CONFIG_DEFAULT_FDT_FILE ".dtb\0" \
 	"splashimage=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
 	"splashsource=sf\0" \
