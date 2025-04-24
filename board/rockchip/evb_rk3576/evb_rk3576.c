@@ -11,6 +11,23 @@
  #include <linux/usb/phy-rockchip-usbdp.h>
  #include <asm/io.h>
  #include <rockusb.h>
+#include <adc.h>
+#include <command.h>
+#include <dm.h>
+#include <env.h>
+#include <log.h>
+
+#define SARADC_ADDR	"adc@2ae00000"
+#define HW_ID_CHANNEL	2
+
+#define countof(x) (sizeof(x) / sizeof(x[0]))
+
+struct variant_def {
+	char *compatible;
+	unsigned int hw_id_lower_bound;
+	unsigned int hw_id_upper_bound;
+	char *fdtfile;
+};
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -85,4 +102,61 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 	dwc3_uboot_exit(index);
 	return 0;
 }
+#endif
+
+#ifdef CONFIG_ID_EEPROM
+static struct variant_def variants[] = {
+	{"radxa,rock-4d-spi", 380, 460, "rockchip/rk3576-rock-4d-spi.dtb"},
+	{"radxa,rock-4d", 1190,1270, "rockchip/rk3576-rock-4d.dtb"},
+};
+
+static void set_fdtfile(void)
+{
+	int i, ret;
+	unsigned int hw_id;
+	struct variant_def *v;
+
+	ret = adc_channel_single_shot(SARADC_ADDR, HW_ID_CHANNEL, &hw_id);
+	if (ret) {
+		pr_err("%s: adc_channel_single_shot fail for HW_ID: %i!\n", __func__, ret);
+		return;
+	}
+	
+	for(i = 0; i < countof(variants); i++) {
+		v = &variants[i];
+		if (hw_id >= v->hw_id_lower_bound && hw_id <= v->hw_id_upper_bound) {
+			printf("Found matching variant %s for hw_id 0x%x, setting fdtfile to %s\n", v->compatible, hw_id, v->fdtfile);
+			env_set("fdtfile", v->fdtfile);
+			break;
+		} else {
+			printf("Checking variant: %s, hw_id 0x%x not in range [0x%x, 0x%x]\n",
+			       v->compatible, hw_id, v->hw_id_lower_bound, v->hw_id_upper_bound);
+		}
+	}
+}
+
+/**
+ * mac_read_from_eeprom() - read the MAC address & the serial number in EEPROM
+ *
+ * This function reads the MAC address and the serial number from EEPROM and
+ * sets the appropriate environment variables for each one read.
+ *
+ * The environment variables are only set if they haven't been set already.
+ * This ensures that any user-saved variables are never overwritten.
+ *
+ * If CONFIG_ID_EEPROM is enabled, this function will be called in
+ * "static init_fnc_t init_sequence_r[]" of u-boot/common/board_r.c.
+ */
+int mac_read_from_eeprom(void)
+{
+	set_fdtfile();
+	return 0;
+}
+
+int do_mac(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+{
+	printf("This device does not support user programmable EEPROM.\n");
+	return -1;
+}
+
 #endif
