@@ -2176,6 +2176,15 @@ static inline void vop2_mask_write(struct vop2 *vop2, u32 offset,
 	writel(v, vop2->regs + offset);
 }
 
+static inline void vop2_mask_write_no_uncached(struct vop2 *vop2, u32 offset,
+					       u32 mask, u32 shift, u32 v)
+{
+	u32 cached_val = vop2->regsbak[offset >> 2];
+
+	v = (cached_val & ~(mask << shift)) | ((v & mask) << shift);
+	writel(v, vop2->regs + offset);
+}
+
 static inline void vop2_grf_writel(struct vop2 *vop, void *grf_base, u32 offset,
 				   u32 mask, u32 shift, u32 v)
 {
@@ -2485,8 +2494,8 @@ static void rk3588_vop2_load_lut(struct vop2 *vop2, int crtc_id,
 				0, false);
 	vop2_mask_write(vop2, RK3568_VP0_DSP_CTRL + vp_offset,
 			EN_MASK, DSP_LUT_EN_SHIFT, 1, false);
-	vop2_mask_write(vop2, RK3568_VP0_DSP_CTRL + vp_offset,
-			EN_MASK, GAMMA_UPDATE_EN_SHIFT, 1, false);
+	vop2_mask_write_no_uncached(vop2, RK3568_VP0_DSP_CTRL + vp_offset,
+				    EN_MASK, GAMMA_UPDATE_EN_SHIFT, 1);
 }
 
 static int rockchip_vop2_gamma_lut_init(struct vop2 *vop2,
