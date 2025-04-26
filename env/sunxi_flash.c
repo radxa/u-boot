@@ -45,6 +45,15 @@ static void use_sprite_env(void)
 	return;
 }
 
+#ifdef CONFIG_DISTRO_DEFAULTS
+const uchar sunxi_distro_environment[] = {
+#ifdef CONFIG_EXTRA_ENV_SETTINGS
+	CONFIG_EXTRA_ENV_SETTINGS
+#endif
+	"\0"
+};
+#endif
+
 #if defined(CONFIG_CMD_SAVEENV) && !defined(CONFIG_SPL_BUILD)
 static inline int write_env(struct blk_desc *desc, uint blk_cnt, uint blk_start,
 			    const void *buffer)

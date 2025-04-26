@@ -22,6 +22,7 @@
 #include <mapmem.h>
 #include <fdt_support.h>
 #include <asm/bootm.h>
+#include <asm/io.h>
 #include <asm/secure.h>
 #include <linux/compiler.h>
 #include <bootm.h>
@@ -369,6 +370,7 @@ static void boot_jump_linux(bootm_headers_t *images, int flag)
 		memcpy((void *)r2, images->ft_addr, images->ft_len);
 	} else
 		r2 = gd->bd->bi_boot_params;
+
 	debug("## Linux machid: %08lx, FDT addr: %08lx\n", machid, r2);
 #ifdef CONFIG_SUNXI_INITRD_ROUTINE
 	if (env_get_hex("ramdisk_size", 0) != 0) {
@@ -512,6 +514,7 @@ int do_bootm_linux(int flag, int argc, char * const argv[],
 		return 0;
 	}
 
+	tick_printf("%s %d  kernel_addr: 0x%x\n", __func__, __LINE__, readl(0x42000000));
 	boot_prep_linux(images);
 	boot_jump_linux(images, flag);
 	return 0;
