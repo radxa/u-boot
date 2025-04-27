@@ -348,7 +348,7 @@
 #define ACLK_JPEG_ROOT			340
 #define ACLK_VPU_LOW_ROOT		341
 #define HCLK_RGA2E_0			342
-#define ACLK_RGA2E_0			342
+#define ACLK_RGA2E_0			343
 #define CLK_CORE_RGA2E_0		344
 #define ACLK_JPEG			345
 #define HCLK_JPEG			346
@@ -552,6 +552,12 @@
 #define SCLK_DDR			550
 #define ACLK_CRYPTO_NS			551
 #define CLK_PKA_CRYPTO_NS		552
+#define ACLK_RKVDEC_ROOT_BAK		553
+#define CLK_AUDIO_FRAC_0_SRC		554
+#define CLK_AUDIO_FRAC_1_SRC		555
+#define CLK_AUDIO_FRAC_2_SRC		556
+#define CLK_AUDIO_FRAC_3_SRC		557
+#define PCLK_HDPTX_APB			558
 
 /* secure clk */
 #define CLK_STIMER0_ROOT		600
