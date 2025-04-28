@@ -180,6 +180,10 @@
 	status = "okay";
 };
 
+&sdmmc0 {
+       u-boot,dm-spl;
+};
+
 &sdmmc0_bus4 {
 	u-boot,dm-spl;
 };
