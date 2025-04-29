@@ -300,8 +300,9 @@ __weak int rockchip_dnl_key_pressed(void)
 {
 #if defined(CONFIG_DM_KEY)
 	return key_is_pressed(key_read(KEY_VOLUMEUP));
+#endif
 
-#elif defined(CONFIG_ADC)
+#if defined(CONFIG_ADC)
 	const void *blob = gd->fdt_blob;
 	int node, ret, channel = 1;
 	u32 val, chns[2];
