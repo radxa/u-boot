@@ -8,6 +8,38 @@
 /dts-v1/;
 #include "rk3588s-radxa-e54c.dts"
 
+/ {
+	led_lan1: led-lan1 {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "led_lan1";
+		enable-active-low;
+		gpio = <&gpio0 RK_PD3 GPIO_ACTIVE_LOW>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	led_lan2: led-lan2 {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "led_lan2";
+		enable-active-low;
+		gpio = <&gpio1 RK_PB6 GPIO_ACTIVE_LOW>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	led_lan3: led-lan3 {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "led_lan3";
+		enable-active-low;
+		gpio = <&gpio1 RK_PB7 GPIO_ACTIVE_LOW>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+};
+
 &sdhci {
 	status = "disabled";
 };
