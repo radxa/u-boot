@@ -77,7 +77,6 @@ static int nvme_setup_prps(struct nvme_dev *dev, u64 *prp2,
 	int i, nprps;
 	u32 prps_per_page = (page_size >> 3) - 1;
 	u32 num_pages;
-
 	length -= (page_size - offset);
 
 	if (length <= 0) {
@@ -804,7 +803,6 @@ static int nvme_probe(struct udevice *udev)
 	struct nvme_dev *ndev = dev_get_priv(udev);
 
 	ndev->instance = trailing_strtol(udev->name);
-
 	INIT_LIST_HEAD(&ndev->namespaces);
 	ndev->bar = dm_pci_map_bar(udev, PCI_BASE_ADDRESS_0,
 			PCI_REGION_MEM);
@@ -821,7 +819,6 @@ static int nvme_probe(struct udevice *udev)
 		goto free_nvme;
 	}
 	memset(ndev->queues, 0, NVME_Q_NUM * sizeof(struct nvme_queue *));
-
 	ndev->cap = nvme_readq(&ndev->bar->cap);
 	ndev->q_depth = min_t(int, NVME_CAP_MQES(ndev->cap) + 1, NVME_Q_DEPTH);
 	ndev->db_stride = 1 << NVME_CAP_STRIDE(ndev->cap);
@@ -830,6 +827,14 @@ static int nvme_probe(struct udevice *udev)
 	ret = nvme_configure_admin_queue(ndev);
 	if (ret)
 		goto free_queue;
+	/* Allocate after the page size is known */
+	ndev->prp_pool = memalign(ndev->page_size, MAX_PRP_POOL);
+	if (!ndev->prp_pool) {
+		ret = -ENOMEM;
+		printf("Error: %s: Out of memory!\n", udev->name);
+		goto free_nvme;
+	}
+	ndev->prp_entry_num = MAX_PRP_POOL >> 3;
 
 	/* Allocate after the page size is known */
 	ndev->prp_pool = memalign(ndev->page_size, MAX_PRP_POOL);
