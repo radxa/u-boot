@@ -10,8 +10,14 @@
 / {
 	model = "Radxa ROCK Pi 4C";
 	compatible = "radxa,rockpi4c", "radxa,rockpi4", "rockchip,rk3399";
-};
 
-&vcc5v0_host {
-	gpio = <&gpio3 30 GPIO_ACTIVE_HIGH>;
+	vcc5v0_host: vcc5v0-host-en {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_host";
+		gpio = <&gpio3 RK_PD6 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
 };
