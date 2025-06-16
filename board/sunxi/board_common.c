@@ -686,6 +686,9 @@ int board_env_late_init(void)
 #ifdef CONFIG_SUNXI_KEYBOX
 		sunxi_keybox_init();
 #endif
+#ifdef CONFIG_SUNXI_ENABLE_FEL_VERIFY
+		sunxi_sid_enable_verify_fel();
+#endif
 	}
 	return 0;
 }

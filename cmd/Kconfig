@@ -213,7 +213,6 @@ config CMD_BOOTZ
 
 config CMD_BOOTI
 	bool "booti"
-	depends on ARM64 || RISCV
 	default y
 	help
 	  Boot an AArch64 Linux Kernel image from memory.

@@ -642,7 +642,9 @@ union dphy_pll_pat0_t {
 	__u32 dwval;
 	struct {
 		__u32 sdm_bot                 :  17 ;    /* default: 0x3; */
-		__u32 sdm_step                :  12 ;    /* default: 0; */
+		__u32 frequency		      :  2 ;
+		__u32 sdm_dir		      :  1 ;
+		__u32 sdm_step                :  9 ;    /* default: 0; */
 		__u32 sdm_mode                :  2 ;    /* default: 0; */
 		__u32 sdm_en                  :  1 ;    /* default: 0x1; */
 	} bits;
@@ -655,7 +657,7 @@ union dphy_pll_pat1_t {
 		__u32 frc_en                  :  1 ;    /* default: 0; */
 		__u32 dith                    :  1 ;    /* default: 0; */
 		__u32 res0                    :  1 ;    /* default: 0x0; */
-		__u32 sdm_direction           :  1 ;    /* default: 0x0; */
+		__u32 sdm_dir	              :  1 ;    /* default: 0x0; */
 		__u32 res1                    :  1 ;    /* default: 0; */
 		__u32 sdm_cycle               :  10 ;    /* default: 0x0; */
 	} bits;
@@ -774,3 +776,4 @@ int sunxi_dsi_combophy_configure_dsi(struct sunxi_dphy_lcd *dphy, enum phy_mode 
 int sunxi_dsi_combophy_print(struct sunxi_dphy_lcd *dphy);
 int sunxi_dsi_combophy_set_dsi_mode(struct sunxi_dphy_lcd *dphy, int mode);
 int sunxi_dsi_combophy_set_lvds_mode(struct sunxi_dphy_lcd *dphy, bool enable);
+u32 phy_displl_ssc(struct sunxi_dphy_lcd *dphy, u32 precent, u32 dcxo_rate);

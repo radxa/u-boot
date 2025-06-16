@@ -444,5 +444,65 @@ clocks {
 			clock-output-names = "dcxo_serdes1_gate";
 		};
 
+		clk_gmac0: gmac0 {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac0";
+		};
+
+		clk_gmac0_axi: gmac0_axi {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac0_axi";
+		};
+
+		clk_gmac1: gmac1 {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac1";
+		};
+
+		clk_gmac1_axi: gmac1_axi {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac1_axi";
+		};
+
+		clk_gmac0_mbus: gmac0_mbus {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac0_mbus";
+		};
+
+		clk_gmac1_mbus: gmac1_mbus {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac1_mbus";
+		};
+
+		clk_gmac0_phy: gmac0_phy {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac0_phy";
+			assigned-clock-parents = <&clk_pll_periph0_150m>;
+			assigned-clock-rates = <25000000>;
+			assigned-clocks = <&clk_gmac0_phy>;
+
+		};
+
+		clk_gmac1_phy: gmac1_phy {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac1_phy";
+			assigned-clock-parents = <&clk_pll_periph0_150m>;
+			assigned-clock-rates = <25000000>;
+			assigned-clocks = <&clk_gmac1_phy>;
+		};
+
+		clk_gmac_ptp: gmac_ptp {
+			#clock-cells = <0>;
+			compatible = "allwinner,periph-clock";
+			clock-output-names = "gmac_ptp";
+		};
 	};
 };

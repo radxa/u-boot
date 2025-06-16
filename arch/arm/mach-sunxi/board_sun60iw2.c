@@ -21,6 +21,12 @@
 #include <linux/bitops.h>
 #endif
 
+#include <asm/arch-sunxi/efuse.h>
+#include <asm/arch/gpio.h>
+
+#define SUNXI_SOC_VER_B		(0x1)
+#define SUNXI_GPIO_VCCIO	(12)
+
 int sunxi_platform_power_off(int status)
 {
 	int work_mode = get_boot_work_mode();
@@ -218,3 +224,54 @@ int set_efuse_voltage(int status)
 	return 0;
 }
 #endif
+
+int get_group_bit_offset(enum pin_e port_group)
+{
+	switch (port_group) {
+	case GPIO_GROUP_B:
+		return SUNXI_GPIO_VCCIO;
+		break;
+	case GPIO_GROUP_C:
+	case GPIO_GROUP_D:
+	case GPIO_GROUP_E:
+	case GPIO_GROUP_F:
+	case GPIO_GROUP_G:
+	case GPIO_GROUP_H:
+	case GPIO_GROUP_I:
+	case GPIO_GROUP_J:
+	case GPIO_GROUP_K:
+		return port_group;
+		break;
+	default:
+		return -1;
+	}
+	return -1;
+}
+
+enum io_pow_mode_e io_get_volt_val(enum pin_e port_group)
+{
+	uint32_t reg;
+	uint8_t group_bit_offset = get_group_bit_offset(port_group);
+	int ver;
+
+	if ((group_bit_offset < 0) || ((group_bit_offset * 2) >= 32)) {
+		pr_err("get port %d volt error:port error\n", port_group);
+		return IO_MODE_DEFAULT;
+	}
+
+	reg = readl(PIOC_REG_POW_VAL);
+	ver = sunxi_efuse_get_soc_ver();
+	if ((ver == SUNXI_SOC_VER_B)
+			&& (port_group != GPIO_GROUP_C)
+			&& (port_group != GPIO_GROUP_E)
+			&& (port_group != GPIO_GROUP_K))
+		/* (except bank C/E/K): 0 -- 3.3v  1 -- 1.8v */
+		return (!(reg & (1 << (group_bit_offset * 2))) != 0) ?
+			IO_MODE_3_3_V :
+			IO_MODE_1_8_V;
+	else
+		/* (only bank C/E/K): 0 -- 1.8v  1 -- 3.3v */
+		return ((reg & (1 << (group_bit_offset * 2))) != 0) ?
+			IO_MODE_3_3_V :
+			IO_MODE_1_8_V;
+}

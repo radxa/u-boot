@@ -652,6 +652,9 @@ static int auto_update_deal_boot0(int production_media)
 		} else if (production_media == STORAGE_NOR) {
 			imgitemhd = Img_OpenItem(imghd, "12345678",
 						 "1234567890BNOR_0");
+		} else if (production_media == STORAGE_UFS) {
+			imgitemhd = Img_OpenItem(imghd, "12345678",
+						 "1234567890BUFS_0");
 		} else {
 			imgitemhd = Img_OpenItem(imghd, "12345678",
 						 "1234567890BOOT_0");

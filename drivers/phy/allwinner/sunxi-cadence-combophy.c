@@ -298,13 +298,13 @@ void combo0_dp_phy_reset(struct sunxi_cadence_combophy *combo0)
 
 	//PHY RESET
 	phy_writel(combo0->top_reg + 0x00, 0x001);
-	usleep(1000);
+	udelay(1000);
 	//DP LINK RESET
 	phy_writel(combo0->top_reg + 0x00, 0x101);
-	usleep(1000);
+	udelay(1000);
 	//PHY RESET
 	phy_writel(combo0->top_reg + 0x00, 0x131);
-	usleep(1000);
+	udelay(1000);
 
 
 	while (phy0_pma_cmn_ready == 0) {
@@ -326,7 +326,7 @@ void combo0_dp_phy_reset(struct sunxi_cadence_combophy *combo0)
 		phy0_pma_cmn_ready = reg_val;
 	}
 
-	usleep(1000);
+	udelay(1000);
 
 	phy_set_lbits(combo0->top_reg+0x0c, 4, 6, 1);
 

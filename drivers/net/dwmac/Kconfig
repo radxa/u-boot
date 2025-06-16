@@ -1,0 +1,24 @@
+config AW_DWMAC
+	bool "Allwinner DWMAC driver"
+	select NET
+	select NETDEVICES
+	select NET_RANDOM_ETHADDR
+	select PHYLIB
+	select PHY_GIGE
+	select DWC_ETH_QOS_AW
+	select CMD_MII
+	select CMD_NET
+	select CMD_TFTPBOOT
+	select NET_TFTP_VARS
+	select CMD_PING
+	help
+	 Support for Allwinner DWMAC controllers.
+
+if AW_DWMAC
+config DWC_ETH_QOS_AW
+	bool "Synopsys DWC Ethernet QOS device support for Allwinner"
+	depends on !DWC_ETH_QOS
+	help
+	 The Synopsys Designware Ethernet QOS IP block with the specific
+	 configuration used in Allwinner GMAC-1XX/2XX soc.
+endif

@@ -330,6 +330,12 @@ config SUNXI_SET_EFUSE_POWER
 	help
 		Efuse is powered by the pmu.
 
+config SUNXI_ENABLE_FEL_VERIFY
+	bool "enable sunxi sign fel verify"
+	default n
+	help
+		Burn efuse sign fel bit
+
 config SUNXI_FPGA_PLATFORM
 	bool "build for fpga platform"
 	help

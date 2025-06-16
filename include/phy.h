@@ -13,6 +13,7 @@
 #include <linux/mii.h>
 #include <linux/ethtool.h>
 #include <linux/mdio.h>
+#include <dm/ofnode.h>
 
 #define PHY_FIXED_ID		0xa5a55a5a
 
@@ -163,6 +164,7 @@ struct phy_device {
 	struct phy_driver *drv;
 	void *priv;
 
+	ofnode node;
 #ifdef CONFIG_DM_ETH
 	struct udevice *dev;
 #else

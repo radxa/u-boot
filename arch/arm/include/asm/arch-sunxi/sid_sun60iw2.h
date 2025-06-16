@@ -36,6 +36,9 @@
 
 #define SECURE_BIT_OFFSET	0
 
+#define EFUSE_CONFIG		(0x10)
+#define FEL_VERIFY_OFFSET	(11)
+
 /*efuse power ctl*/
 #define EFUSE_HV_SWITCH		(SUNXI_RTC_BASE + 0x204)
 #define EFUSE_ROTPK            (0xB8)

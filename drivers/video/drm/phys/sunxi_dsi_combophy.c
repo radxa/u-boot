@@ -15,6 +15,7 @@
 #include <generic-phy.h>
 #include <drm/drm_print.h>
 #include <phy-mipi-dphy.h>
+#include <asm/arch/clock.h>
 #include <clk/clk.h>
 #include <reset.h>
 
@@ -159,11 +160,25 @@ static int sunxi_dsi_combophy_init(struct phy *phy)
 	return 0;
 }
 
+static int displl_set_spread_spectrum(struct phy *phy, int precent)
+{
+	struct sunxi_dsi_combophy *cphy = dev_get_priv(phy->dev);
+	u32 dcxo_rate = 24000000;
+#if IS_ENABLED(CONFIG_MACH_SUN60IW2)
+	dcxo_rate = get_hosc();
+#endif
+	DRM_INFO("[PHY] %s start\n", __FUNCTION__);
+	phy_displl_ssc(&cphy->dphy_lcd, precent, dcxo_rate);
+
+	return 0;
+}
+
 static const struct phy_ops sunxi_dsi_combophy_ops = {
 	.init = sunxi_dsi_combophy_init,
 	.power_on = sunxi_dsi_combophy_power_on,
 	.power_off = sunxi_dsi_combophy_power_off,
 	.configure = sunxi_dsi_combophy_configure,
+	.set_speed = displl_set_spread_spectrum,
 };
 
 static int sunxi_dsi_combophy_probe(struct udevice *dev)

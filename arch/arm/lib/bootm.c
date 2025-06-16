@@ -354,7 +354,9 @@ static void boot_jump_linux(bootm_headers_t *images, int flag)
 		"...\n", (ulong) kernel_entry);
 	bootstage_mark(BOOTSTAGE_ID_RUN_OS);
 
-	if (IMAGE_ENABLE_OF_LIBFDT && images->ft_len) {
+	if (IS_ENABLED(CONFIG_DISTRO_DEFAULTS)) {
+		r2 = env_get_hex("fdt_addr_r", CONFIG_SUNXI_FDT_ADDR);
+	} else if (IMAGE_ENABLE_OF_LIBFDT && images->ft_len) {
 		r2 = env_get_hex("load_dtb_addr", CONFIG_SUNXI_FDT_ADDR);
 #ifdef CONFIG_SUNXI_ANDROID_OVERLAY
 		if (check_dtbo_idx() == 0) {

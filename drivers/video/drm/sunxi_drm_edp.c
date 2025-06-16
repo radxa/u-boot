@@ -789,6 +789,20 @@ s32 edp_lane_para_parse(struct udevice *dev)
 			lane_para->lane_remap[i] = i;
 	}
 
+	ret = ofnode_read_u32_array(dev->node, "lane_sw", prop_val, prop_len);
+	if (ret == 0) {
+		for (i = 0; i < 4; i++)
+			lane_para->lane_sw[i] = prop_val[i];
+		edp_core->force_level = true;
+	}
+
+	ret = ofnode_read_u32_array(dev->node, "lane_pre", prop_val, prop_len);
+	if (ret == 0) {
+		for (i = 0; i < 4; i++)
+			lane_para->lane_pre[i] = prop_val[i];
+		edp_core->force_level = true;
+	}
+
 	return RET_OK;
 }
 
@@ -2915,7 +2929,8 @@ s32 drm_edp_output_enable(struct sunxi_drm_edp *drm_edp)
 	}
 
 	if (!edp_debug->bypass_training) {
-		ret = edp_main_link_setup(edp_hw, edp_core);
+		ret = edp_main_link_setup(edp_hw, edp_core,
+				false, edp_core->force_level ? true : false);
 		if (ret < 0)
 			goto OUT;
 	}
@@ -3136,7 +3151,8 @@ s32 drm_dp_output_enable(struct sunxi_drm_edp *drm_edp)
 	}
 
 	if (!edp_debug->bypass_training) {
-		ret = edp_main_link_setup(edp_hw, edp_core);
+		ret = edp_main_link_setup(edp_hw, edp_core,
+				false, edp_core->force_level ? true : false);
 		if (ret < 0)
 			return RET_FAIL;
 	}

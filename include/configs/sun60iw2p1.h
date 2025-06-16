@@ -26,12 +26,12 @@
 
 #define SUNXI_SRAM_A2_SIZE		(0x24000 - 0x4000)
 
-#define SUNXI_SYS_SRAM_BASE		SUNXI_SRAM_A2_BASE + 0x4000
+#define SUNXI_SYS_SRAM_BASE		SUNXI_SRAM_A2_BASE + 0x7000
 #define SUNXI_SYS_SRAM_SIZE		SUNXI_SRAM_A2_SIZE
 
 #define CONFIG_SYS_BOOTM_LEN 0x3000000
 
-#define PHOENIX_PRIV_DATA_ADDR      (0x61500)                      //给phoenix保留的空间
+#define PHOENIX_PRIV_DATA_ADDR      (0xEE800)                      //给phoenix保留的空间
 
 /*
  * Include common sunxi configuration where most the settings are

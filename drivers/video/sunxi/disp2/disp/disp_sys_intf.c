@@ -1902,9 +1902,11 @@ int disp_sys_power_set_voltage(char *name, u32 vol)
 	if (!ret)
 		__wrn("enable power %s, ret=%d\n", name, ret);
 #ifdef CONFIG_SUNXI_PMU_EXT
-	ret = pmu_ext_set_voltage(name, vol, -1);
-	if (!ret)
-		__wrn("enable power_ext %s, ret=%d\n", name, ret);
+	if (ret != 0) {
+		ret = pmu_ext_set_voltage(name, vol, -1);
+		if (!ret)
+			__wrn("enable power_ext %s, ret=%d\n", name, ret);
+	}
 #endif
 #else
 	__wrn("SUNXI_POWER is not enabled!\n");
@@ -1925,9 +1927,11 @@ int disp_sys_power_get_voltage(char *name)
 	if (!ret)
 		__wrn("enable power %s, ret=%d\n", name, ret);
 #ifdef CONFIG_SUNXI_PMU_EXT
-	ret = pmu_ext_get_voltage(name);
-	if (!ret)
-		__wrn("enable power_ext %s, ret=%d\n", name, ret);
+	if (ret != 0) {
+		ret = pmu_ext_get_voltage(name);
+		if (!ret)
+			__wrn("enable power_ext %s, ret=%d\n", name, ret);
+	}
 #endif
 #else
 	__wrn("SUNXI_POWER is not enabled!\n");
@@ -1948,9 +1952,11 @@ int disp_sys_power_enable(char *name)
 	if (!ret)
 		__wrn("enable power %s, ret=%d\n", name, ret);
 #ifdef CONFIG_SUNXI_PMU_EXT
-	ret = pmu_ext_set_voltage(name, 0, 1);
-	if (!ret)
-		__wrn("enable power_ext %s, ret=%d\n", name, ret);
+	if (ret != 0) {
+		ret = pmu_ext_set_voltage(name, 0, 1);
+		if (!ret)
+			__wrn("enable power_ext %s, ret=%d\n", name, ret);
+	}
 #endif
 #else
 	__wrn("SUNXI_POWER is not enabled!\n");

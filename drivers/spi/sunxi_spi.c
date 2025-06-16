@@ -846,9 +846,6 @@ static int sunxi_spi_clk_exit(u32 bus)
 static int sunxi_spi_cpu_writel(struct sunxi_spi_slave *sspi, const unsigned char *buf, unsigned int len)
 {
 	void __iomem *base_addr = (void __iomem *)(unsigned long)sspi->base_addr;
-#ifndef CONFIG_DMA_ENGINE
-	unsigned char time;
-#endif
 	unsigned int tx_len = len;	/* number of bytes receieved */
 	unsigned char *tx_buf = (unsigned char *)buf;
 	unsigned int poll_time = 0x7ffffff;
@@ -857,15 +854,16 @@ static int sunxi_spi_cpu_writel(struct sunxi_spi_slave *sspi, const unsigned cha
 	printf("spi tx: %d bytes\n", len);
 	/*sunxi_dump(tx_buf, len);*/
 #endif
-	for (; tx_len > 0; --tx_len) {
-		writeb(*tx_buf++, base_addr + SPI_TXDATA_REG);
-		if (spi_query_txfifo(base_addr) >= MAX_FIFU)
-			for (time = 2; 0 < time; --time)
-				;
+	while (tx_len && (poll_time > 0)) {
+		if (spi_query_txfifo(base_addr) >= MAX_FIFU) {
+			--poll_time;
+		} else {
+			writeb(*tx_buf++, base_addr + SPI_TXDATA_REG);
+			--tx_len;
+			poll_time = 0x7ffffff;
+		}
 	}
 
-	while (spi_query_txfifo(base_addr) && (--poll_time > 0))
-		;
 	if (poll_time <= 0) {
 		SPI_ERR("cpu transfer data time out!\n");
 		return -1;

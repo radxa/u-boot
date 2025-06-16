@@ -232,6 +232,96 @@ static u32 sunxi_dsi_comb_dphy_pll_set(struct sunxi_dphy_lcd *dphy, u64 hs_clk_r
 	return 0;
 }
 
+u32 phy_displl_ssc(struct sunxi_dphy_lcd *dphy, u32 precent, u32 dcxo_rate)
+{
+	u32 n, m0, m1, p;
+	u32 bot, top, cent;
+	u32 wb, ws;
+	u32 ssc_cycle, ssc_frq, sdm_clk;
+	u32 mode = 0;
+
+	n = dphy->reg->dphy_pll_reg0.bits.n + 1;
+	m0 = dphy->reg->dphy_pll_reg0.bits.m0 + 1;
+	m1 = dphy->reg->dphy_pll_reg0.bits.m1 + 1;
+	p = dphy->reg->dphy_pll_reg0.bits.p;
+
+	sdm_clk = dcxo_rate / (p + 1);
+
+	wb = dphy->reg->dphy_pll_pat0.bits.sdm_bot;
+	ws = dphy->reg->dphy_pll_pat0.bits.sdm_step;
+	switch (mode) {
+	case 0:
+		ssc_frq = 31500;
+		break;
+	case 1:
+		ssc_frq = 32000;
+		break;
+	case 2:
+		ssc_frq = 32500;
+		break;
+	case 3:
+		ssc_frq = 33000;
+		break;
+	default:
+		return -1;
+	}
+
+	bot = 10 * sdm_clk / (1 << 17) * wb / 10 + sdm_clk * n;
+	top = sdm_clk * (dcxo_rate / 1000000) / (p + 1) / (1 << 17) * 1000000 *
+		ws / ssc_frq / 2 + bot;
+	cent = bot / 2 + top / 2;
+	ssc_cycle = (sdm_clk + ssc_frq) / ssc_frq / 2;
+
+	while ((cent / 1000 * precent) > sdm_clk) {
+		if (m1 <= 1) {
+			printk("ssc out of rang!\n");
+			return -1;
+		} else {
+			m1 = m1 / 2;
+			n = n / 2;
+			bot = 10 * sdm_clk / (1 << 17) * wb / 10 + sdm_clk * n;
+			top = sdm_clk * (dcxo_rate / 1000000) / (p + 1) / (1 << 17) * 1000000 *
+				ws / ssc_frq / 2 + bot;
+			cent = bot / 2 + top / 2;
+		}
+	}
+
+	dphy->reg->dphy_pll_reg0.bits.n = n - 1;
+	dphy->reg->dphy_pll_reg0.bits.m1 = m1 - 1;
+
+	//new config
+	bot = cent - cent / 1000 * precent / 2;
+	top = cent + cent / 1000 * precent / 2;
+	if (bot < sdm_clk * n) {
+		top += (sdm_clk * n - bot);
+		bot = sdm_clk*n;
+	}
+	if (top > sdm_clk * (n + 1)) {
+		bot -= (top - sdm_clk * (n + 1) + 10);
+		top = sdm_clk * (n + 1) - 10;
+	}
+	cent = (bot + top) / 2;
+
+	wb = (bot- sdm_clk * n) / 10000 * (1 << 17) / (dcxo_rate / 10000) / (p + 1);
+	ws = (top - bot) / 10000 * (1 << 17) / (dcxo_rate / 10000) / (p + 1) *
+		2 / 1000 * ssc_frq / (dcxo_rate / 1000) / (p + 1);
+
+	dphy->reg->dphy_pll_pat0.bits.sdm_bot = wb;
+	dphy->reg->dphy_pll_pat0.bits.sdm_step = ws;
+	dphy->reg->dphy_pll_pat0.bits.sdm_mode = 2;
+
+	dphy->reg->dphy_pll_pat1.bits.sdm_cycle = ssc_cycle;
+	dphy->reg->dphy_pll_pat1.bits.sdm_dir = 0;
+	dphy->reg->dphy_pll_pat0.bits.sdm_en = 1;
+	dphy->reg->dphy_pll_reg0.bits.reg_update = 1;
+	udelay(20);
+
+	printk("frq:%dMHz ~ %dMHz, center frq:%d, ssc_frq:%d, wb:0x%x, ws:0x%x\n",
+			bot / (m0 + 1), top / (m0 + 1), cent / (m0 + 1), ssc_frq, wb, ws);
+
+	return 0;
+}
+
 static u32 sunxi_dsi_io_open(struct sunxi_dphy_lcd *dphy)
 {
 	dphy->reg->dphy_tx_time0.bits.lpx_tm_set =

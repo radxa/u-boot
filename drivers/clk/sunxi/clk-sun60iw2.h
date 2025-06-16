@@ -21,6 +21,14 @@
 #define PLL_VIDEO2          0x0160
 #define PLL_DE              0x02E0
 
+/* gmac */
+#define GMAC_MBUS           0x05E4
+#define GMAC_PTP            0x1400
+#define GMAC0_PHY           0x1410
+#define GMAC0_BUS_GATE_RST  0x141C
+#define GMAC1_PHY           0x1420
+#define GMAC1_BUS_GATE_RST  0x142C
+
 /* Accelerator */
 #define DE0_CFG             0x0A00
 #define DE_GATE             0x0A04

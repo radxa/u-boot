@@ -13,6 +13,8 @@
 #define  de_clk_cfg              de0_clk_reg
 #define  mbus_gate               mbus_mat_clk_gating_reg
 #define  dma_gate_reset          dma0_bgr_reg
+#define spi0_clk_cfg             spi0_clk_reg
+#define spi_gate_reset           spi0_bgr_reg
 #define  sd0_clk_cfg             smhc0_clk_reg
 #define  sd1_clk_cfg             smhc1_clk_reg
 #define  sd2_clk_cfg             smhc2_clk_reg

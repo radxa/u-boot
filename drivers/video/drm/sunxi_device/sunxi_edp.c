@@ -1274,7 +1274,8 @@ s32 edp_link_training(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_
 		return edp_full_link_train(edp_hw, edp_core);
 }
 
-s32 edp_main_link_setup(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core)
+s32 edp_main_link_setup(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core,
+						bool bypass, bool force_level)
 {
 	s32 ret = 0;
 	struct sunxi_edp_hw_video_ops *ops = edp_hw->video_ops;
@@ -1282,16 +1283,35 @@ s32 edp_main_link_setup(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *ed
 	if (ops == NULL)
 		return RET_OK;
 
-	/* DP Link CTS need ech training start from level-0 */
-	edp_lane_training_para_reset(&edp_core->lane_para);
+	/*
+	 * if need force signal test, should use manaual setting level and
+	 * should not reset
+	 */
+	if (!force_level) {
+		/* DP Link CTS need ech training start from level-0 */
+		edp_lane_training_para_reset(&edp_core->lane_para);
+	}
 
 	// disable scrambling before training, because TP1/2/3 use
 	// unscrambled patterns
 	edp_hw_scrambling_enable(edp_hw, false);
 
-	ret = edp_link_training(edp_hw, edp_core);
-	if (ret < 0)
-		return ret;
+	if (bypass) {
+		/* only set lane para and force output if bypass */
+		edp_phy_set_lane_para(edp_core);
+		edp_hw_set_lane_para(edp_hw, edp_core);
+	} else {
+		ret = edp_link_training(edp_hw, edp_core);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* if need force signal test, we force set sw and pre after training */
+	if (force_level) {
+		edp_phy_set_training_para(edp_core);
+		edp_hw_set_training_para(edp_hw, edp_core);
+	}
+
 	ret = edp_training_pattern_clear(edp_hw, edp_core);
 
 	edp_hw_scrambling_enable(edp_hw, true);

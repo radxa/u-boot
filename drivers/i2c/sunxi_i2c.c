@@ -19,6 +19,8 @@
 #include <asm/arch/timer.h>
 #include <sunxi_board.h>
 #include "sunxi_i2c.h"
+#include <fdtdec.h>
+#include <fdt_support.h>
 
 
 /* #define SUNXI_I2C_DEBUG */
@@ -50,6 +52,141 @@
 __attribute__((section(".data")))
 static  struct sunxi_twi_reg *sunxi_i2c[MAX_SUNXI_I2C_NUM] = {NULL, NULL, NULL, NULL};
 
+static int sunxi_get_i2c_bus_num(int i2c_number, bool r_i2c_flag)
+{
+	int i = 0, bus_num = -1;
+	char i2c_name[20];
+
+	if (r_i2c_flag)
+		sprintf(i2c_name, "sunxi_r_i2c%d", i2c_number);
+	else
+		sprintf(i2c_name, "sunxi_i2c%d", i2c_number);
+
+	for (i = 0; i < CONFIG_SYS_NUM_I2C_BUSES; i++) {
+		if (!strcmp(I2C_ADAP_NR(i)->name, i2c_name)) {
+			bus_num = i;
+			break;
+		}
+	}
+
+	return bus_num;
+}
+
+static int find_node_offset_by_alias(void *fdt, const char *alias)
+{
+	int aliases_offset, node_offset;
+	const char *path;
+
+	aliases_offset = fdt_path_offset(fdt, "/aliases");
+	if (aliases_offset < 0) {
+		printf("Error: /aliases node not found\n");
+		return -1;
+	}
+
+	path = fdt_getprop(fdt, aliases_offset, alias, NULL);
+	if (!path) {
+		printf("Error: alias %s not founed\n", alias);
+		return -1;
+	}
+
+	node_offset = fdt_path_offset(fdt, path);
+	if (node_offset < 0) {
+		printf("Error: node for path %s not found\n", path);
+		return -1;
+	}
+
+	return node_offset;
+}
+
+static bool sunxi_check_bind_i2c_from_device_addr(const char *i2c_aliases, u16 device_addr)
+{
+	int node, device_node;
+	const fdt32_t *reg_prop;
+	int addr;
+	const char *i2c_name;
+
+	node = find_node_offset_by_alias(working_fdt, i2c_aliases);
+	if (node >= 0) {
+		device_node = fdt_first_subnode(working_fdt, node);
+		while (device_node >= 0) {
+			i2c_name = fdt_get_name(working_fdt, device_node, NULL);
+
+			reg_prop = fdt_getprop(working_fdt, device_node, "reg", NULL);
+			if (!reg_prop) {
+				device_node = fdt_next_subnode(working_fdt, device_node);
+				continue;
+			}
+
+			/* Convert the reg property to an integer value */
+			addr = fdt32_to_cpu(*reg_prop);
+
+			if (addr == device_addr) {
+				i2c_name = fdt_get_name(working_fdt, node, NULL);
+				debug("device 0x%x at i2c name is: %s\n", device_addr, i2c_name);
+				return true;
+			}
+
+			device_node = fdt_next_subnode(working_fdt, device_node);
+		}
+	}
+
+	return false;
+}
+
+int sunxi_get_i2c_bus_num_from_device_addr(u16 device_addr)
+{
+	int aliases_node;
+	int prop_offset;
+	const char *alias_name;
+	const char *alias_path;
+	const struct fdt_property *prop;
+	int len;
+	int i2c_number = 0;
+	int bus_num = -1;
+	int ret = -1;
+
+	aliases_node = fdt_path_offset(working_fdt, "/aliases");
+	if (aliases_node < 0) {
+		printf("Error: No aliases node found in device tree\n");
+		return -1;
+	}
+
+	fdt_for_each_property_offset(prop_offset, working_fdt, aliases_node) {
+		prop = fdt_get_property_by_offset(working_fdt, prop_offset, &len);
+
+		if (!prop) {
+			printf("Error reading property\n");
+			continue;
+		}
+
+		alias_name = fdt_string(working_fdt, fdt32_to_cpu(prop->nameoff));
+		alias_path = prop->data;
+
+		if (!alias_name)
+			continue;
+
+		if (strncmp(alias_name, "twi", 3) == 0) {
+			alias_path = fdt_getprop_by_offset(working_fdt, prop_offset, NULL, &len);
+			if (alias_path) {
+				debug("Alias:%s -> %s\n", alias_name, alias_path);
+
+				ret = sunxi_check_bind_i2c_from_device_addr(alias_name, device_addr);
+				if (ret) {
+					if (strstr(alias_path, "s_twi")) {
+						/* TODO: select the bus num of sunxi_r_i2c0 temporarily */
+						bus_num = sunxi_get_i2c_bus_num(0, true);
+					} else {
+						i2c_number = simple_strtoul(alias_name + 3, NULL, 10);
+						bus_num = sunxi_get_i2c_bus_num(i2c_number, false);
+					}
+				}
+			}
+		}
+	}
+
+	return bus_num;
+}
+
 static inline void twi_soft_reset(int bus_num)
 {
 	struct sunxi_twi_reg *i2c = sunxi_i2c[bus_num];
@@ -76,7 +213,7 @@ static inline int twi_wait_irq_flag(int bus_num, u32 time)
 {
 	struct sunxi_twi_reg *i2c = sunxi_i2c[bus_num];
 
-	while ((time--) && (!(i2c->ctl & TWI_CTL_INTFLG)))
+	while ((--time) && (!(i2c->ctl & TWI_CTL_INTFLG)))
 		;
 
 	if (time <= 0) {
@@ -112,7 +249,7 @@ static inline int twi_wait_status(int bus_num, u8 status, u32 time)
 {
 	struct sunxi_twi_reg *i2c = sunxi_i2c[bus_num];
 
-	while ((time--) && (i2c->status != status))
+	while ((--time) && (i2c->status != status))
 		;
 
 	if (time <= 0) {
@@ -379,12 +516,80 @@ static void i2c_set_clock(int bus_num, int speed)
 	i2c->eft = 0;
 }
 
+#if defined(CONFIG_MACH_SUN60IW2)
+static uint32_t *sunxi_get_twi_bgr_reg(struct CCMU_st *const ccm, int bus_num)
+{
+	uint32_t *twi_bgr_reg = NULL;
+
+	switch (bus_num) {
+	case 0:
+		twi_bgr_reg = &ccm->twi0_bgr_reg;
+		break;
+	case 1:
+		twi_bgr_reg = &ccm->twi1_bgr_reg;
+		break;
+	case 2:
+		twi_bgr_reg = &ccm->twi2_bgr_reg;
+		break;
+	case 3:
+		twi_bgr_reg = &ccm->twi3_bgr_reg;
+		break;
+	case 4:
+		twi_bgr_reg = &ccm->twi4_bgr_reg;
+		break;
+	case 5:
+		twi_bgr_reg = &ccm->twi5_bgr_reg;
+		break;
+	case 6:
+		twi_bgr_reg = &ccm->twi6_bgr_reg;
+		break;
+	case 7:
+		twi_bgr_reg = &ccm->twi7_bgr_reg;
+		break;
+	case 8:
+		twi_bgr_reg = &ccm->twi8_bgr_reg;
+		break;
+	case 9:
+		twi_bgr_reg = &ccm->twi9_bgr_reg;
+		break;
+	case 10:
+		twi_bgr_reg = &ccm->twi10_bgr_reg;
+		break;
+	case 11:
+		twi_bgr_reg = &ccm->twi11_bgr_reg;
+		break;
+	case 12:
+		twi_bgr_reg = &ccm->twi12_bgr_reg;
+		break;
+	default:
+		I2C_ERR("get twi bgr reg error, bus_num:%d\n", bus_num);
+		break;
+	}
+
+	return twi_bgr_reg;
+}
+#endif
+
 static void sunxi_i2c_bus_setting(int bus_num, int onoff)
 {
 	int reg_value = 0;
 
+#if defined(CONFIG_MACH_SUN300IW1)
+	volatile void __iomem *clk_reg;
+	volatile void __iomem *rst_reg;
+#elif defined(CONFIG_MACH_SUN60IW2)
+	uint32_t *twi_bgr_reg = NULL;
+	struct CCMU_st *const ccm =
+		(struct CCMU_st *)SUNXI_CCM_BASE;
+	twi_bgr_reg = sunxi_get_twi_bgr_reg(ccm, bus_num);
+	if (!twi_bgr_reg) {
+		I2C_ERR("i2c bus setting error\n");
+		return;
+	}
+#else
 	struct sunxi_ccm_reg *const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
+#endif
 
 #if defined(CONFIG_SUNXI_VERSION1)
 #if defined(CONFIG_MACH_SUN8IW11)
@@ -414,6 +619,75 @@ static void sunxi_i2c_bus_setting(int bus_num, int onoff)
 		reg_value = readl(&ccm->apb2_reset_cfg);
 		reg_value &= ~(1 << bus_num);
 		writel(reg_value, &ccm->apb2_reset_cfg);
+	}
+
+#elif defined(CONFIG_MACH_SUN300IW1)
+	if (bus_num == 0) {
+		clk_reg = IOMEM_ADDR(CCMU_BUS_CLK_GATING0_REG);
+		rst_reg = IOMEM_ADDR(CCMU_BUS_Reset0_REG);
+	} else {
+		clk_reg = IOMEM_ADDR(CCMU_BUS_CLK_GATING1_REG);
+		rst_reg = IOMEM_ADDR(CCMU_BUS_Reset1_REG);
+	}
+
+	if (onoff) {
+		/* de-assert */
+		reg_value = readl(rst_reg);
+		reg_value |= ((bus_num == 0) ? \
+		(1 << BUS_Reset0_REG_PRESETN_TWI0_SW_OFFSET) : \
+		(1 << (23 + bus_num)));
+		writel(reg_value, rst_reg);
+		/* gating clock pass */
+		reg_value = readl(clk_reg);
+		reg_value &= ~((bus_num == 0) ? \
+		(1 << BUS_CLK_GATING0_REG_TWI0_PCLK_EN_OFFSET) : \
+		(1 << (23 + bus_num)));
+		writel(reg_value, clk_reg);
+		__msdelay(1);
+		reg_value |= ((bus_num == 0) ? \
+		(1 << BUS_CLK_GATING0_REG_TWI0_PCLK_EN_OFFSET) : \
+		(1 << (23 + bus_num)));
+		writel(reg_value, clk_reg);
+	} else {
+		/* gating clock mask */
+		reg_value = readl(clk_reg);
+		reg_value &= ~((bus_num == 0) ? \
+		(1 << BUS_CLK_GATING0_REG_TWI0_PCLK_EN_OFFSET) : \
+		(1 << (23 + bus_num)));
+		writel(reg_value, clk_reg);
+
+		/* assert */
+		reg_value = readl(rst_reg);
+		reg_value &= ~((bus_num == 0) ? \
+		(1 << BUS_Reset0_REG_PRESETN_TWI0_SW_OFFSET) : \
+		(1 << (23 + bus_num)));
+		writel(reg_value, rst_reg);
+	}
+
+#elif defined(CONFIG_MACH_SUN60IW2)
+	if (onoff) {
+		/* de-assert */
+		reg_value = readl(twi_bgr_reg);
+		reg_value |= (1 << 16);
+		writel(reg_value, twi_bgr_reg);
+
+		/* gating clock pass */
+		reg_value = readl(twi_bgr_reg);
+		reg_value &= ~(1 << 0);
+		writel(reg_value, twi_bgr_reg);
+		__msdelay(1);
+		reg_value |= (1 << 0);
+		writel(reg_value, twi_bgr_reg);
+	} else {
+		/* gating clock mask */
+		reg_value = readl(twi_bgr_reg);
+		reg_value &= ~(1 << 0);
+		writel(reg_value, twi_bgr_reg);
+
+		/* assert */
+		reg_value = readl(twi_bgr_reg);
+		reg_value &= ~(1 << 16);
+		writel(reg_value, twi_bgr_reg);
 	}
 #else
 	if (onoff) {

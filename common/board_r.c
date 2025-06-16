@@ -1063,6 +1063,10 @@ static init_fnc_t init_sequence_r[] = {
 #ifdef CONFIG_SOUND_SUNXI_BOOT_TONE
 	sunxi_boot_tone_play,
 #endif
+#ifdef CONFIG_CMD_NET
+	INIT_FUNC_WATCHDOG_RESET
+	initr_net,
+#endif
 	board_env_late_init,
 #if defined(CONFIG_MICROBLAZE) || defined(CONFIG_M68K)
 	timer_init,		/* initialize timer */
@@ -1086,10 +1090,6 @@ static init_fnc_t init_sequence_r[] = {
 #endif
 #ifdef CONFIG_BITBANGMII
 	initr_bbmii,
-#endif
-#ifdef CONFIG_CMD_NET
-	INIT_FUNC_WATCHDOG_RESET
-	initr_net,
 #endif
 #ifdef CONFIG_POST
 	initr_post,

@@ -73,6 +73,10 @@ typedef struct efuse_key_map_new {
 #define EFUSE_ACL_SET_RD_FORBID_BIT (1 << 30)
 #define EFUSE_BRUN_RD_OFFSET_MASK (0xFFFFFF)
 
+#ifndef EFUSE_BURN_RD_OFFSET_MAX
+#define EFUSE_BURN_RD_OFFSET_MAX	(31)
+#endif
+
 #define EFUSE_DEF_ITEM(name, offset, size_bits, rd_offset, burn_offset, acl)   \
 	{                                                                      \
 		name, offset, size_bits, rd_offset, burn_offset, acl           \
@@ -273,7 +277,7 @@ int sid_get_security_status(void)
 }
 #endif
 
-static void _set_cfg_flg(int efuse_cfg_base, int bit_offset)
+static void _set_cfg_flg(int efuse_cfg_base, uint32_t bit_offset)
 {
 	uni_burn_key(efuse_cfg_base, (uint32_t)(1 << bit_offset));
 	return;
@@ -447,13 +451,13 @@ int sunxi_efuse_write(void *key_inf)
 	}
 	/*Already burned bit: Set this bit to indicate it is already burned.*/
 	if ((key_map->burned_flg_offset >= 0) &&
-	    (key_map->burned_flg_offset <= EFUSE_BRUN_RD_OFFSET_MASK) &&
+	    (key_map->burned_flg_offset <= EFUSE_BURN_RD_OFFSET_MAX) &&
 	    sid_get_security_status()) {
 		_set_cfg_flg(EFUSE_WRITE_PROTECT, key_map->burned_flg_offset);
 	}
 	/*Read forbidden bit: Set to indicate cpu can not access this key again.*/
 	if ((key_map->rd_fbd_offset >= 0) &&
-	    (key_map->rd_fbd_offset <= EFUSE_BRUN_RD_OFFSET_MASK) &&
+	    (key_map->rd_fbd_offset <= EFUSE_BURN_RD_OFFSET_MAX) &&
 	    sid_get_security_status()) {
 		_set_cfg_flg(EFUSE_READ_PROTECT, key_map->rd_fbd_offset);
 	}
@@ -616,3 +620,25 @@ int sunxi_efuse_get_markid(void)
 	return 0;
 }
 #endif
+
+/* Enable BROM's verification for FES and Uboot binaries */
+void sunxi_sid_enable_verify_fel(void)
+{
+#ifdef EFUSE_CONFIG
+	uint reg_val;
+
+	reg_val  = sid_read_key(EFUSE_CONFIG);
+	if (reg_val & (0x1 << FEL_VERIFY_OFFSET)) {
+		EFUSE_DBG("Already burned\n");
+		return;
+	} else {
+		reg_val |= (0x01 << FEL_VERIFY_OFFSET);
+		sid_program_key(EFUSE_CONFIG, reg_val);
+
+		reg_val = (sid_read_key(EFUSE_CONFIG) >> FEL_VERIFY_OFFSET) & 1;
+		printf("Burn Verify-FEL bit %s\n", reg_val ? "OK" : "FAILED");
+	}
+#else
+	EFUSE_DBG("Not implemented\n");
+#endif
+}

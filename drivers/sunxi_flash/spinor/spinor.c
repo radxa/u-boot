@@ -22,6 +22,7 @@
 #include <private_uboot.h>
 #include <asm/io.h>
 #include <boot_param.h>
+#include <sunxi_flashmap.h>
 
 #include "../flash_interface.h"
 #include "../../mtd/spi/sf_internal.h"
@@ -30,6 +31,8 @@
 #include "../../mtd/spi/spif_probe.h"
 
 static struct spi_flash *flash;
+static __u32 normal_boot0_check_sum;
+static u32 secure_boot0_check_sum;
 
 #define SPINOR_DEBUG 0
 
@@ -40,6 +43,8 @@ static struct spi_flash *flash;
 #endif
 
 #define CONFIG_SPINOR_PARAM_SPACE_SIZE 8
+#define	ERASE_SIZE_4KB	(4 * 1024)
+#define	SECTOR_SIZE	512
 
 void dump_spinor_info(boot_spinor_info_t *spinor_info)
 {
@@ -193,7 +198,8 @@ sunxi_flash_spinor_read(uint start_block, uint nblock, void *buffer)
 static int
 sunxi_flash_spinor_read(uint start_block, uint nblock, void *buffer)
 {
-	return _sunxi_flash_spinor_read(sunxi_flashmap_logical_offset(FLASHMAP_SPI_NOR, LINUX_LOGIC_OFFSET) + start_block, nblock, buffer);
+	return _sunxi_flash_spinor_read(sunxi_flashmap_logical_offset(FLASHMAP_SPI_NOR,
+					LINUX_LOGIC_OFFSET) + start_block, nblock, buffer);
 }
 #endif
 static int
@@ -481,7 +487,17 @@ int update_boot_param(struct spi_nor *nor)
 			(const char *)BOOT_PARAM_MAGIC,
 			sizeof(boot_param->header.magic));
 
-	boot_param->header.check_sum = CHECK_SUM;
+if (gd->bootfile_mode  == SUNXI_BOOT_FILE_NORMAL
+		 || gd->bootfile_mode  == SUNXI_BOOT_FILE_PKG) {
+		boot_param->header.boot0_checksum = normal_boot0_check_sum;
+	} else {
+		boot_param->header.boot0_checksum = secure_boot0_check_sum;
+	}
+#ifdef CONFIG_SUNXI_BOOT_PARAM
+	struct sunxi_boot_param_region *gd_boot_param = (struct sunxi_boot_param_region *)gd->boot_param;
+	if (get_boot_work_mode() == WORK_MODE_BOOT || !sunxi_bootparam_format(gd_boot_param))
+		memcpy(boot_param->ddr_info, gd_boot_param->ddr_info, 512);
+#endif
 
 	boot_spinor_info_t *boot_info =
 		(boot_spinor_info_t *)boot_param->spiflash_info;
@@ -515,6 +531,10 @@ int update_boot_param(struct spi_nor *nor)
 
 	if (flash->info->flags & SPI_NOR_4B_OPCODES)
 		boot_info->addr4b_opcodes = 1;
+
+	boot_param->header.check_sum = sunxi_generate_checksum(
+		boot_param, sizeof(typedef_sunxi_boot_param), 1,
+		boot_param->header.check_sum);
 
 	/*
 	 * To not break boot0, switch bits 4K erasing
@@ -550,10 +570,6 @@ sunxi_flash_spinor_download_spl(unsigned char *buffer, int len, unsigned int ext
 		return -1;
 	}
 
-	if (CONFIG_SPINOR_PARAM_SPACE_SIZE)
-		if (update_boot_param(flash))
-			printf("update boot param error\n");
-
 	if(gd->bootfile_mode  == SUNXI_BOOT_FILE_NORMAL
 		 || gd->bootfile_mode  == SUNXI_BOOT_FILE_PKG) {
 
@@ -570,6 +586,8 @@ sunxi_flash_spinor_download_spl(unsigned char *buffer, int len, unsigned int ext
 			boot0->boot_head.check_sum)) {
 			return -1;
 		}
+		normal_boot0_check_sum = boot0->boot_head.check_sum;
+
 	} else {
 		toc0_private_head_t  *toc0	 = (toc0_private_head_t *)buffer;
 		sbrom_toc0_config_t  *toc0_config = NULL;
@@ -586,14 +604,23 @@ sunxi_flash_spinor_download_spl(unsigned char *buffer, int len, unsigned int ext
 			debug("toc0 checksum is error\n");
 			return -1;
 		}
+		secure_boot0_check_sum = toc0->check_sum;
+
 	}
+
+	if (CONFIG_SPINOR_PARAM_SPACE_SIZE)
+		if (update_boot_param(flash))
+			printf("update boot param error\n");
 
 	return (len/512) == _sunxi_flash_spinor_write(0, len/512, buffer) ? 0 : -1;
 }
 
 static int sunxi_sprite_spinor_download_boot_param(void)
 {
-	pr_err("%s: unsupport flash\n", __func__);
+	if (CONFIG_SPINOR_PARAM_SPACE_SIZE && update_boot_param(flash)) {
+		pr_err("%s: write boot_param failed\n", __func__);
+		return -1;
+	}
 	return 0;
 }
 

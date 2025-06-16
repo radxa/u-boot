@@ -175,7 +175,7 @@ int sunxi_gpio_set_pull(u32 pin, u32 val)
 	return 0;
 }
 
-enum io_pow_mode_e io_get_volt_val(enum pin_e port_group)
+__weak enum io_pow_mode_e io_get_volt_val(enum pin_e port_group)
 {
 	uint32_t reg;
 	uint8_t group_bit_offset = port_group;
@@ -212,7 +212,7 @@ void io_pow_mode_disable(enum pin_e port_group)
 	writel(reg, PIOC_REG_POW_MS_CTL);
 }
 
-enum io_pow_mode_e io_get_volt_val(enum pin_e port_group)
+__weak enum io_pow_mode_e io_get_volt_val(enum pin_e port_group)
 {
 	uint32_t reg;
 	int8_t group_bit_offset = get_group_bit_offset(port_group);

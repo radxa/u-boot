@@ -87,10 +87,12 @@
 #define TWI_STAT_IDLE           (0xF8)
 #define TWI_LCR_NORM_STATUS     (0x30)
 
-
-
-
+#if defined(CONFIG_MACH_SUN60IW2)
+#define TWI_CONTROL_OFFSET             0x1000
+#else
 #define TWI_CONTROL_OFFSET             0x400
+#endif
+
 #define SUNXI_I2C_CONTROLLER             5
 
 struct sunxi_twi_reg
@@ -158,6 +160,6 @@ enum {
 	SUNXI_VIR_I2C_BUS_MAX,
 };
 
-
+int sunxi_get_i2c_bus_num_from_device_addr(u16 device_addr);
 #endif /* _SUNXI_I2C_H_ */
 

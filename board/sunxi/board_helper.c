@@ -1447,6 +1447,8 @@ int sunxi_update_partinfo(void)
 			sprintf(part_name, "nand0p%d", index);
 		} else if (storage_type == STORAGE_NOR) {
 			sprintf(part_name, "mtdblock%d", index);
+		} else if ((storage_type == STORAGE_UFS)) {
+			sprintf(part_name, "sda%d", index);
 		} else {
 			sprintf(part_name, "mmcblk0p%d", index);
 		}
@@ -1488,6 +1490,8 @@ int sunxi_update_partinfo(void)
 			env_set("nand_root", root_part_name);
 		else if (storage_type == STORAGE_NOR)
 			env_set("nor_root", root_part_name);
+		else if ((storage_type == STORAGE_UFS))
+			env_set("ufs_root", root_part_name);
 		else
 			env_set("mmc_root", root_part_name);
 	}

@@ -32,6 +32,74 @@
   #endif
 #endif
 
+/* Ethernet support */
+
+/*FIXME: riscv is not currently supported */
+#if defined CONFIG_ARM || defined CONFIG_RISCV
+/*
+ * Boards seem to come with at least 512MB of DRAM.
+ * The kernel should go at 512K, which is the default text offset (that will
+ * be adjusted at runtime if needed).
+ * There is no compression for arm64 kernels (yet), so leave some space
+ * for really big kernels, say 256MB for now.
+ * Scripts, PXE and DTBs should go afterwards, leaving the rest for the initrd.
+ */
+#define BOOTM_SIZE        __stringify(0xa000000)
+#define KERNEL_ADDR_R     __stringify(SDRAM_OFFSET(0080000))
+#define KERNEL_COMP_ADDR_R __stringify(SDRAM_OFFSET(4000000))
+#define KERNEL_COMP_SIZE  __stringify(0xb000000)
+#define FDT_ADDR_R        __stringify(SDRAM_OFFSET(FA00000))
+#define SCRIPT_ADDR_R     __stringify(SDRAM_OFFSET(FC00000))
+#define PXEFILE_ADDR_R    __stringify(SDRAM_OFFSET(FD00000))
+#define FDTOVERLAY_ADDR_R __stringify(SDRAM_OFFSET(FE00000))
+#define RAMDISK_ADDR_R    __stringify(SDRAM_OFFSET(FF00000))
+
+#elif (CONFIG_SUNXI_MINIMUM_DRAM_MB >= 256)
+/*
+ * 160M RAM (256M minimum minus 64MB heap + 32MB for u-boot, stack, fb, etc.
+ * 32M uncompressed kernel, 16M compressed kernel, 1M fdt,
+ * 1M script, 1M pxe, 1M dt overlay and the ramdisk at the end.
+ */
+#define BOOTM_SIZE        __stringify(0xa000000)
+#define KERNEL_ADDR_R     __stringify(SDRAM_OFFSET(2000000))
+#define FDT_ADDR_R        __stringify(SDRAM_OFFSET(3000000))
+#define SCRIPT_ADDR_R     __stringify(SDRAM_OFFSET(3100000))
+#define PXEFILE_ADDR_R    __stringify(SDRAM_OFFSET(3200000))
+#define FDTOVERLAY_ADDR_R __stringify(SDRAM_OFFSET(3300000))
+#define RAMDISK_ADDR_R    __stringify(SDRAM_OFFSET(3400000))
+
+#elif (CONFIG_SUNXI_MINIMUM_DRAM_MB >= 64)
+/*
+ * 64M RAM minus 2MB heap + 16MB for u-boot, stack, fb, etc.
+ * 16M uncompressed kernel, 8M compressed kernel, 1M fdt,
+ * 1M script, 1M pxe, 1M dt overlay and the ramdisk at the end.
+ */
+#define BOOTM_SIZE        __stringify(0x2e00000)
+#define KERNEL_ADDR_R     __stringify(SDRAM_OFFSET(1000000))
+#define FDT_ADDR_R        __stringify(SDRAM_OFFSET(1800000))
+#define SCRIPT_ADDR_R     __stringify(SDRAM_OFFSET(1900000))
+#define PXEFILE_ADDR_R    __stringify(SDRAM_OFFSET(1A00000))
+#define FDTOVERLAY_ADDR_R __stringify(SDRAM_OFFSET(1B00000))
+#define RAMDISK_ADDR_R    __stringify(SDRAM_OFFSET(1C00000))
+
+#elif (CONFIG_SUNXI_MINIMUM_DRAM_MB >= 32)
+/*
+ * 32M RAM minus 2.5MB for u-boot, heap, stack, etc.
+ * 16M uncompressed kernel, 7M compressed kernel, 128K fdt, 64K script,
+ * 128K DT overlay, 128K PXE and the ramdisk in the rest (max. 5MB)
+ */
+#define BOOTM_SIZE        __stringify(0x1700000)
+#define KERNEL_ADDR_R     __stringify(SDRAM_OFFSET(1000000))
+#define FDT_ADDR_R        __stringify(SDRAM_OFFSET(1d50000))
+#define SCRIPT_ADDR_R     __stringify(SDRAM_OFFSET(1d40000))
+#define PXEFILE_ADDR_R    __stringify(SDRAM_OFFSET(1d00000))
+#define FDTOVERLAY_ADDR_R __stringify(SDRAM_OFFSET(1d20000))
+#define RAMDISK_ADDR_R    __stringify(SDRAM_OFFSET(1800000))
+
+#else
+#error Need at least 32MB of DRAM. Please adjust load addresses.
+#endif
+
 #ifdef CONFIG_SUNXI_DEBUG
 #define DEBUG
 #endif
@@ -247,6 +315,15 @@
 /* GPIO */
 #define CONFIG_SUNXI_GPIO
 
+#define MEM_LAYOUT_ENV_SETTINGS \
+	"bootm_size=" BOOTM_SIZE "\0" \
+	"kernel_addr_r=" KERNEL_ADDR_R "\0" \
+	"fdt_addr_r=" FDT_ADDR_R "\0" \
+	"scriptaddr=" SCRIPT_ADDR_R "\0" \
+	"pxefile_addr_r=" PXEFILE_ADDR_R "\0" \
+	"fdtoverlay_addr_r=" FDTOVERLAY_ADDR_R "\0" \
+	"ramdisk_addr_r=" RAMDISK_ADDR_R "\0"
+
 #ifdef CONFIG_VIDEO_SUNXI
 /*
  * The amount of RAM to keep free at the top of RAM when relocating u-boot,
@@ -285,10 +362,41 @@
 
 #ifndef CONFIG_SPL_BUILD
 
+#ifdef CONFIG_MMC
+#if CONFIG_MMC_SUNXI_SLOT_EXTRA != -1
+#define BOOTENV_DEV_MMC_AUTO(devtypeu, devtypel, instance)		\
+	BOOTENV_DEV_MMC(MMC, mmc, 0)					\
+	BOOTENV_DEV_MMC(MMC, mmc, 1)					\
+	"bootcmd_mmc_auto="						\
+		"if test ${mmc_bootdev} -eq 1; then "			\
+			"run bootcmd_mmc1; "				\
+			"run bootcmd_mmc0; "				\
+		"elif test ${mmc_bootdev} -eq 0; then "			\
+			"run bootcmd_mmc0; "				\
+			"run bootcmd_mmc1; "				\
+		"fi\0"
+
+#define BOOTENV_DEV_NAME_MMC_AUTO(devtypeu, devtypel, instance) \
+	"mmc_auto "
+
+#define BOOT_TARGET_DEVICES_MMC(func) func(MMC_AUTO, mmc_auto, na)
+#else
+#define BOOT_TARGET_DEVICES_MMC(func) func(MMC, mmc, 0)
+#endif
+#else
+#define BOOT_TARGET_DEVICES_MMC(func)
+#endif
+
 #ifdef CONFIG_AHCI
 #define BOOT_TARGET_DEVICES_SCSI(func) func(SCSI, scsi, 0)
 #else
 #define BOOT_TARGET_DEVICES_SCSI(func)
+#endif
+
+#ifdef CONFIG_CMD_PXE
+#define BOOT_TARGET_DEVICES_PXE(func) func(PXE, pxe, na)
+#else
+#define BOOT_TARGET_DEVICES_PXE(func)
 #endif
 
 #ifdef CONFIG_USB_STORAGE
@@ -297,6 +405,22 @@
 #define BOOT_TARGET_DEVICES_USB(func)
 #endif
 
+/* FEL boot support, auto-execute boot.scr if a script address was provided */
+#define BOOTENV_DEV_FEL(devtypeu, devtypel, instance) \
+	"bootcmd_fel=" \
+		"if test -n ${fel_booted} && test -n ${fel_scriptaddr}; then " \
+			"echo '(FEL boot)'; " \
+			"source ${fel_scriptaddr}; " \
+		"fi\0"
+#define BOOTENV_DEV_NAME_FEL(devtypeu, devtypel, instance) \
+	"fel "
+
+#define BOOT_TARGET_DEVICES(func) \
+	func(FEL, fel, na) \
+	BOOT_TARGET_DEVICES_MMC(func) \
+	BOOT_TARGET_DEVICES_SCSI(func) \
+	BOOT_TARGET_DEVICES_USB(func) \
+	BOOT_TARGET_DEVICES_PXE(func)
 
 #include <config_distro_bootcmd.h>
 
@@ -306,7 +430,11 @@
 #define FDTFILE CONFIG_DEFAULT_DEVICE_TREE ".dtb"
 #endif
 
-#define CONFIG_EXTRA_ENV_SETTINGS
+#define CONFIG_EXTRA_ENV_SETTINGS \
+	MEM_LAYOUT_ENV_SETTINGS \
+	"fdtfile=" FDTFILE "\0" \
+	BOOTENV
+
 #else /* ifndef CONFIG_SPL_BUILD */
 #define CONFIG_EXTRA_ENV_SETTINGS
 

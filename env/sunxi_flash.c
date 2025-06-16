@@ -255,6 +255,10 @@ static int env_sunxi_flash_load(void)
 		return 0;
 	}
 
+#ifdef CONFIG_DISTRO_DEFAULTS
+	set_default_env(NULL);
+	return 0;
+#endif
 	desc = blk_get_devnum_by_typename("sunxi_flash", 0);
 	if (desc == NULL) {
 		ret = -ENODEV;
@@ -340,6 +344,10 @@ static int env_sunxi_flash_load(void)
 		return 0;
 	}
 
+#ifdef CONFIG_DISTRO_DEFAULTS
+	set_default_env(NULL);
+	return 0;
+#endif
 	desc = blk_get_devnum_by_typename("sunxi_flash", 0);
 	if (desc == NULL) {
 		ret = -ENODEV;

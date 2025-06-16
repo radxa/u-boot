@@ -246,6 +246,14 @@
 
 			pwm19_pin_sleep: pwm19@1 {
 			};
+			gmac0_pins_default: gmac0@0 {
+			};
+			gmac0_pins_sleep: gmac0@1 {
+			};
+			gmac1_pins_default: gmac1@0 {
+			};
+			gmac1_pins_sleep: gmac1@1 {
+			};
 		};
 
 		pwmchip0: pwmchip0@2527000 {
@@ -534,12 +542,12 @@
 			device_type = "nand0";
 		};
 
-		spi0: spi@4025000 {
+		spi0: spi@2540000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "allwinner,sun55i-spi";
+			compatible = "allwinner,sun20i-spi";
 			device_type = "spi0";
-			reg = <0x0 0x04025000 0x0 0x300>;
+			reg = <0x0 0x02540000 0x0 0x300>;
 			//interrupts-extended = <&plic0 31 IRQ_TYPE_LEVEL_HIGH>;
 			//clocks = <&ccu CLK_PLL_PERIPH0>, <&ccu CLK_SPI0>, <&ccu CLK_BUS_SPI0>;
 			//clock-names = "pll", "mod", "bus";
@@ -1237,6 +1245,47 @@
 			};
 		};
 
+		gmac0: ethernet@4500000 {
+			compatible = "allwinner,sunxi-gmac";
+			reg = <0x0 0x04500000 0x0 0x8000>,
+			      <0x0 0x04508000 0x0 0x8000>;
+			clocks = <&clk_gmac0_mbus>, <&clk_gmac0_axi>, <&clk_gmac0>, <&clk_gmac0_phy>;
+			clock-names = "pclk", "axi", "ahb", "phy";
+			aw,gmac-version = "210";
+			phy-handle = <&phy0>;
+			status = "disabled";
+
+			mdio0: mdio0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "snps,dwmac-mdio";
+				phy0: ethernet-phy@0 {
+					reg = <0x1>;
+				};
+			};
+		};
+
+		gmac1: ethernet@4510000 {
+			compatible = "allwinner,sunxi-gmac";
+			reg = <0x0 0x04510000 0x0 0x8000>,
+			      <0x0 0x04518000 0x0 0x8000>;
+			clocks = <&clk_gmac1_mbus>, <&clk_gmac1_axi>, <&clk_gmac1>, <&clk_gmac1_phy>;
+			clock-names = "pclk", "axi", "ahb", "phy";
+			aw,gmac-version = "210";
+			phy-handle = <&phy1>;
+			status = "disabled";
+
+			mdio1: mdio1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "snps,dwmac-mdio";
+				phy1: ethernet-phy@1 {
+					reg = <0x1>;
+				};
+			};
+		};
+
+
 		clk_test: clk_test@0x12345 {
 			clocks = <&clk_sdmmc0_mod>,
 				<&clk_sdmmc0_rst>,
@@ -1274,6 +1323,9 @@
 		pwm19 = &pwm19;
 		twi6 = &twi6;
 		pmu0 = &pmu0;
+		spi0 = &spi0;
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
 	};
 
 };

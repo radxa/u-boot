@@ -88,6 +88,7 @@ struct panel_dsi {
 	} delay;
 	struct reset_sequence rst_on_seq;
 	struct reset_sequence rst_off_seq;
+	unsigned int pll_ss_permille;
 };
 
 struct panel_desc_dsi {
@@ -348,6 +349,7 @@ static int panel_dsi_parse_dt(struct panel_dsi *dsi_panel, ofnode node)
 	} else
 		dsi_panel->reset_gpio = ret;
 
+	ofnode_read_u32(node, "pll-ss-permille", &dsi_panel->pll_ss_permille);
 	ofnode_read_u32(node, "power-delay-ms", &dsi_panel->delay.power);
 	ofnode_read_u32(node, "enable-delay-ms", &dsi_panel->delay.enable);
 	ofnode_read_u32(node, "reset-delay-ms", &dsi_panel->delay.reset);

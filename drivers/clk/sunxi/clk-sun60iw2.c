@@ -204,6 +204,8 @@ static const char *hdmi_sfr_parents[] = {"sys24M", "hosc"};
 static const char *eink_parents[] = {"pll_periph0_480m", "pll_periph0_400m"};
 static const char *eink_panel_parents[] = {"pll_video0x4", "pll_video0x3", "pll_video1x4", "pll_video1x3", "pll_periph0_300m"};
 static const char *serdes_phy_cfg_parents[] = {"sys24M", "pll_periph0_600m"};
+static const char *gmac_phy_parents[] = {"pll_periph0_150m"};
+static const char *gmac_ptp_parents[] = {"sys24M", "pll_periph0_200m", "hosc"};
 /*
    SUNXI_CLK_PERIPH(name,        mux_reg,         mux_sft, mux_wid,      div_reg,      div_msft,  div_mwid,      div_nsft,   div_nwid,   gate_flag,    en_reg,       rst_reg,     bus_gate_reg,   drm_gate_reg,     en_sft,     rst_sft,     bus_gate_sft,    dram_gate_sft,   lock,  com_gate,   com_gate_off)
  */
@@ -239,6 +241,15 @@ SUNXI_CLK_PERIPH(lvds1,                    0,             0,      0,            
 SUNXI_CLK_PERIPH(eink,                  EINK_CFG,        24,      3,         EINK_CFG,        0,         5,          0,          0,          0,       EINK_CFG,      EINK_GATE,       EINK_GATE,        0,             31,         16,         0,             0,             &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(eink_panel,            EINK_PANEL_CFG,  24,      3,         EINK_PANEL_CFG,  0,         5,          0,          0,          0,       EINK_PANEL_CFG,   0,                 0,           0,             31,          0,         0,             0,             &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(serdes_phy_cfg,        SERDES_PHY_CFG,  24,      3,         SERDES_PHY_CFG,  0,         5,          0,          0,          0,       SERDES_PHY_CFG, SERDES_GATE,         0,           0,             31,         16,         0,             0,             &clk_lock, NULL,             0);
+SUNXI_CLK_PERIPH(gmac0,                 0,               0,       0,         0,               0,         0,          0,          0,          0,       0,              GMAC0_BUS_GATE_RST,  GMAC0_BUS_GATE_RST,         0,          0,          16,            0,         0,  &clk_lock, NULL, 0);
+SUNXI_CLK_PERIPH(gmac0_axi,             0,               0,       0,         0,               0,         0,          0,          0,          0,       0,              GMAC0_BUS_GATE_RST,  GMAC0_BUS_GATE_RST,         0,          0,          17,            0,         0,  &clk_lock, NULL, 0);
+SUNXI_CLK_PERIPH(gmac1,                 0,               0,       0,         0,               0,         0,          0,          0,          0,       0,              GMAC1_BUS_GATE_RST,  GMAC1_BUS_GATE_RST,           0,        0,          16,            0,         0,  &clk_lock, NULL, 0);
+SUNXI_CLK_PERIPH(gmac1_axi,             0,               0,       0,         0,               0,         0,          0,          0,          0,       0,              GMAC1_BUS_GATE_RST,  GMAC1_BUS_GATE_RST,         0,          0,          17,            0,         0,  &clk_lock, NULL, 0);
+SUNXI_CLK_PERIPH(gmac0_mbus,        0,             0,      0,            0,            0,         0,          0,          0,          0,          0,          0,           GMAC_MBUS,           0,              0,         0,         11,             0,             &clk_lock, NULL,             0);
+SUNXI_CLK_PERIPH(gmac1_mbus,        0,             0,      0,            0,            0,         0,          0,          0,          0,          0,          0,           GMAC_MBUS,           0,              0,         0,         12,             0,             &clk_lock, NULL,             0);
+SUNXI_CLK_PERIPH(gmac0_phy,         0,             0,      0,            GMAC0_PHY,    0,         5,          0,          0,          0,       GMAC0_PHY,             0,           0,           0,              31,         0,         0,             0,             &clk_lock, NULL,             0);
+SUNXI_CLK_PERIPH(gmac1_phy,         0,             0,      0,            GMAC1_PHY,    0,         5,          0,          0,          0,       GMAC1_PHY,             0,           0,           0,              31,         0,         0,             0,             &clk_lock, NULL,             0);
+SUNXI_CLK_PERIPH(gmac_ptp,          GMAC_PTP,             24,      3,    GMAC_PTP,     0,         5,          0,          0,          0,       GMAC_PTP,             0,           0,           0,              31,         0,         0,             0,             &clk_lock, NULL,             0);
 
 struct periph_init_data sunxi_periphs_init[] = {
 	{"de0",               CLK_SET_RATE_PARENT,           de_parents,               ARRAY_SIZE(de_parents),              &sunxi_clk_periph_de0            },
@@ -273,6 +284,15 @@ struct periph_init_data sunxi_periphs_init[] = {
 	{"eink",              CLK_SET_RATE_PARENT,         eink_parents,               ARRAY_SIZE(eink_parents),            &sunxi_clk_periph_eink           },
 	{"eink_panel",        CLK_SET_RATE_PARENT,         eink_panel_parents,         ARRAY_SIZE(eink_panel_parents),      &sunxi_clk_periph_eink_panel     },
 	{"serdes_phy_cfg",             0,                  serdes_phy_cfg_parents,     ARRAY_SIZE(serdes_phy_cfg_parents),  &sunxi_clk_periph_serdes_phy_cfg },
+	{"gmac0",                      0,                  hosc_parents,               ARRAY_SIZE(hosc_parents),            &sunxi_clk_periph_gmac0          },
+	{"gmac0_axi",                  0,                  hosc_parents,               ARRAY_SIZE(hosc_parents),            &sunxi_clk_periph_gmac0_axi      },
+	{"gmac1",                      0,                  hosc_parents,               ARRAY_SIZE(hosc_parents),            &sunxi_clk_periph_gmac1          },
+	{"gmac1_axi",                  0,                  hosc_parents,               ARRAY_SIZE(hosc_parents),            &sunxi_clk_periph_gmac1_axi      },
+	{"gmac0_mbus",                 0,                  hosc_parents,               ARRAY_SIZE(hosc_parents),            &sunxi_clk_periph_gmac0_mbus     },
+	{"gmac1_mbus",                 0,                  hosc_parents,               ARRAY_SIZE(hosc_parents),            &sunxi_clk_periph_gmac1_mbus     },
+	{"gmac0_phy",                  0,                  gmac_phy_parents,           ARRAY_SIZE(gmac_phy_parents),        &sunxi_clk_periph_gmac0_phy      },
+	{"gmac1_phy",                  0,                  gmac_phy_parents,           ARRAY_SIZE(gmac_phy_parents),        &sunxi_clk_periph_gmac1_phy      },
+	{"gmac_ptp",                   0,                  gmac_ptp_parents,           ARRAY_SIZE(gmac_ptp_parents),        &sunxi_clk_periph_gmac_ptp       },
 };
 
 /*

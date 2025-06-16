@@ -32,6 +32,7 @@ struct phy {
  * @reset: reset the phy (optional).
  * @power_on: powering on the phy (optional)
  * @power_off: powering off the phy (optional)
+ * @set_speed: set the speed of the phy (optional)
  */
 struct phy_ops {
 	/**
@@ -133,6 +134,7 @@ struct phy_ops {
 	* Return: 0 if OK, or a negative error code
 	*/
 	int	(*configure)(struct phy *phy, void *params);
+	int     (*set_speed)(struct phy *phy, int speed);
 };
 
 #ifdef CONFIG_PHY
@@ -178,6 +180,7 @@ int generic_phy_power_on(struct phy *phy);
 int generic_phy_power_off(struct phy *phy);
 
 int generic_phy_configure(struct phy *phy, void *params);
+int generic_phy_set_speed(struct phy *phy, int speed);
 
 /**
  * generic_phy_get_by_index() - Get a PHY device by integer index.
@@ -267,6 +270,10 @@ static inline int generic_phy_configure(struct phy *phy, void *params)
 	return 0;
 }
 
+static inline int generic_phy_set_speed(struct phy *phy, int speed)
+{
+	return 0;
+}
 static inline int generic_phy_get_by_index(struct udevice *user, int index,
 			     struct phy *phy)
 {

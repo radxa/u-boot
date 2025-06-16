@@ -1,6 +1,7 @@
 source "drivers/net/phy/Kconfig"
 source "drivers/net/rtl8363_nb/Kconfig"
 source "drivers/net/pfe_eth/Kconfig"
+source "drivers/net/dwmac/Kconfig"
 
 config DM_ETH
 	bool "Enable Driver Model for Ethernet drivers"
@@ -30,6 +31,10 @@ menuconfig NETDEVICES
 	  If unsure, say Y
 
 if NETDEVICES
+config SUNXI_DWMAC
+	bool "Enable sunxi dwmac"
+	help
+	  Enable sunxi dwmac.
 
 config PHY_GIGE
 	bool "Enable GbE PHY status parsing and configuration"

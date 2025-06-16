@@ -428,7 +428,8 @@ union dsc_dwc_blk0_reg_t {
 union dsc_dwc_blk1_reg_t {
 	u32 dwval;
 	struct {
-		u32 hsync:16;
+		u32 hsync:14;
+		u32 vt_hbit:2;
 		u32 hpar:16;
 	} bits;
 };

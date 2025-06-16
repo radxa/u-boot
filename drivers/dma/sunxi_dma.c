@@ -105,6 +105,17 @@ void sunxi_dma_init(void)
 #if defined(CONFIG_SUNXI_VERSION1)
 	setbits_le32(&ccm->ahb_gate0, 1 << AHB_GATE_OFFSET_DMA);
 	setbits_le32(&ccm->ahb_reset0_cfg, 1 << AHB_GATE_OFFSET_DMA);
+
+#elif defined(CONFIG_MACH_SUN60IW2)
+
+	/* dma : mbus gate enable reg */
+	setbits_le32(&ccm->mbus_gate_en_reg, 1 << 0);
+
+	/* dma reset */
+	setbits_le32(&ccm->dma_gate_reset, 1 << DMA_RST_OFS);
+
+	/* dma gating */
+	setbits_le32(&ccm->dma_gate_reset, 1 << DMA_GATING_OFS);
 #else
 	/* dma : mbus clock gating */
 	setbits_le32(&ccm->mbus_gate, 1 << 0);

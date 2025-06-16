@@ -437,6 +437,7 @@ struct edp_tx_core {
 	u32 controller_mode;
 	bool interlace;
 	bool sync_clock;
+	bool force_level;
 	struct edp_lane_para lane_para;
 	struct edp_lane_para debug_lane_para;
 	struct edp_lane_para backup_lane_para;
@@ -782,7 +783,8 @@ u32 edp_hw_audio_get_max_channel(struct sunxi_edp_hw_desc *edp_hw);
 s32 edp_hw_audio_config(struct sunxi_edp_hw_desc *edp_hw, int interface,
 		      int chn_cnt, int data_width, int data_rate);
 s32 edp_hw_audio_mute(struct sunxi_edp_hw_desc *edp_hw, bool enable, int direction);
-s32 edp_main_link_setup(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core);
+s32 edp_main_link_setup(struct sunxi_edp_hw_desc *edp_hw, struct edp_tx_core *edp_core,
+						bool bypass, bool force_level);
 s32 sunxi_edp_hw_callback_init(struct sunxi_edp_hw_desc *edp_hw);
 
 

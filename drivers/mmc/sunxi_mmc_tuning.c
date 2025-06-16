@@ -1371,24 +1371,28 @@ int sunxi_execute_tuning(struct mmc *mmc, int speed_mode)
 
 		/* switch to specific speed mode */
 		if (speed_mode == DS26_SDR12) {
+			priv->tuning_smode = TUNING_DS26_SDR12;
 			ret = mmc_mmc_switch_bus_mode(mmc, DS26_SDR12, bus_width);
 			if (ret) {
 				MMCINFO("switch to HS mode fail\n");
 				goto OUT;
 			}
 		} else if (speed_mode == HSSDR52_SDR25) {
+			priv->tuning_smode = TUNING_HSSDR52_SDR25;
 			ret = mmc_mmc_switch_bus_mode(mmc, HSSDR52_SDR25, bus_width);
 			if (ret) {
 				MMCINFO("switch to SDR mode fail\n");
 				goto OUT;
 			}
 		} else if (speed_mode == HSDDR52_DDR50) {
+			priv->tuning_smode = TUNING_HSDDR52_DDR50;
 			ret = mmc_mmc_switch_bus_mode(mmc, HSDDR52_DDR50, bus_width);
 			if (ret) {
 				MMCINFO("switch to DDR mode fail\n");
 				goto OUT;
 			}
 		} else if (speed_mode == HS200_SDR104) {
+			priv->tuning_smode = TUNING_HS200_SDR104;
 			ret = mmc_mmc_switch_bus_mode(mmc, HS200_SDR104, bus_width);
 			if (ret) {
 				MMCINFO("switch to HS200 mode fail\n");
@@ -1396,6 +1400,7 @@ int sunxi_execute_tuning(struct mmc *mmc, int speed_mode)
 			}
 		} else if (speed_mode == HS400) {
 			/* firstly, switch to HS-DDR 8 bit */
+			priv->tuning_smode = TUNING_HS400_CMD;
 			ret = mmc_mmc_switch_bus_mode(mmc, HSDDR52_DDR50, bus_width);
 			if (ret) {
 				MMCINFO("switch to DDR mode fail\n");
@@ -1410,6 +1415,7 @@ int sunxi_execute_tuning(struct mmc *mmc, int speed_mode)
 			goto OUT;
 		}
 	} else {
+		priv->tuning_smode = TUNING_DS26_SDR12;
 		if (speed_mode >= HSDDR52_DDR50) {
 			MMCINFO("don't spport %s for sd card\n", spd_name[speed_mode]);
 			ret = -1;
@@ -1419,7 +1425,7 @@ int sunxi_execute_tuning(struct mmc *mmc, int speed_mode)
 
 	/* execute tuning for current speed mode */
 	if (r_cycle == 0)
-		r_cycle = 15;
+		r_cycle = 30;
 
 	if (priv->timing_mode != SUNXI_MMC_TIMING_MODE_5) {
 		if (speed_mode == HS400) {
@@ -1428,6 +1434,7 @@ int sunxi_execute_tuning(struct mmc *mmc, int speed_mode)
 				MMCINFO("tuning hs400 cmd line fail\n");
 				goto OUT;
 			}
+			priv->tuning_smode = TUNING_HS400;
 		}
 
 		ret = sunxi_tuning_speed_mode(mmc, speed_mode, 0, r_cycle);
@@ -1442,6 +1449,7 @@ int sunxi_execute_tuning(struct mmc *mmc, int speed_mode)
 	}
 
 OUT:
+	priv->tuning_smode = TUNING_END;
 	return ret;
 }
 

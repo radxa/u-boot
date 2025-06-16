@@ -159,6 +159,7 @@ struct mipi_dsi_device {
 	unsigned long mode_flags;
 	unsigned long hs_rate;
 	unsigned long lp_rate;
+	unsigned int pll_ss_permille;
 	struct drm_dsc_config *dsc;
 };
 

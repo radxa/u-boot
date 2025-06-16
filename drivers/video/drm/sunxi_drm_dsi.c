@@ -26,6 +26,7 @@
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_dsc_helper.h>
 #include "drm_mipi_dsi.h"
+#include <asm/arch-sunxi/efuse.h>
 
 #include "sunxi_drm_phy.h"
 #include "sunxi_drm_crtc.h"
@@ -79,6 +80,7 @@ struct sunxi_drm_dsi {
 	unsigned long hs_clk_rate;
 	unsigned long ls_clk_rate;
 	bool displl_clk;
+	unsigned int pll_ss_permille;
 
 	struct mutex mlock;
 };
@@ -115,6 +117,7 @@ static int sunxi_drm_dsi_host_attach(struct mipi_dsi_host *host,
 	dsi->dsi_para.mode_flags = device->mode_flags;
 	dsi->dsi_para.hs_rate = device->hs_rate;
 	dsi->dsi_para.lp_rate = device->lp_rate;
+	dsi->pll_ss_permille = device->pll_ss_permille;
 	if (device->dsc)
 		dsi->dsc = device->dsc;
 
@@ -563,6 +566,8 @@ static int sunxi_dsi_connector_prepare(struct sunxi_drm_connector *conn,
 	} else {
 		ret += generic_phy_configure(dsi->phy, phy_cfg);
 	}
+	if (dsi->pll_ss_permille)
+		generic_phy_set_speed(dsi->phy, dsi->pll_ss_permille);
 
 	return ret;
 }

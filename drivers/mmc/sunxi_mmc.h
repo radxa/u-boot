@@ -17,6 +17,15 @@
 #define HS400                 (4)
 #define MAX_SPD_MD_NUM        (5)
 
+/*the speed mode of tuning*/
+#define TUNING_END		     (0)
+#define TUNING_DS26_SDR12            (1)
+#define TUNING_HSSDR52_SDR25         (2)
+#define TUNING_HSDDR52_DDR50         (3)
+#define TUNING_HS200_SDR104          (4)
+#define TUNING_HS400_CMD             (5)
+#define TUNING_HS400		     (6)
+
 /* frequency point */
 #define CLK_400K         (0)
 #define CLK_25M          (1)
@@ -325,6 +334,7 @@ struct sunxi_mmc_priv {
 	u32 raw_int_bak;
 	u32 acmd_err_bak;
 	u32 sample_mode;
+	u32 tuning_smode;
 
 	u32 dma_tl;
 	int (*mmc_init_default_timing_para)(int sdc_no);

@@ -289,12 +289,29 @@ int mmc_config_delay_tm4(struct sunxi_mmc_priv *mmcpriv)
 #endif
 		writel(rval, &mmcpriv->reg->ds_dl);
 	}
+
 #if defined(CONFIG_MACH_SUN8IW15) || defined(CONFIG_MACH_SUN8IW16)
 	rval = readl(&mmcpriv->reg->sfc);
 	rval |= 0x1;
 	writel(rval, &mmcpriv->reg->sfc);
 	MMCDBG("sfc 0x%x\n", readl(&mmcpriv->reg->sfc));
+	/* uboot use sample fifo bypass + clk always on, to fix sample bug */
+#elif (defined(CONFIG_MACH_SUN55IW3) || defined(CONFIG_MACH_SUN60IW2)\
+		|| defined(CONFIG_MACH_SUN55IW6) || defined(CONFIG_MACH_SUN65IW1)\
+		|| defined(CONFIG_MACH_SUN8IW22))
+	if (mmcpriv->tuning_smode != TUNING_END && mmcpriv->tuning_smode != TUNING_HS400) {
+		rval = readl(&mmcpriv->reg->sfc);
+		rval |= 0x1;
+		writel(rval, &mmcpriv->reg->sfc);
+		MMCDBG("sfc 0x%x\n", readl(&mmcpriv->reg->sfc));
+	} else {
+		rval = readl(&mmcpriv->reg->sfc);
+		rval &= (~0x1);
+		writel(rval, &mmcpriv->reg->sfc);
+		MMCDBG("sfc 0x%x\n", readl(&mmcpriv->reg->sfc));
+	}
 #endif
+
 	MMCDBG("%s: spd_md:%d, freq:%d, odly: %d; sdly: %d; dsdly: %d\n", __FUNCTION__, spd_md, freq, odly, sdly, dsdly);
 
 	return 0;

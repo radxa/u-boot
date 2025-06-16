@@ -29,7 +29,8 @@
 	defined(CONFIG_MACH_SUN8IW21)
 #define DMAC_CFG_TYPE_SPI0 (22)
 #define DMAC_CFG_SRC_TYPE_NAND (5)
-#elif defined(CONFIG_MACH_SUN8IW15)
+#elif defined(CONFIG_MACH_SUN8IW15) ||\
+      defined(CONFIG_MACH_SUN60IW2)
 #define DMAC_CFG_TYPE_SPI0 (23)
 #define DMAC_CFG_SRC_TYPE_NAND (5)
 #elif defined(CONFIG_MACH_SUN8IW7) ||\

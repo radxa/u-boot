@@ -18,6 +18,7 @@
 #include <lzma/LzmaTypes.h>
 #include <lzma/LzmaDec.h>
 #include <lzma/LzmaTools.h>
+#include <sunxi_board.h>
 #if defined(CONFIG_CMD_USB)
 #include <usb.h>
 #endif
@@ -342,19 +343,26 @@ int bootm_find_images(int flag, int argc, char * const argv[])
 	}
 #endif
 #endif
-	images.ft_addr = (char *)gd->fdt_blob;
-	images.ft_len  = gd->fdt_size;
+	if (IS_ENABLED(CONFIG_DISTRO_DEFAULTS)) {
+		images.ft_addr = (char *)env_get_hex("fdt_addr_r", CONFIG_SUNXI_FDT_ADDR);
+		images.ft_len = fdt_totalsize(images.ft_addr);
+	} else {
+		images.ft_addr = (char *)gd->fdt_blob;
+		images.ft_len  = gd->fdt_size;
+	}
+
 	set_working_fdt_addr((ulong)images.ft_addr);
 
 	/* set this env variable for  function boot_relocate_fdt.
 	     use fdt in place
 	  */
 	env_set("fdt_high", "0xffffffff");
-#if defined(CONFIG_OF_SEPARATE) && !defined(CONFIG_SUNXI_NECESSARY_REPLACE_FDT)
+#if defined(CONFIG_OF_SEPARATE) && defined(CONFIG_DISTRO_DEFAULTS) && defined(CONFIG_SUNXI_NECESSARY_REPLACE_FDT)
 /* If CONFIG_SUNXI_REPLACE_FDT_FROM_PARTITION is defined,
  * this function will be called earlier,
  * so there is no need to call this function again. */
 #ifndef CONFIG_SUNXI_REPLACE_FDT_FROM_PARTITION
+	fdt_set_totalsize(working_fdt, gd->fdt_ext_size);
 	sunxi_update_fdt_para_for_kernel();
 #endif
 #endif
