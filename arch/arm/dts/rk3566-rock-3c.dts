@@ -11,7 +11,7 @@
 
 / {
 	model = "Radxa ROCK3 Model C";
-	compatible = "radxa,rock3c", "rockchip,rk3566";
+	compatible = "radxa,rock-3c", "rockchip,rk3566";
 
 	dc_12v: dc-12v {
 		u-boot,dm-pre-reloc;
