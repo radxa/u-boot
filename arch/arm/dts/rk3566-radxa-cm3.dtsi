@@ -6,7 +6,7 @@
  */
 
 /dts-v1/;
-#include "rk3568.dtsi"
+#include "rk3566.dtsi"
 #include "rk3568-u-boot.dtsi"
 #include <dt-bindings/input/input.h>
 
