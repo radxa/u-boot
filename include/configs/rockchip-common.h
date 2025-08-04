@@ -203,11 +203,10 @@
 #define RKIMG_BOOTCOMMAND			\
 	"boot_fit;"
 #else
-#define RKIMG_BOOTCOMMAND			\
-	"run distro_bootcmd;"			\
-	"boot_android ${devtype} ${devnum};"	\
-	"boot_fit;"				\
-	"bootrkp;"
+#define RKIMG_BOOTCOMMAND           \
+	"run distro_bootcmd; " \
+	"boot_fit; " \
+	"bootrkp;
 #endif
 
 #endif /* CONFIG_SPL_BUILD */

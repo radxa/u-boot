@@ -26,6 +26,7 @@
 #include <boot_rkimg.h>
 #include <u-boot/sha256.h>
 #include <asm/arch/rk_atags.h>
+#include <android_bootloader.h>
 
 /* rk used */
 int rk_avb_get_pub_key(struct rk_pub_key *pub_key)
@@ -571,7 +572,7 @@ int rk_avb_get_part_has_slot_info(const char *base_name)
 	struct blk_desc *dev_desc;
 	const char *slot_suffix = "_a";
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc) {
 		printf("%s: Could not find device!\n", __func__);
 		return -1;

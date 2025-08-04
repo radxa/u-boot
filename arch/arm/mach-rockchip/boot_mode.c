@@ -9,6 +9,7 @@
 #include <malloc.h>
 #include <asm/io.h>
 #include <asm/arch/boot_mode.h>
+#include <android_bootloader.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -25,7 +26,7 @@ static int misc_require_recovery(u32 bcb_offset, int *bcb_recovery_msg)
 	disk_partition_t part;
 	int cnt, recovery = 0;
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc) {
 		printf("dev_desc is NULL!\n");
 		goto out;

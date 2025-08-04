@@ -19,6 +19,7 @@
 #include <asm/arch/ioc_rk3576.h>
 #include <asm/arch/rockchip_smccc.h>
 #include <asm/system.h>
+#include <android_bootloader.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -419,7 +420,7 @@ int arch_cpu_init(void)
 #if defined(CONFIG_SCSI) && defined(CONFIG_CMD_SCSI) && defined(CONFIG_UFS)
 int rk_board_dm_fdt_fixup(const void *blob)
 {
-	struct blk_desc *desc = rockchip_get_bootdev();
+	struct blk_desc *desc = android_get_bootdev();
 	const char *status = NULL;
 	int node = -1;
 

@@ -10,6 +10,7 @@
 #include <sysmem.h>
 #include <asm/arch/fit.h>
 #include <asm/arch/resource_img.h>
+#include <android_bootloader.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -399,7 +400,7 @@ void *fit_image_load_bootables(ulong *size)
 	int blk_num;
 	void *fit;
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc)
 		return NULL;
 

@@ -9,6 +9,8 @@
 
 #include <common.h>
 
+extern struct blk_desc *android_dev_desc;
+
 enum android_boot_mode {
 	ANDROID_BOOT_MODE_NORMAL = 0,
 
@@ -26,6 +28,11 @@ enum android_boot_mode {
 	 */
 	ANDROID_BOOT_MODE_BOOTLOADER,
 };
+
+/** android_get_bootdev- Get the devtype passed by bootcmd.
+ *
+ */
+struct blk_desc *android_get_bootdev(void);
 
 /** android_bootloader_boot_flow - Execute the Android Bootloader Flow.
  * Performs the Android Bootloader boot flow, loading the appropriate Android

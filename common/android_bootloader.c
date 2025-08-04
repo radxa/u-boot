@@ -30,6 +30,12 @@
 #include <console.h>
 #include <sysmem.h>
 
+struct blk_desc *android_dev_desc = NULL;
+
+struct blk_desc *android_get_bootdev(void) {
+    return android_dev_desc;
+}
+
 DECLARE_GLOBAL_DATA_PTR;
 
 int android_bootloader_message_load(
@@ -133,7 +139,7 @@ int android_bcb_write(char *cmd)
 	if (strlen(cmd) >= 32)
 		return -ENOMEM;
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc) {
 		printf("%s: dev_desc is NULL!\n", __func__);
 		return -ENODEV;
@@ -196,7 +202,7 @@ static int android_bootloader_get_fdt(const char *part_name,
 	int part_num = -1;
 	int ret;
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc) {
 		printf("%s: dev_desc is NULL!\n", __func__);
 		return -1;
@@ -771,7 +777,7 @@ static AvbSlotVerifyResult android_slot_verify(char *boot_partname,
 	unsigned long load_address = *android_load_address;
 	int ret;
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc)
 		return AVB_IO_RESULT_ERROR_IO;
 
@@ -1005,7 +1011,7 @@ static int android_get_dtbo(ulong *fdt_dtbo,
 	int ret;
 
 	/* Get partition info */
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc)
 		return -ENODEV;
 
@@ -1113,7 +1119,7 @@ int android_fdt_overlay_apply(void *fdt_addr)
 #endif
 	}
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc)
 		return -ENODEV;
 
@@ -1225,6 +1231,8 @@ int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 	char slot_suffix[3] = {0};
 	const char *mode_cmdline = NULL;
 	char *boot_partname = ANDROID_PARTITION_BOOT;
+
+	android_dev_desc = dev_desc;
 
 	/*
 	 * 1. Load MISC partition and determine the boot mode
@@ -1406,7 +1414,7 @@ int android_avb_boot_flow(unsigned long kernel_address)
 	disk_partition_t boot_part_info;
 	int ret;
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc) {
 		printf("%s: dev_desc is NULL!\n", __func__);
 		return -1;
@@ -1439,7 +1447,7 @@ int android_boot_flow(unsigned long kernel_address)
 	disk_partition_t boot_part_info;
 	int ret;
 
-	dev_desc = rockchip_get_bootdev();
+	dev_desc = android_get_bootdev();
 	if (!dev_desc) {
 		printf("%s: dev_desc is NULL!\n", __func__);
 		return -1;
