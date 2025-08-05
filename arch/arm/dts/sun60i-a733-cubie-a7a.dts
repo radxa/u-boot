@@ -14,7 +14,7 @@
 #include <dt-bindings/phy/phy.h>
 / {
 	model = "Radxa Cubie A7A";
-	compatible = "allwinner,a733", "arm,sun60iw2p1";
+	compatible = "radxa,cubie-a7a", "allwinner,a733", "arm,sun60iw2p1";
 	#address-cells = <2>;
 	#size-cells = <2>;
 	soc: soc@29000000 {
