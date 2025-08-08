@@ -206,7 +206,7 @@
 #define RKIMG_BOOTCOMMAND           \
 	"run distro_bootcmd; " \
 	"boot_fit; " \
-	"bootrkp;
+	"bootrkp;"
 #endif
 
 #endif /* CONFIG_SPL_BUILD */
