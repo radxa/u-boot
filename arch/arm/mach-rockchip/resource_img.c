@@ -14,7 +14,9 @@
 #include <asm/arch/rk_hwid.h>
 #include <asm/arch/uimage.h>
 #include <asm/arch/fit.h>
+#ifdef CONFIG_ANDROID_BOOTLOADER
 #include <android_bootloader.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -362,7 +364,11 @@ static int resource_default(struct blk_desc *desc,
 
 static int resource_scan(void)
 {
+#ifdef CONFIG_ANDROID_BOOTLOADER
 	struct blk_desc *desc = android_get_bootdev();
+#else
+	struct blk_desc *desc = rockchip_get_bootdev();
+#endif
 	__maybe_unused int ret;
 
 	if (!desc) {
@@ -431,7 +437,11 @@ static struct resource_file *resource_get_file(const char *name)
 
 int rockchip_read_resource_file(void *buf, const char *name, int blk_offset, int len)
 {
+#ifdef CONFIG_ANDROID_BOOTLOADER
 	struct blk_desc *desc = android_get_bootdev();
+#else
+	struct blk_desc *desc = rockchip_get_bootdev();
+#endif
 	struct resource_file *f;
 	int blk_cnt;
 	ulong pos;
