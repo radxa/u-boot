@@ -10,7 +10,9 @@
 #include <sysmem.h>
 #include <asm/arch/fit.h>
 #include <asm/arch/resource_img.h>
+#ifdef CONFIG_ANDROID_BOOTLOADER
 #include <android_bootloader.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -400,7 +402,11 @@ void *fit_image_load_bootables(ulong *size)
 	int blk_num;
 	void *fit;
 
+#ifdef CONFIG_ANDROID_BOOTLOADER
 	dev_desc = android_get_bootdev();
+#else
+	dev_desc = rockchip_get_bootdev();
+#endif
 	if (!dev_desc)
 		return NULL;
 
