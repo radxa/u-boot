@@ -559,6 +559,23 @@
 			};
 		};
 
+		snor: spi@11018000 {
+			compatible = "mediatek,mt8189-nor";
+			reg = <0 0x11018000 0 0x1000>;
+			clocks = <&topckgen_clk CLK_TOP_SFLASH_SEL>,
+				<&pericfg_ao_clk CLK_PERAO_SFLASH>,
+				<&pericfg_ao_clk CLK_PERAO_SFLASH_F>,
+				<&pericfg_ao_clk CLK_PERAO_SFLASH_H>,
+				<&pericfg_ao_clk CLK_PERAO_SFLASH_P>;
+			clock-names = "spi", "sf", "axi_f", "axi_h", "axi_p";
+			assigned-clocks = <&topckgen_clk CLK_TOP_SFLASH_SEL>;
+			assigned-clock-parents = <&topckgen_clk CLK_TOP_UNIVPLL_D6_D8>;
+			interrupts = <GIC_SPI 390 IRQ_TYPE_LEVEL_HIGH 0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		imp_iic_wrap_en_clk: imp-iic-wrap-en-clk@11f32000 {
 			compatible = "mediatek,mt8391-iic_wrap";
 			reg = <0 0x11f32000 0 0x1000>;
