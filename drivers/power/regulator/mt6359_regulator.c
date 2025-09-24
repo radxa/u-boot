@@ -945,8 +945,11 @@ static int mt6359_regulator_probe(struct udevice *dev)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(mt6359_regulators); i++) {
+		dev_err(dev, "%s : %s\n", dev->name, mt6359_regulators[i].desc.of_match);
 		if (!strcmp(dev->name, mt6359_regulators[i].desc.of_match)) {
 			*priv = mt6359_regulators[i];
+			dev_err(dev, "[comparison worked] %s : %s\n", dev->name,
+				mt6359_regulators[i].desc.of_match);
 			return 0;
 		}
 	}
