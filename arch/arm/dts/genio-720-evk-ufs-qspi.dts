@@ -16,3 +16,37 @@
 &ufshci {
 	status = "okay";
 };
+
+&pio {
+	snor_pins: snor-pins {
+		pins0 {
+			pinmux = <PINMUX_GPIO152__FUNC_SPINOR_IO0>,
+				 <PINMUX_GPIO150__FUNC_SPINOR_CK>,
+				 <PINMUX_GPIO153__FUNC_SPINOR_IO1>;
+			drive-strength = <MTK_DRIVE_8mA>;
+			bias-pull-down;
+		};
+
+		pins1 {
+			pinmux = <PINMUX_GPIO151__FUNC_SPINOR_CS>,
+				 <PINMUX_GPIO154__FUNC_SPINOR_IO2>,
+				 <PINMUX_GPIO155__FUNC_SPINOR_IO3>;
+			drive-strength = <MTK_DRIVE_8mA>;
+			bias-pull-up;
+		};
+	};
+};
+
+&snor {
+	pinctrl-names = "default";
+	pinctrl-0 = <&snor_pins>;
+	status = "okay";
+
+	spi-flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		u-boot,dm-pre-reloc;
+	};
+};
