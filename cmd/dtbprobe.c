@@ -355,11 +355,15 @@ static int do_dtbprobe_ubifs(char *devtype, char *devnum, int *parts,
 			return 1;
 
 		if (ubifs_exists(devtype, devnum, vol_names[i], path)
-		    != CMD_RET_SUCCESS)
+		    != CMD_RET_SUCCESS) {
+			printf("Error: Fail to find dtb: %s\n", path);
 			return 1;
+		}
 
-		if (ubifs_loaddtb(path, fdt_addr) != CMD_RET_SUCCESS)
+		if (ubifs_loaddtb(path, fdt_addr) != CMD_RET_SUCCESS) {
+			printf("Error: Fail to load dtb\n");
 			return 1;
+		}
 
 		if (dtb_processing(path, fdt_addr) != CMD_RET_SUCCESS)
 			return 1;
