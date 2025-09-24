@@ -623,9 +623,15 @@ static const struct mtk_nor_caps mtk_nor_caps_mt8195 = {
 	.extra_dummy_bit = 0,
 };
 
+static const struct mtk_nor_caps mtk_nor_caps_mt8189 = {
+	.dma_bits = 32,
+	.extra_dummy_bit = 1,
+};
+
 static const struct udevice_id mtk_snor_ids[] = {
 	{ .compatible = "mediatek,mt8188-nor", .data = &mtk_nor_caps_mt8188 },
 	{ .compatible = "mediatek,mt8195-nor", .data = &mtk_nor_caps_mt8195 },
+	{ .compatible = "mediatek,mt8189-nor", .data = &mtk_nor_caps_mt8189 },
 	{}
 };
 
