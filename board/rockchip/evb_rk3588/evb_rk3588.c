@@ -15,6 +15,7 @@
 
 #define SARADC_ADDR	"saradc@fec10000"
 #define HW_ID_CHANNEL	5
+#define BOM_ID_CHANNEL  2
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
@@ -22,6 +23,8 @@ struct variant_def {
 	char *compatible;
 	unsigned int hw_id_lower_bound;
 	unsigned int hw_id_upper_bound;
+	unsigned int bom_id_lower_bound;
+	unsigned int bom_id_upper_bound;
 	char *fdtfile;
 };
 
@@ -100,18 +103,19 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 
 #ifdef CONFIG_ID_EEPROM
 static struct variant_def variants[] = {
-	{"rockchip,rk3588", 300, 380, "rockchip/rk3588s-radxa-e54c.dtb"},
-	{"rockchip,rk3588", 980, 1060, "rockchip/rk3588-rock-5t.dtb"},
-	{"rockchip,rk3588", 1650, 1730, "rockchip/rk3588s-radxa-e52c.dtb"},
-	{"rockchip,rk3588", 2360, 2440, "rockchip/rk3588s-rock-5c.dtb"},
-	{"rockchip,rk3588", 3370, 3450, "rockchip/rk3588s-rock-5d.dtb"},
-	{"rockchip,rk3588", 4050, 4130, "rockchip/rk3588-rock-5b-plus.dtb"},
+	{"rockchip,rk3588", 300, 380,  0, -1, "rockchip/rk3588s-radxa-e54c.dtb"},
+	{"rockchip,rk3588", 980, 1060, 0, 40, "rockchip/rk3588-rock-5t.dtb"},
+	{"rockchip,rk3588", 980, 1060, 640, 720, "rockchip/rk3588-rock-5t-industrial.dtb"},
+	{"rockchip,rk3588", 1650, 1730, 0, -1, "rockchip/rk3588s-radxa-e52c.dtb"},
+	{"rockchip,rk3588", 2360, 2440, 0, -1, "rockchip/rk3588s-rock-5c.dtb"},
+	{"rockchip,rk3588", 3370, 3450, 0, -1, "rockchip/rk3588s-rock-5d.dtb"},
+	{"rockchip,rk3588", 4050, 4130, 0, -1, "rockchip/rk3588-rock-5b-plus.dtb"},
 };
 
 static void set_fdtfile(void)
 {
 	int i, ret;
-	unsigned int hw_id;
+	unsigned int hw_id, bom_id;
 	struct variant_def *v;
 
 	ret = adc_channel_single_shot(SARADC_ADDR, HW_ID_CHANNEL, &hw_id);
@@ -119,14 +123,26 @@ static void set_fdtfile(void)
 		pr_err("%s: adc_channel_single_shot fail for HW_ID: %i!\n", __func__, ret);
 		return;
 	}
+
+	ret = adc_channel_single_shot(SARADC_ADDR, BOM_ID_CHANNEL, &bom_id);
+	if (ret) {
+		pr_err("%s: adc_channel_single_shot fail for BOM_ID: %i!\n", __func__, ret);
+		return;
+	}
+
 	for(i = 0; i < countof(variants); i++) {
 		v = &variants[i];
 		if (of_machine_is_compatible(v->compatible) &&
 		    hw_id >= v->hw_id_lower_bound &&
-		    hw_id <= v->hw_id_upper_bound) {
-			printf("Override default fdtfile to %s\n", v->fdtfile);
+		    hw_id <= v->hw_id_upper_bound &&
+		    bom_id >= v->bom_id_lower_bound &&
+		    bom_id <= v->bom_id_upper_bound) {
+			printf("Found matching variant %s for hw_id 0x%x and bom_id 0x%x setting fdtfile to %s\n", v->compatible, hw_id, bom_id, v->fdtfile);
 			env_set("fdtfile", v->fdtfile);
 			break;
+		} else {
+			printf("Checking variant: %s, hw_id 0x%x not in range [0x%x, 0x%x], bom_id 0x%x not in range [0x%x, 0x%x]\n",
+			       v->compatible, hw_id, v->hw_id_lower_bound, v->hw_id_upper_bound, bom_id, v->bom_id_lower_bound, v->bom_id_upper_bound);
 		}
 	}
 }
