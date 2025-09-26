@@ -15,6 +15,7 @@
 #include <asm/io.h>
 #include <log.h>
 #include <linux/kernel.h>
+#include <linux/sizes.h>
 #include <linux/arm-smccc.h>
 
 #define MT8391_UPDATABLE_IMAGES	5
@@ -170,6 +171,34 @@ void set_dfu_alt_info(char *interface, char *devstr)
 static const char *board_full_name;
 
 #if (IS_ENABLED(CONFIG_BOARD_LATE_INIT))
+
+static int env_append_bootargs(const char *append_args)
+{
+	/* MAX_CMDLINE_SIZE taken from boot/bootm.c */
+	const int MAX_CMDLINE_SIZE = SZ_4K;
+	const char *old_args;
+	char *buf;
+	int newlen;
+	int ret;
+
+	old_args = env_get("bootargs");
+	if (!old_args)
+		return env_set("bootargs", append_args);
+
+	/* Note that we add spaces between the old and new arguments */
+	newlen = strlen(old_args) + strlen(append_args) + 2;
+	if (newlen >= MAX_CMDLINE_SIZE)
+		return -E2BIG;
+	buf = malloc(MAX_CMDLINE_SIZE);
+	if (!buf)
+		return -ENOMEM;
+	snprintf(buf, MAX_CMDLINE_SIZE, "%s %s", old_args, append_args);
+	ret = env_set("bootargs", buf);
+
+	free(buf);
+	return ret;
+}
+
 int board_late_init(void)
 {
 	/* Construct full board name from SoC part name and boot method,
@@ -218,7 +247,7 @@ int board_late_init(void)
 			snprintf(hostname_buf, sizeof(hostname_buf), "%s", board_name);
 		env_set("hostname", hostname_buf);
 		snprintf(cmdline_buf, sizeof(cmdline_buf), "systemd.hostname=%s", hostname_buf);
-		env_set("bootargs", cmdline_buf);
+		env_append_bootargs(cmdline_buf);
 	}
 
 	return 0;
