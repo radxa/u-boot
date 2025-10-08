@@ -26,6 +26,9 @@
 #include <memalign.h>
 #include <asm-generic/sections.h>
 #include <linux/linkage.h>
+#if defined(CONFIG_MEDIATEK_IOT_AB_BOOT_SUPPORT)
+#include <iot_ab.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -538,6 +541,9 @@ efi_status_t efi_run_image(void *source_buffer, efi_uintn_t source_size)
 	ret = efi_env_set_load_options(handle, "bootargs", &load_options);
 	if (ret != EFI_SUCCESS)
 		goto out;
+
+	if (IS_ENABLED(CONFIG_MEDIATEK_IOT_AB_BOOT_SUPPORT))
+		iot_ab_boot_complete();
 
 	ret = do_bootefi_exec(handle, load_options);
 
