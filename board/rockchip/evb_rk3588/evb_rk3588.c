@@ -106,9 +106,9 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 static struct variant_def variants[] = {
 	{"rockchip,rk3588", 300, 380,  0, -1, "rockchip/rk3588s-radxa-e54c.dtb"},
 	{"rockchip,rk3588", 980, 1060, 0, 40, "rockchip/rk3588-rock-5t.dtb"},
-	{"rockchip,rk3588", 980, 1060, 640, 720, "rockchip/rk3588-rock-5t-industrial.dtb"},
 	{"rockchip,rk3588", 1650, 1730, 0, -1, "rockchip/rk3588s-radxa-e52c.dtb"},
 	{"rockchip,rk3588", 2360, 2440, 0, -1, "rockchip/rk3588s-rock-5c.dtb"},
+	{"rockchip,rk3588", 3040, 3120, 640, 720, "rockchip/rk3588-rock-5t-industrial.dtb"},
 	{"rockchip,rk3588", 3370, 3450, 0, -1, "rockchip/rk3588s-rock-5d.dtb"},
 	{"rockchip,rk3588", 4050, 4130, 0, -1, "rockchip/rk3588-rock-5b-plus.dtb"},
 };
