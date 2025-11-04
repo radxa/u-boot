@@ -1287,7 +1287,7 @@ static void *rockchip_logo_rotate(struct logo_info *logo, void *src)
 }
 #endif
 
-static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
+static int load_bmp_logo(struct logo_info *logo, const char *bmp_name, uintptr_t addr)
 {
 #ifdef CONFIG_ROCKCHIP_RESOURCE_IMAGE
 	struct rockchip_logo_cache *logo_cache;
@@ -1324,10 +1324,15 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 
 	bmp_create(&bmp, &bitmap_callbacks);
 
-	len = resource_read_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
-	if (len < 0) {
-		ret = -EINVAL;
-		goto free_bmp_data;
+	if (addr) {
+		len = MAX_IMAGE_BYTES;
+		memcpy(bmp_data, (void *)addr, MAX_IMAGE_BYTES);
+	} else {
+		len = resource_read_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
+		if (len < 0) {
+			ret = -EINVAL;
+			goto free_bmp_data;
+		}
 	}
 
 	/* analyse the BMP */
@@ -1549,6 +1554,21 @@ display_deinit:
 }
 #endif
 
+int rockchip_show_bmp_by_address(const char *bmp, uintptr_t addr)
+{
+	struct display_state *s;
+	int ret = 0;
+
+	list_for_each_entry(s, &rockchip_display_list, head) {
+		s->logo.mode = s->charge_logo_mode;
+		if (load_bmp_logo(&s->logo, bmp, addr))
+			continue;
+		ret = display_bmp(s);
+	}
+
+	return ret;
+}
+
 int rockchip_show_bmp(const char *bmp)
 {
 	struct display_state *s;
@@ -1562,7 +1582,7 @@ int rockchip_show_bmp(const char *bmp)
 
 	list_for_each_entry(s, &rockchip_display_list, head) {
 		s->logo.mode = s->charge_logo_mode;
-		if (load_bmp_logo(&s->logo, bmp))
+		if (load_bmp_logo(&s->logo, bmp, 0))
 			continue;
 		if (!s->is_init)
 			ret = display_logo(s);
@@ -1583,7 +1603,7 @@ int rockchip_show_logo(void)
 	list_for_each_entry(s, &rockchip_display_list, head) {
 		s->logo.mode = s->logo_mode;
 		s->logo.rotate = s->logo_rotate;
-		if (load_bmp_logo(&s->logo, s->ulogo_name)) {
+		if (load_bmp_logo(&s->logo, s->ulogo_name, 0)) {
 			printf("failed to display uboot logo\n");
 		} else {
 			ret = display_logo(s);
@@ -2440,7 +2460,7 @@ void rockchip_display_fixup(void *blob)
 	if (fdt_node_offset_by_compatible(blob, 0, memory_compatible) >= 0) {
 		list_for_each_entry(s, &rockchip_display_list, head) {
 			if (s->is_init) {
-				ret = load_bmp_logo(&s->logo, s->klogo_name);
+				ret = load_bmp_logo(&s->logo, s->klogo_name, 0);
 				if (ret < 0) {
 					s->is_klogo_valid = false;
 					printf("VP%d fail to load kernel logo\n",
@@ -2641,10 +2661,13 @@ static int do_rockchip_logo_show(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_rockchip_show_bmp(struct cmd_tbl *cmdtp, int flag, int argc,
 				char *const argv[])
 {
-	if (argc != 2)
+	if (argc < 2 || argc > 3)
 		return CMD_RET_USAGE;
 
-	rockchip_show_bmp(argv[1]);
+	if (argc == 2)
+		rockchip_show_bmp(argv[1]);
+	else
+		rockchip_show_bmp_by_address(argv[1], simple_strtoul(argv[2], NULL, 16));
 
 	return 0;
 }
@@ -2669,9 +2692,9 @@ U_BOOT_CMD(
 );
 
 U_BOOT_CMD(
-	rockchip_show_bmp, 2, 1, do_rockchip_show_bmp,
-	"load and display bmp from resource partition",
-	"    <bmp_name>"
+	rockchip_show_bmp, 3, 1, do_rockchip_show_bmp,
+	"load and display bmp from resource partition or specific address",
+	" <bmp_name> [addr]"
 );
 
 U_BOOT_CMD(
