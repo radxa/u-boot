@@ -1375,8 +1375,13 @@ static int rk3399_clk_enable(struct clk *clk)
 	case HCLK_HOST1:
 	case HCLK_HOST1_ARB:
 	case SCLK_USBPHY1_480M_SRC:
+	case ACLK_USB3OTG0:
 	case ACLK_USB3OTG1:
 	case ACLK_USB3_GRF:
+	case ACLK_USB3_RKSOC_AXI_PERF:
+	case ACLK_USB3:
+	case SCLK_USB3OTG0_REF:
+	case SCLK_USB3OTG0_SUSPEND:
 	case SCLK_USB3OTG1_REF:
 	case SCLK_USB3OTG1_SUSPEND:
 		return 0;
