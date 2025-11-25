@@ -52,7 +52,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&vcc5v0_host_en>;
 		regulator-name = "vcc5v0_host";
-		vin-supply = <&vcc5v0_sys>;
+		vin-supply = <&vcc5v0_usb2>;
 	};
 
 	clkin_gmac: external-gmac-clock {
@@ -443,6 +443,7 @@
 			};
 
 			vcc5v0_usb2: SWITCH_REG1 {
+				regulator-always-on;
 				regulator-min-microvolt = <5000000>;
 				regulator-max-microvolt = <5000000>;
 
