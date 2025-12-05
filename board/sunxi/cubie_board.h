@@ -21,6 +21,7 @@ struct hw_info_def {
 };
 
 int radxa_set_board_type(void);
+int radxa_fixup_pcie_gpios(void *fdt);
 void radxa_enable_boot_led(void);
 void radxa_set_compat_fdt(void);
 struct hw_info_def radxa_get_hw_info(void);
