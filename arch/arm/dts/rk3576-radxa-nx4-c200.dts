@@ -9,8 +9,8 @@
 #include "rk3576-radxa-nx4.dtsi"
 
 / {
-	model = "Radxa NX4 ORIN C200 Board";
-	compatible = "radxa,nx4-orin-c200", "radxa,nx4", "rockchip,rk3576";
+	model = "Radxa C200 NX4 IO Board";
+	compatible = "radxa,nx4-c200", "radxa,nx4", "rockchip,rk3576";
 
 	vcc_1v8_shutdown: vcc-1v8-shutdown {
 		compatible = "regulator-fixed";
@@ -227,7 +227,7 @@
 		/* GPIO0_D0-D3 */
 		"", "", "", "",
 		/* GPIO0_D4-D7 */
-		"PIN_8", "PIN_10", "", "";
+		"", "", "", "";
 };
 
 &gpio1 {
@@ -309,7 +309,7 @@
 		/* GPIO4_B0-B3 */
 		"", "", "", "",
 		/* GPIO4_B4-B7 */
-		"", "", "", "",
+		"PIN_8", "PIN_10", "", "",
 
 		/* GPIO4_C0-C3 */
 		"", "", "", "",
