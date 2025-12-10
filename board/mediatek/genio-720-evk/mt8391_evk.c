@@ -14,6 +14,7 @@
 #include <net.h>
 #include <asm/io.h>
 #include <log.h>
+#include <asm/arch/misc.h>
 #include <linux/kernel.h>
 #include <linux/sizes.h>
 #include <linux/arm-smccc.h>
@@ -257,6 +258,8 @@ int board_late_init(void)
 #if (IS_ENABLED(CONFIG_OF_BOARD_SETUP))
 int ft_board_setup(void *blob, struct bd_info *bd)
 {
+	mtk_reserved_memory_init(blob, BOOT_ARGUMENT);
+
 	if (board_full_name) {
 		log_info("%s board model:%s\n", __func__, board_full_name);
 		do_fixup_by_path_string(blob, "/", "model",
