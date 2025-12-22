@@ -200,7 +200,6 @@ static ulong _scsi_read(struct blk_desc *block_dev, lbaint_t blknr,
 			pccb->datalen = block_dev->rawblksz * blocks;
 			scsi_setup_read16(pccb, start, blocks);
 			start += blocks;
-			blks -= blocks;
 		} else
 #endif
 		if (blks > max_read_blks) {
