@@ -54,6 +54,8 @@
 #include <asm/arch/rk_atags.h>
 #include <asm/arch/vendor.h>
 #include <asm/arch-rockchip/misc.h>
+#include <linux/string.h>
+#include <linux/libfdt.h>
 #ifdef CONFIG_ROCKCHIP_EINK_DISPLAY
 #include <rk_eink.h>
 #endif
@@ -63,6 +65,10 @@
 
 #ifdef CONFIG_ARM64
 static ulong orig_images_ep;
+#endif
+
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
 #endif
 
 __weak int rk_board_late_init(void)
@@ -620,8 +626,50 @@ static int rockchip_dm_late_init(void *blob)
 	return 0;
 }
 
+static void rtl8367rb_ports_mac_fixup(void *blob)
+{
+	struct {
+		const char *label;
+		const char *env;
+	} map[] = {
+		{ "wan",  "ethaddr" },
+		{ "lan1", "eth1addr" },
+		{ "lan2", "eth2addr" },
+		{ "lan3", "eth3addr" },
+	};
+
+	u8 mac[ETH_ALEN];
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(map); i++) {
+		if (!eth_env_get_enetaddr(map[i].env, mac)) {
+			debug("DSA: env %s not found, skip %s\n",
+				map[i].env, map[i].label);
+			continue;
+		}
+
+		do_fixup_by_prop(blob,
+				"label",
+				map[i].label,
+				strlen(map[i].label) + 1,
+				"mac-address",
+				mac, ETH_ALEN, 1);
+
+		do_fixup_by_prop(blob,
+				"label",
+				map[i].label,
+				strlen(map[i].label) + 1,
+				"local-mac-address",
+				mac, ETH_ALEN, 1);
+	}
+}
+
 int board_fdt_fixup(void *blob)
 {
+	if (fdt_node_check_compatible(blob, 0, "radxa,e24c") == 0 ||
+		fdt_node_check_compatible(blob, 0, "radxa,e54c") == 0)
+		rtl8367rb_ports_mac_fixup(blob);
+
 #ifdef CONFIG_SANITY_CPU_SWAP
 	sanity_cpu_swap(blob);
 #endif
