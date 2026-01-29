@@ -9,7 +9,7 @@
 #ifndef __ASM_UNIFIED_H
 #define __ASM_UNIFIED_H
 
-#if defined(__ASSEMBLY__) && defined(CONFIG_ARM_ASM_UNIFIED)
+#if defined(__ASSEMBLY__) && defined(CONFIG_ARM_ASM_UNIFIED) && !defined(__aarch64__)
 	.syntax unified
 #endif
 
