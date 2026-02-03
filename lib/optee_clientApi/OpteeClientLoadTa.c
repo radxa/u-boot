@@ -45,8 +45,8 @@ int search_ta(void *uuid_octets, void *ta, size_t *ta_size)
 	char fname[255];
 	char *format;
 	unsigned long ret = 0;
-	TEEC_UUID uuid;
-	TEEC_UUID ta_uuid;
+	TEEC_UUID uuid = {0};
+	TEEC_UUID ta_uuid = {0};
 	uint8_t *userta;
 	struct userta_header *header;
 	struct userta_item *item;
