@@ -14,6 +14,22 @@
 	model = "Radxa ROCK3 Model B";
 	compatible = "radxa,rock-3b", "rockchip,rk3568";
 
+	adc-keys {
+		compatible = "adc-keys";
+		io-channels = <&saradc 0>;
+		io-channel-names = "buttons";
+		keyup-threshold-microvolt = <1800000>;
+		u-boot,dm-pre-reloc;
+		status = "okay";
+
+		volumeup-key {
+			u-boot,dm-pre-reloc;
+			linux,code = <115>;
+			label = "volume up";
+			press-threshold-microvolt = <1750>;
+		};
+	};
+
 	dc_12v: dc-12v {
 		u-boot,dm-pre-reloc;
 		compatible = "regulator-fixed";
