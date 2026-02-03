@@ -25,6 +25,9 @@
 #include <android_avb/rk_avb_ops_user.h>
 #endif
 #include <optee_include/OpteeClientInterface.h>
+#ifdef CONFIG_ANDROID_BOOTLOADER
+#include <android_bootloader.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -42,7 +45,11 @@ static int android_version_init(void)
 	disk_partition_t part;
 	int os_version;
 
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	desc = android_get_bootdev();
+#else
 	desc = rockchip_get_bootdev();
+#endif
 	if (!desc) {
 		printf("No bootdev\n");
 		return -1;
@@ -425,7 +432,11 @@ static sha1_context sha1_ctx;
 static int image_load(img_t img, struct andr_img_hdr *hdr,
 		      ulong blkstart, void *ram_base)
 {
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	struct blk_desc *desc = android_get_bootdev();
+#else
 	struct blk_desc *desc = rockchip_get_bootdev();
+#endif
 	disk_partition_t part_vendor_boot;
 	disk_partition_t part_init_boot;
 	__maybe_unused u32 typesz;

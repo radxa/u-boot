@@ -22,6 +22,9 @@
 #include <asm/system.h>
 #include <asm/arch/vendor.h>
 #include <optee_include/OpteeClientInterface.h>
+#ifdef CONFIG_ANDROID_BOOTLOADER
+#include <android_bootloader.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -454,7 +457,11 @@ int arch_cpu_init(void)
 #if defined(CONFIG_SCSI) && defined(CONFIG_CMD_SCSI) && defined(CONFIG_UFS)
 int rk_board_dm_fdt_fixup(const void *blob)
 {
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	struct blk_desc *desc = android_get_bootdev();
+#else
 	struct blk_desc *desc = rockchip_get_bootdev();
+#endif
 	const char *status = NULL;
 	int node = -1;
 

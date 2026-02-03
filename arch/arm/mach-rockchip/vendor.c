@@ -12,6 +12,9 @@
 #include <part.h>
 #include <fdt_support.h>
 #include <usbplug.h>
+#ifdef CONFIG_ANDROID_BOOTLOADER
+#include <android_bootloader.h>
+#endif
 
 /* tag for vendor check */
 #define VENDOR_TAG		0x524B5644
@@ -317,7 +320,11 @@ static int vendor_ops(u8 *buffer, u32 addr, u32 n_sec, int write)
 	unsigned int lba = 0;
 	int ret = 0;
 
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	dev_desc = android_get_bootdev();
+#else
 	dev_desc = rockchip_get_bootdev();
+#endif
 	if (!dev_desc) {
 		printf("%s: dev_desc is NULL!\n", __func__);
 		return -ENODEV;
@@ -435,7 +442,11 @@ int vendor_storage_init(void)
 	u16 version2_offset, part_size;
 	struct blk_desc *dev_desc;
 
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	dev_desc = android_get_bootdev();
+#else
 	dev_desc = rockchip_get_bootdev();
+#endif
 	if (!dev_desc) {
 		printf("[Vendor ERROR]:Invalid boot device type(%d)\n",
 		       bootdev_type);

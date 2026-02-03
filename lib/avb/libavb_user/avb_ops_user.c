@@ -42,6 +42,9 @@
 #include <android_avb/avb_vbmeta_image.h>
 #include <android_avb/avb_atx_validate.h>
 #include <boot_rkimg.h>
+#ifdef CONFIG_ANDROID_BOOTLOADER
+#include <android_bootloader.h>
+#endif
 
 static void byte_to_block(int64_t *offset,
 			  size_t *num_bytes,
@@ -75,7 +78,11 @@ static AvbIOResult get_size_of_partition(AvbOps *ops,
 	struct blk_desc *dev_desc;
 	disk_partition_t part_info;
 
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	dev_desc = android_get_bootdev();
+#else
 	dev_desc = rockchip_get_bootdev();
+#endif
 	if (!dev_desc) {
 		printf("%s: Could not find device\n", __func__);
 		return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
@@ -111,7 +118,11 @@ static AvbIOResult read_from_partition(AvbOps *ops,
 	}
 
 	byte_to_block(&offset, &num_bytes, &offset_blk, &blkcnt);
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	dev_desc = android_get_bootdev();
+#else
 	dev_desc = rockchip_get_bootdev();
+#endif
 	if (!dev_desc) {
 		printf("%s: Could not find device\n", __func__);
 		return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
@@ -162,7 +173,11 @@ static AvbIOResult write_to_partition(AvbOps *ops,
 		return AVB_IO_RESULT_ERROR_OOM;
 	}
 	memset(buffer_temp, 0, 512 * blkcnt);
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	dev_desc = android_get_bootdev();
+#else
 	dev_desc = rockchip_get_bootdev();
+#endif
 	if (!dev_desc) {
 		printf("%s: Could not find device\n", __func__);
 		return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
@@ -350,7 +365,11 @@ static AvbIOResult get_unique_guid_for_partition(AvbOps *ops,
 	struct blk_desc *dev_desc;
 	disk_partition_t part_info;
 
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	dev_desc = android_get_bootdev();
+#else
 	dev_desc = rockchip_get_bootdev();
+#endif
 	if (!dev_desc) {
 		printf("%s: Could not find device\n", __func__);
 		return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
@@ -452,7 +471,11 @@ static AvbIOResult get_preloaded_partition(AvbOps* ops,
 	AvbIOResult ret;
 	int full_preload = 0;
 
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	dev_desc = android_get_bootdev();
+#else
 	dev_desc = rockchip_get_bootdev();
+#endif
 	if (!dev_desc)
 		return AVB_IO_RESULT_ERROR_IO;
 

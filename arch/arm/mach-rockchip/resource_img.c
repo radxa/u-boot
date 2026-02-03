@@ -14,6 +14,9 @@
 #include <asm/arch/rk_hwid.h>
 #include <asm/arch/uimage.h>
 #include <asm/arch/fit.h>
+#ifdef CONFIG_ANDROID_BOOTLOADER
+#include <android_bootloader.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -375,8 +378,11 @@ static int resource_scan(void)
 
 	if (!list_empty(&entry_head))
 		return 0;
-
+#ifdef CONFIG_ANDROID_BOOTLOADER
+	desc = android_get_bootdev();
+#else
 	desc = rockchip_get_bootdev();
+#endif
 	if (!desc) {
 		printf("RESC: No bootdev\n");
 		return -ENODEV;
@@ -460,7 +466,11 @@ int rockchip_read_resource_file(void *buf, const char *name, int blk_offset, int
 		pos = f->blk_start + (f->blk_offset + blk_offset) * blksz;
 		memcpy(buf, (char *)pos, len);
 	} else {
+#ifdef CONFIG_ANDROID_BOOTLOADER
+		desc = android_get_bootdev();
+#else
 		desc = rockchip_get_bootdev();
+#endif
 		if (!desc)
 			return -ENODEV;
 
