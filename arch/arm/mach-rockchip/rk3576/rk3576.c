@@ -513,11 +513,13 @@ int rk_board_fdt_fixup(const void *blob)
 
 	size = vendor_storage_read(MULTI_MODULE_KEY_ID, licence_str, 1024);
 	if (size > 0) {
+#if defined(CONFIG_OPTEE_CLIENT)
 		ret = trusty_verify_config_ip(licence_str);
 		if (!ret)
 			printf("gmac0 can be enabled safely\n");
 		else
 			return 0;
+#endif
 
 		node = fdt_path_offset(blob, "/ethernet@2a220000");
 		if (node < 0) {
