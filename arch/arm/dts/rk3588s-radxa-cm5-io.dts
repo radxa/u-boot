@@ -530,7 +530,6 @@
 };
 
 &usbhost_dwc3_0 {
-	maximum-speed = "high-speed";
 	status = "okay";
 };
 
