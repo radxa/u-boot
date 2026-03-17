@@ -822,7 +822,7 @@ static int load_bmp_logo(struct display_state *state, char *bmp_name)
 		state->logo = NULL;
 	}
 
-	state->logo = load_file(bmp_name, "primary");
+	state->logo = load_file(bmp_name, "bootloader");
 	if (!state->logo) {
 		state->logo = load_file(bmp_name, "boot-resource");
 	}
