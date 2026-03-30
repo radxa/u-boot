@@ -59,6 +59,11 @@ static SPINAND_OP_VARIANTS(read_cache_variants_2gq5,
 		SPINAND_PAGE_READ_FROM_CACHE_OP(true, 0, 1, NULL, 0),
 		SPINAND_PAGE_READ_FROM_CACHE_OP(false, 0, 1, NULL, 0));
 
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPI_NAND_CONT_READ)
+static SPINAND_OP_VARIANTS(read_cache_variants_cont,
+		SPINAND_PAGE_READ_FROM_CACHE_X4_OP_3A(0, 1, NULL, 0));
+#endif
+
 static SPINAND_OP_VARIANTS(write_cache_variants,
 		SPINAND_PROG_LOAD_X4(true, 0, NULL, 0),
 		SPINAND_PROG_LOAD(true, 0, NULL, 0));
@@ -539,6 +544,24 @@ static const struct spinand_info gigadevice_spinand_table[] = {
 		     SPINAND_HAS_QE_BIT,
 		     SPINAND_ECCINFO(&gd5fxgqx_variant3_ooblayout,
 				     gd5fxgq4xa_ecc_get_status)),
+	SPINAND_INFO("GD5F1GM9UEYIGY",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0x91),
+		     NAND_MEMORG(1, 2048, 128, 64, 1024, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&gd5fxgqx_variant2_ooblayout, gd5fxgq4xa_ecc_get_status)),
+	SPINAND_INFO("GD5F8GM8REYIGR",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0x89),
+		     NAND_MEMORG(1, 4096, 256, 64, 4096, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&gd5fxgq4xc_oob_256_ops, gd5fxgq4uexxg_ecc_get_status)),
 };
 
 static int gigadevice_spinand_set_ds(struct spinand_device *spinand, u8 ds_io)
@@ -556,6 +579,19 @@ static int gigadevice_spinand_init(struct spinand_device *spinand)
 	if (spinand->id.data[1] == 0x51)
 		gigadevice_spinand_set_ds(spinand, 3);
 
+	/* Enable continuous read */
+#ifdef CONFIG_SPI_NAND_CONT_READ
+	if (spinand->id.data[1] == 0x91 || spinand->id.data[1] == 0x81) {
+#ifdef CONFIG_SPL_BUILD
+		spinand->support_cont_read = true;
+		spinand_upd_cfg(spinand, CFG_BUF_ENABLE, 0);
+		spinand->op_templates.read_cache = &read_cache_variants_cont.ops[0];
+		printf("Support cont_read\n");
+#else
+		spinand_upd_cfg(spinand, CFG_BUF_ENABLE, CFG_BUF_ENABLE);
+#endif
+	}
+#endif
 	return 0;
 }
 
