@@ -90,8 +90,10 @@ static void boot_devtype_init(void)
 	char *src = "scan";
 	static int done;	/* static */
 	int ret;
+	bool need_reinit;
 
-	if (done)
+	need_reinit = !done || !env_get("devtype") || !env_get("devnum");
+	if (!need_reinit)
 		return;
 
 #ifdef CONFIG_MP_BOOT
