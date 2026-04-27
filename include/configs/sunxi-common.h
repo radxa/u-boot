@@ -322,7 +322,8 @@
 	"scriptaddr=" SCRIPT_ADDR_R "\0" \
 	"pxefile_addr_r=" PXEFILE_ADDR_R "\0" \
 	"fdtoverlay_addr_r=" FDTOVERLAY_ADDR_R "\0" \
-	"ramdisk_addr_r=" RAMDISK_ADDR_R "\0"
+	"ramdisk_addr_r=" RAMDISK_ADDR_R "\0" \
+	"initrd_high=0x46400000\0"
 
 #ifdef CONFIG_VIDEO_SUNXI
 /*
