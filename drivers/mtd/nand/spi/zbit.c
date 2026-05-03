@@ -13,6 +13,7 @@
 #include <linux/mtd/spinand.h>
 
 #define SPINAND_MFR_ZBIT		0x5E
+#define ZBIT_STATUS_ECC_HAS_BITFLIPS_T	(3 << 4)
 
 static SPINAND_OP_VARIANTS(read_cache_variants,
 		SPINAND_PAGE_READ_FROM_CACHE_QUADIO_OP(0, 1, NULL, 0),
@@ -54,6 +55,59 @@ static const struct mtd_ooblayout_ops zb35q01b_ooblayout = {
 	.rfree = zb35q01b_ooblayout_free,
 };
 
+static int zb35q04byig_ecc_get_status(struct spinand_device *spinand,
+				      u8 status)
+{
+	struct nand_device *nand = spinand_to_nand(spinand);
+
+	switch (status & STATUS_ECC_MASK) {
+	case STATUS_ECC_NO_BITFLIPS:
+		return 0;
+
+	case STATUS_ECC_UNCOR_ERROR:
+		return -EBADMSG;
+
+	case STATUS_ECC_HAS_BITFLIPS:
+		return 0;
+	case ZBIT_STATUS_ECC_HAS_BITFLIPS_T:
+		return nand->eccreq.strength;
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static int zb35q0xc_ooblayout_ecc(struct mtd_info *mtd, int section,
+				  struct mtd_oob_region *region)
+{
+	if (section)
+		return -ERANGE;
+
+	region->offset = mtd->oobsize / 2;
+	region->length = mtd->oobsize / 2;
+
+	return 0;
+}
+
+static int zb35q0xc_ooblayout_free(struct mtd_info *mtd, int section,
+				   struct mtd_oob_region *region)
+{
+	if (section)
+		return -ERANGE;
+
+	/* Reserve 2 bytes for the BBM. */
+	region->offset = 2;
+	region->length = mtd->oobsize / 2 - 2;
+
+	return 0;
+}
+
+static const struct mtd_ooblayout_ops zb35q0xc_ooblayout = {
+	.ecc = zb35q0xc_ooblayout_ecc,
+	.rfree = zb35q0xc_ooblayout_free,
+};
+
 static const struct spinand_info zbit_spinand_table[] = {
 	SPINAND_INFO("ZB35Q01BYIG",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0xA1),
@@ -64,6 +118,42 @@ static const struct spinand_info zbit_spinand_table[] = {
 					      &update_cache_variants),
 		     0,
 		     SPINAND_ECCINFO(&zb35q01b_ooblayout, NULL)),
+	SPINAND_INFO("ZB35Q04BYIG",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0xA3),
+		     NAND_MEMORG(1, 2048, 128, 128, 2048, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&zb35q01b_ooblayout, zb35q04byig_ecc_get_status)),
+	SPINAND_INFO("ZB35Q01CYIG",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0xC1),
+		     NAND_MEMORG(1, 2048, 64, 64, 1024, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&zb35q0xc_ooblayout, zb35q04byig_ecc_get_status)),
+	SPINAND_INFO("ZB35Q02CYIG",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0xC2),
+		     NAND_MEMORG(1, 2048, 64, 64, 2048, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&zb35q0xc_ooblayout, zb35q04byig_ecc_get_status)),
+	SPINAND_INFO("ZB35Q04CYIG",
+		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_ADDR, 0xC3),
+		     NAND_MEMORG(1, 2048, 128, 128, 2048, 1, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&zb35q01b_ooblayout, zb35q04byig_ecc_get_status)),
 };
 
 static const struct spinand_manufacturer_ops zbit_spinand_manuf_ops = {
