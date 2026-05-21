@@ -50,6 +50,16 @@
 			press-threshold-microvolt = <9>;
 		};
 	};
+
+	user_led: user-led {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "use_led";
+		enable-active-high;
+		gpio = <&gpio0 RK_PA6 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
 };
 
 &crypto {
