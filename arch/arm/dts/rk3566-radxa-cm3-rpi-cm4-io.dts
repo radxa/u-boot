@@ -31,9 +31,32 @@
 		regulator-max-microvolt = <3300000>;
 		vin-supply = <&dc_12v>;
 	};
+
+	pi_led_green: pi-led-green {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "pi_led_green";
+		gpio = <&gpio4 RK_PA4 GPIO_ACTIVE_LOW>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	pwr_led_red: pwr-led-red {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "pwr_led_red";
+		gpio = <&gpio4 RK_PB7 GPIO_ACTIVE_LOW>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
 };
 
 &gpio1 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&gpio4 {
 	u-boot,dm-pre-reloc;
 	status = "okay";
 };
