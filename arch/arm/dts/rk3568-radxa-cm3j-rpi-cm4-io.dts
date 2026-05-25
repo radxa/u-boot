@@ -36,7 +36,36 @@
 			press-threshold-microvolt = <9>;
 		};
 	};
+
+	pi_led_yellow: pi-led-yellow {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "pi_led_yellow";
+		gpio = <&gpio4 RK_PC6 GPIO_ACTIVE_LOW>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	pwr_led_red: pwr-led-red {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "pwr_led_red";
+		gpio = <&gpio3 RK_PC4 GPIO_ACTIVE_LOW>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
 };
+
+&gpio3 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&gpio4 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
 
 &vcc5v0_sys {
 	vin-supply = <&vcc12v_dcin>;
