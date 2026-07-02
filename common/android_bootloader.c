@@ -171,7 +171,7 @@ static const char *android_boot_mode_str(enum android_boot_mode mode)
 	case ANDROID_BOOT_MODE_BOOTLOADER:
 		return "bootloader";
 	}
-	return NULL;
+	return "unknown";
 }
 
 static int android_bootloader_boot_bootloader(void)
