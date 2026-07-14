@@ -1056,7 +1056,7 @@ u-boot-dtb.img u-boot.img u-boot.kwb u-boot.pbl u-boot-ivt.img: \
 		$(if $(CONFIG_SPL_LOAD_FIT),u-boot-nodtb.bin dts/dt.dtb,u-boot.bin) FORCE
 	$(call if_changed,mkimage)
 
-u-boot.itb: u-boot-nodtb.bin dts/dt.dtb $(U_BOOT_ITS) FORCE
+u-boot.itb: u-boot-nodtb.bin dts/dt.dtb u-boot.dtb $(U_BOOT_ITS) FORCE
 	$(call if_changed,mkfitimage)
 
 u-boot-spl.kwb: u-boot.img spl/u-boot-spl.bin FORCE
