@@ -37,6 +37,7 @@ CONFIG_TPL_TINY_FRAMEWORK=y
 # CONFIG_FASTBOOT is not set
 # CONFIG_CMD_BDI is not set
 # CONFIG_CMD_CONSOLE is not set
+CONFIG_CMD_DTIMG=y
 # CONFIG_CMD_ELF is not set
 # CONFIG_CMD_IMI is not set
 # CONFIG_CMD_IMLS is not set
