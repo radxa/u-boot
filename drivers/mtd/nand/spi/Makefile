@@ -29,4 +29,5 @@ obj-$(CONFIG_SPI_NAND_MK) += mk.o
 obj-$(CONFIG_SPI_NAND_CHUCUN) += chucun.o
 obj-$(CONFIG_SPI_NAND_ICTHINK) += icthink.o
 obj-$(CONFIG_SPI_NAND_UNILC) += unilc.o
+obj-$(CONFIG_SPI_NAND_DAMAY) += damay.o
 obj-$(CONFIG_MTD_SPI_NAND) += spinand.o
