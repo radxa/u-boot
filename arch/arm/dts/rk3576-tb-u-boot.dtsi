@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2026 Rockchip Electronics Co., Ltd.
+ */
+
+#include "rockchip-u-boot.dtsi"
+
+/ {
+	aliases {
+		mmc0 = &sdhci;
+	};
+
+	chosen {
+		u-boot,spl-boot-order = "same-as-spl";
+	};
+
+	adc-keys {
+		compatible = "adc-keys";
+		io-channels = <&saradc 1>;
+		io-channel-names = "buttons";
+		keyup-threshold-microvolt = <1800000>;
+		bootph-all;
+		status = "okay";
+
+		volumeup-key {
+			bootph-all;
+			linux,code = <KEY_VOLUMEUP>;
+			label = "volume up";
+			press-threshold-microvolt = <1750>;
+		};
+	};
+
+	dmc {
+		compatible = "rockchip,rk3576-dmc";
+		bootph-all;
+	};
+};
+
+&hw_decompress {
+	bootph-all;
+	status = "okay";
+};
+
+&pcfg_pull_up_drv_level_3 {
+	bootph-pre-ram;
+	bootph-some-ram;
+};
+
+&pmu1_grf {
+	bootph-all;
+};
+
+&sdhci {
+	/delete-property/ power-domains;
+	/delete-property/ supports-cqe;
+	bootph-pre-ram;
+	bootph-some-ram;
+	bus-width = <8>;
+	bootph-all;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	non-removable;
+	status = "okay";
+};
+
+&xin24m {
+	bootph-all;
+};
+
+&optee {
+	bootph-all;
+	status = "okay";
+};
+
+&firmware {
+	bootph-all;
+};
+
+&scmi {
+	bootph-all;
+};
+
+&scmi_clk {
+	bootph-all;
+};
+
+&scmi_shmem {
+	bootph-all;
+};
+
+&sys_grf {
+	bootph-all;
+	status = "okay";
+};
+
+&ioc_grf {
+	bootph-all;
+	status = "okay";
+};
+
+&cru {
+	bootph-all;
+	status = "okay";
+};
+
+&psci {
+	bootph-all;
+	status = "okay";
+};
+
+&uart0 {
+	bootph-all;
+	status = "okay";
+};
+
+&saradc {
+	bootph-all;
+	status = "okay";
+};
+
+&usbdpphy_grf {
+	bootph-all;
+};
+
+&usbdp_phy {
+	bootph-all;
+	status = "okay";
+};
+
+&usb_grf {
+	bootph-all;
+};
+
+&usb2phy_grf {
+	bootph-all;
+};
+
+&u2phy0 {
+	bootph-all;
+	status = "okay";
+};
+
+&u2phy0_otg {
+	bootph-all;
+	status = "okay";
+};
+
+&ufs {
+	bootph-all;
+	status = "okay";
+};
+
+&vo1_grf {
+	bootph-all;
+	status = "okay";
+};
