@@ -100,7 +100,7 @@
 #define PLL_MODE_SEL_MASK			GENMASK(6, 5)
 #define PLL_MODE_SEL_LVDS_MODE			0
 #define PLL_MODE_SEL_MIPI_MODE			BIT(5)
-/* Analog Register Part: reg2A */
+/* Analog Register Part: reg2A for RK3572 */
 #define REG_POSTDIV_MASK			GENMASK(4, 0)
 #define REG_POSTDIV(x)				UPDATE(x, 4, 0)
 
@@ -494,7 +494,7 @@ static void inno_mipi_dphy_max_2_5ghz_pll_enable(struct inno_video_phy *inno)
 	phy_update_bits(inno, REGISTER_PART_ANALOG, 0x08,
 			PLL_POST_DIV_ENABLE_MASK, PLL_POST_DIV_ENABLE(inno->pll.lowfre_en));
 	if (inno->pll.lowfre_en)
-		phy_update_bits(inno, REGISTER_PART_ANALOG, 0x2a,
+		phy_update_bits(inno, REGISTER_PART_ANALOG, 0x1e,
 				REG_POSTDIV_MASK, REG_POSTDIV(inno->pll.postdiv));
 	phy_update_bits(inno, REGISTER_PART_ANALOG, 0x0b,
 			CLOCK_LANE_VOD_RANGE_SET_MASK,
@@ -1087,7 +1087,6 @@ static int inno_video_phy_configure(struct phy *phy, void *params)
 	struct phy_configure_opts_mipi_dphy *opts = (struct phy_configure_opts_mipi_dphy *)params;
 	enum phy_mode mode = generic_phy_get_mode(phy);
 	unsigned long fin = 24 * HZ_PER_MHZ;
-	unsigned long long fout;
 	int ret;
 
 	if (mode != PHY_MODE_MIPI_DPHY)
@@ -1104,8 +1103,8 @@ static int inno_video_phy_configure(struct phy *phy, void *params)
 	else
 		inno_video_phy_max_1ghz_or_1_5ghz_pll_round_rate(inno, fin, cfg->hs_clk_rate);
 
-	dev_dbg(phy->dev, "fin=%lu, fout=%llu, prediv=%u, fbdiv=%u, postdiv=%u\n",
-		fin, fout, inno->pll.prediv, inno->pll.fbdiv, inno->pll.postdiv);
+	printf("prediv=%u, fbdiv=%u, postdiv:%d, lowfre_en:%d \n",
+	       inno->pll.prediv, inno->pll.fbdiv, inno->pll.postdiv, inno->pll.lowfre_en);
 
 	cfg->hs_clk_rate = inno->pll.rate;
 	opts->hs_clk_rate = inno->pll.rate;
