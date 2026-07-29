@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2026 Rockchip Electronics Co., Ltd.
+ */
+
+#include "rockchip-u-boot.dtsi"
+
+/ {
+	aliases {
+		mmc0 = &sdhci;
+	};
+
+	chosen {
+		u-boot,spl-boot-order = "same-as-spl";
+	};
+
+	dmc {
+		compatible = "rockchip,rk3572-dmc";
+		bootph-all;
+		status = "okay";
+	};
+};
+
+&hw_decompress {
+	bootph-all;
+	status = "okay";
+};
+
+&optee {
+	bootph-all;
+	status = "okay";
+};
+
+&firmware {
+	bootph-all;
+};
+
+&scmi {
+	bootph-all;
+};
+
+&scmi_clk {
+	bootph-all;
+};
+
+&scmi_shmem {
+	bootph-all;
+};
+
+&sdhci {
+	bootph-all;
+	bus-width = <8>;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	no-sd;
+	no-sdio;
+	non-removable;
+	u-boot,spl-fifo-mode;
+	status = "okay";
+};
+
+&ioc_grf {
+	bootph-all;
+	status = "okay";
+};
+
+&cru {
+	bootph-all;
+	status = "okay";
+};
+
+&psci {
+	bootph-all;
+	status = "okay";
+};
+
+&saradc {
+	bootph-all;
+	status = "okay";
+};
+
+&usb2phy_grf {
+	bootph-all;
+	status = "okay";
+};
+
+&u2phy0 {
+	bootph-all;
+	status = "okay";
+};
+
+&u2phy0_otg {
+	bootph-all;
+	status = "okay";
+};
+
+&ufs {
+	bootph-all;
+	status = "okay";
+};
