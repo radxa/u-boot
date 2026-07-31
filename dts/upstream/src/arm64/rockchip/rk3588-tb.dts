@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2026 Rockchip Electronics Co., Ltd.
+ */
+
+#include "rk3588-evb.dts"
+
+/ {
+	model = "Rockchip RK3588 Thunder Boot board";
+	compatible = "rockchip,rk3588-evb", "rockchip,rk3588";
+};
