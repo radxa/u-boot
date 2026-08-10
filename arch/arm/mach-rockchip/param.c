@@ -318,7 +318,8 @@ struct memblock *param_parse_ddr_mem(int *out_count)
 	 */
 #ifdef CONFIG_ROCKCHIP_PRELOADER_ATAGS
 	struct tag *t;
-	u64 base, size;
+	u64 base, size, end = 0;
+	bool mem_hole = false;
 	u32 flags, extsz;
 	int n;
 
@@ -354,6 +355,10 @@ struct memblock *param_parse_ddr_mem(int *out_count)
 			}
 			debug("bank[%d]: 0x%08llx - 0x%08llx\n", i, base, base + size);
 
+			if (end && base != end)
+				mem_hole = true;
+			end = base + size;
+
 			/*
 			 * On RISCV platform:
 			 *
@@ -388,6 +393,17 @@ struct memblock *param_parse_ddr_mem(int *out_count)
 			}
 			assert(n < count + MEM_RESV_COUNT);
 			n++;
+		}
+
+		/* dump memory layout ! */
+		if (mem_hole && !(gd->flags & GD_FLG_RELOC)) {
+			printf("\n");
+			for (i = 0; i < count && mem_hole; i++) {
+				base = t->u.ddr_mem.bank[i];
+				size = t->u.ddr_mem.bank[i + count];
+				printf("DDR[%d]: 0x%08llx - 0x%08llx\n",
+				       i, base, base + size);
+			}
 		}
 
 		*out_count = n;
