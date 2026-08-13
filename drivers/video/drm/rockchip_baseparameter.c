@@ -282,7 +282,7 @@ static int rockchip_baseparameter_csc_info_v2(uintptr_t conn_state_ptr,
 		return -EINVAL;
 
 	if (bp_version < RK_BASEPARAMETER_V2_1) {
-		pr_info("INFO: Cureent version[%d]. Only v2.1 and later versions can support csc info\n",
+		pr_info("INFO: Current version[%d]. Only v2.1 and later versions can support csc info\n",
 		        bp_version);
 		return -EINVAL;
 	}
@@ -425,7 +425,7 @@ static int rockchip_baseparameter_acm_data_v2(uintptr_t conn_state_ptr, struct b
 		return -EINVAL;
 
 	if (bp_version < RK_BASEPARAMETER_V2_1) {
-		pr_info("INFO: Cureent version[%d]. Only v2.1 and later versions can support acm info\n",
+		pr_info("INFO: Current version[%d]. Only v2.1 and later versions can support acm info\n",
 		        bp_version);
 		return -EINVAL;
 	}
