@@ -14,6 +14,8 @@
 #include <edid.h>
 #include <part.h>
 
+#include "rockchip_sharp_regs.h"
+
 #define BP_LUT_DATA_ARRAY_SIZE		(1024)
 #define BP_CUBIC_LUT_DATA_ARRAY_SIZE	(4913)
 #define BP_GAMMA_LUT_DATA_ARRAY_SIZE	(1024)
@@ -99,6 +101,11 @@ enum bp_output_depth {
 enum bp_csc_mode {
 	HIGH_QUALITY_MODE = 0,
 	LOW_LATENCY_MODE = 1,
+};
+
+enum bp_sharp_version {
+	RK_SHARP_FULL = 1,
+	RK_SHARP_LITE,
 };
 
 struct bp_display_mode {
@@ -273,6 +280,14 @@ struct bp_pq_sharp_info {
 	u32 crc;
 };
 
+struct bp_sharp_data {
+	u32 plat;
+	union {
+		sharp_full_regs full_regs;
+		sharp_lite_regs lite_regs;
+	};
+};
+
 struct bp_aipq_info {
 	bool ai_sd_enable;
 	bool ai_sr_enable;
@@ -435,6 +450,9 @@ int rockchip_baseparameter_screen_info_get(uintptr_t conn_state_ptr, u32 type, u
 					   struct bp_screen_info *screen_info);
 int rockchip_baseparameter_csc_info_get(uintptr_t conn_state_ptr, struct bp_csc_info *csc_info);
 int rockchip_baseparameter_acm_data_get(uintptr_t conn_state_ptr, struct bp_acm_data *acm_data);
+int rockchip_baseparameter_sharp_data_get(uintptr_t conn_state_ptr,
+					  struct bp_sharp_data *sharp_data,
+					  enum bp_sharp_version version_id);
 struct bp_gamma_lut_data *rockchip_baseparameter_gamma_lut_data_get(uintptr_t conn_state_ptr);
 struct bp_cubic_lut_data *rockchip_baseparameter_cubic_lut_data_get(uintptr_t conn_state_ptr);
 struct bp_bcsh_info *rockchip_baseparameter_bcsh_info_get(uintptr_t conn_state_ptr);

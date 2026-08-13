@@ -26,6 +26,8 @@ struct baseparameter_handler {
 			       struct bp_screen_info *screen_info);
 	int (*get_csc_info)(uintptr_t conn_state_ptr, struct bp_csc_info *csc_info);
 	int (*get_acm_data)(uintptr_t conn_state_ptr, struct bp_acm_data *acm_data);
+	int (*get_sharp_data)(uintptr_t conn_state_ptr, struct bp_sharp_data *sharp_data,
+			      enum bp_sharp_version version_id);
 	struct bp_gamma_lut_data *(*get_gamma_lut_data)(uintptr_t conn_state_ptr);
 	struct bp_cubic_lut_data *(*get_cubic_lut_data)(uintptr_t conn_state_ptr);
 	struct bp_bcsh_info *(*get_bcsh_info)(uintptr_t conn_state_ptr);
@@ -450,6 +452,149 @@ static int rockchip_baseparameter_acm_data_v3(uintptr_t conn_state_ptr, struct b
 	return 0;
 }
 
+static void sharp_info_to_sharp_data_full(const struct bp_pq_sharp_info *sharp_info,
+					  struct bp_sharp_data *sharp_data)
+{
+	int i;
+	rk_hwpq_shp_cfg shp_cfg;
+	sharp_hw_params sharp_params = {0};
+
+	/* start from the reference defaults, then override with bp info */
+	rockchip_hwpq_sharp_cfg_init(&shp_cfg);
+
+	/* fields carried by bp_pq_sharp_info */
+	shp_cfg.sharp_enable = sharp_info->sharp_enable ? 1 : 0;
+
+	shp_cfg.sharp_peaking_cfg.peaking_gain = min(sharp_info->sharp_peaking_gain, (u32)1023);
+	shp_cfg.sharp_peaking_cfg.coring_enable = sharp_info->sharp_enable_coring_ctrl ? 1 : 0;
+	shp_cfg.sharp_peaking_cfg.gain_enable = sharp_info->sharp_enable_gain_ctrl ? 1 : 0;
+	shp_cfg.sharp_peaking_cfg.limit_ctrl_enable = sharp_info->sharp_enable_limit_ctrl ? 1 : 0;
+
+	shp_cfg.sharp_shootctrl_cfg.shootctrl_enable = sharp_info->sharp_enable_shoot_ctrl ? 1 : 0;
+	shp_cfg.sharp_shootctrl_cfg.alpha_over = min(sharp_info->sharp_shoot_ctrl_over, (u32)127);
+	shp_cfg.sharp_shootctrl_cfg.alpha_over_unlimit = shp_cfg.sharp_shootctrl_cfg.alpha_over;
+	shp_cfg.sharp_shootctrl_cfg.alpha_under = min(sharp_info->sharp_shoot_ctrl_under, (u32)127);
+	shp_cfg.sharp_shootctrl_cfg.alpha_under_unlimit = shp_cfg.sharp_shootctrl_cfg.alpha_under;
+
+	/* per-band params: 4 bands from bp info, remaining bands keep defaults */
+	for (i = 0; i < 4; i++) {
+		shp_cfg.sharp_peaking_cfg.coring_zero[i] =
+			min(sharp_info->sharp_coring_ctrl_zero[i], (u16)1023);
+		shp_cfg.sharp_peaking_cfg.coring_thr[i] =
+			min(sharp_info->sharp_coring_ctrl_thrd[i], (u16)1023);
+		shp_cfg.sharp_peaking_cfg.coring_ratio[i] =
+			min(sharp_info->sharp_coring_ctrl_ratio[i], (u16)4095);
+		shp_cfg.sharp_peaking_cfg.gain_pos[i] =
+			min(sharp_info->sharp_gain_ctrl_pos[i], (u16)2048);
+		shp_cfg.sharp_peaking_cfg.limit_ctrl_pos0[i] =
+			min(sharp_info->sharp_limit_ctrl_pos0[i], (u16)2048);
+		shp_cfg.sharp_peaking_cfg.limit_ctrl_pos1[i] =
+			min(sharp_info->sharp_limit_ctrl_pos1[i], (u16)2048);
+		shp_cfg.sharp_peaking_cfg.limit_ctrl_bnd_pos[i] =
+			min(sharp_info->sharp_limit_ctrl_bnd_pos[i], (u16)2048);
+		shp_cfg.sharp_peaking_cfg.limit_ctrl_ratio[i] =
+			min(sharp_info->sharp_limit_ctrl_ratio[i], (u16)2048);
+	}
+
+	/* generate regs via the standard full-sharp path */
+	memset(&sharp_data->full_regs, 0, sizeof(sharp_data->full_regs));
+	rockchip_sharp_hw_params_init(&shp_cfg, &sharp_params);
+	rockchip_sharp_full_regs_generate(&sharp_params, &sharp_data->full_regs);
+}
+
+static void sharp_info_to_sharp_data_lite(const struct bp_pq_sharp_info *sharp_info,
+					  struct bp_sharp_data *sharp_data)
+{
+	memset(&sharp_data->lite_regs, 0, sizeof(sharp_data->lite_regs));
+
+	/* enable */
+	sharp_data->lite_regs.regs.sw_enable_ctrl.bits.sharp_en = sharp_info->sharp_enable ? 1 : 0;
+	sharp_data->lite_regs.regs.sw_enable_ctrl.bits.shoot_ctrl_en =
+		sharp_info->sharp_enable_shoot_ctrl ? 1 : 0;
+	sharp_data->lite_regs.regs.sw_gating_ctrl.bits.shoot_ctrl_gating_en = 1;
+
+	/* USM */
+	sharp_data->lite_regs.regs.sw_usm_ctrl.bits.peaking_gain =
+		min(sharp_info->sharp_peaking_gain, (u32)1023);
+	sharp_data->lite_regs.regs.sw_usm_ctrl.bits.coring_thr =
+		sharp_info->sharp_enable_coring_ctrl ?
+		min(sharp_info->sharp_coring_ctrl_thrd[0], (u16)127) : 0;
+	/* coef A/B/C are not carried by bp_pq_sharp_info, keep default (16/32/64) */
+	sharp_data->lite_regs.regs.sw_usm_coef.bits.coef_A = 16;
+	sharp_data->lite_regs.regs.sw_usm_coef.bits.coef_B = 32;
+	sharp_data->lite_regs.regs.sw_usm_coef.bits.coef_C = 64;
+
+	/* shoot ctrl */
+	/* not provided by bp info, use default value */
+	sharp_data->lite_regs.regs.sw_shoot_ctrl_reg0.bits.delta_offset = 16;
+	sharp_data->lite_regs.regs.sw_shoot_ctrl_reg1.bits.alpha_pos =
+		min(sharp_info->sharp_shoot_ctrl_over, (u32)127);
+	sharp_data->lite_regs.regs.sw_shoot_ctrl_reg1.bits.alpha_pos_unlimit =
+		sharp_data->lite_regs.regs.sw_shoot_ctrl_reg1.bits.alpha_pos;
+	sharp_data->lite_regs.regs.sw_shoot_ctrl_reg2.bits.alpha_neg =
+		min(sharp_info->sharp_shoot_ctrl_under, (u32)127);
+	sharp_data->lite_regs.regs.sw_shoot_ctrl_reg2.bits.alpha_neg_unlimit =
+		sharp_data->lite_regs.regs.sw_shoot_ctrl_reg2.bits.alpha_neg;
+}
+
+static int
+rockchip_baseparameter_sharp_info_to_sharp_data(const struct bp_pq_sharp_info *sharp_info,
+						struct bp_sharp_data *sharp_data,
+						enum bp_sharp_version version_id)
+{
+	if (!sharp_info || !sharp_data || version_id < RK_SHARP_FULL ||
+	    version_id > RK_SHARP_LITE)
+		return -EINVAL;
+
+	if (version_id == RK_SHARP_FULL)
+		sharp_info_to_sharp_data_full(sharp_info, sharp_data);
+	else
+		sharp_info_to_sharp_data_lite(sharp_info, sharp_data);
+
+	return 0;
+}
+
+static int rockchip_baseparameter_sharp_data_v2(uintptr_t conn_state_ptr,
+						struct bp_sharp_data *sharp_data,
+						enum bp_sharp_version version_id)
+{
+	int index;
+	int ret;
+
+	index = rockchip_baseparameter_disp_info_get(conn_state_ptr);
+	if (index < 0)
+		return -EINVAL;
+
+	if (bp_version < RK_BASEPARAMETER_V2_1) {
+		pr_info("INFO: Current version[%d]. Only v2.1 and later versions "
+			"can support sharp info\n", bp_version);
+		return -EINVAL;
+	}
+
+	ret = rockchip_baseparameter_sharp_info_to_sharp_data(
+		&bp_info->baseparameter_info_v2.pq_sharp_info, sharp_data, version_id);
+
+	return ret;
+}
+
+static int rockchip_baseparameter_sharp_data_v3(uintptr_t conn_state_ptr,
+						struct bp_sharp_data *sharp_data,
+						enum bp_sharp_version version_id)
+{
+	int index;
+	int ret;
+
+	index = rockchip_baseparameter_disp_info_get(conn_state_ptr);
+	if (index < 0)
+		return -EINVAL;
+
+	ret = rockchip_baseparameter_sharp_info_to_sharp_data(
+		&bp_info->baseparameter_info_v3.disp_info[index].pq_tuning_info.pq_sharp_info,
+		sharp_data, version_id);
+
+	return ret;
+}
+
 static struct bp_gamma_lut_data *rockchip_baseparameter_gamma_lut_data_v2(uintptr_t conn_state_ptr)
 {
 	int index;
@@ -792,6 +937,7 @@ static const struct baseparameter_handler handlers[] = {
 		NULL,
 		NULL,
 		NULL,
+		NULL,
 		NULL
 	},
 	{
@@ -801,6 +947,7 @@ static const struct baseparameter_handler handlers[] = {
 		rockchip_baseparameter_screen_info_v2,
 		rockchip_baseparameter_csc_info_v2,
 		rockchip_baseparameter_acm_data_v2,
+		rockchip_baseparameter_sharp_data_v2,
 		rockchip_baseparameter_gamma_lut_data_v2,
 		rockchip_baseparameter_cubic_lut_data_v2,
 		rockchip_baseparameter_bcsh_info_v2,
@@ -813,6 +960,7 @@ static const struct baseparameter_handler handlers[] = {
 		rockchip_baseparameter_screen_info_v3,
 		rockchip_baseparameter_csc_info_v3,
 		rockchip_baseparameter_acm_data_v3,
+		rockchip_baseparameter_sharp_data_v3,
 		rockchip_baseparameter_gamma_lut_data_v3,
 		rockchip_baseparameter_cubic_lut_data_v3,
 		rockchip_baseparameter_bcsh_info_v3,
@@ -915,6 +1063,30 @@ int rockchip_baseparameter_acm_data_get(uintptr_t conn_state_ptr, struct bp_acm_
 		}
 	}
 	pr_warn("WARN: Unsupported baseparameter version[%d] for acm data\n", bp_version);
+
+	return -EINVAL;
+}
+
+int rockchip_baseparameter_sharp_data_get(uintptr_t conn_state_ptr,
+					  struct bp_sharp_data *sharp_data,
+					  enum bp_sharp_version version_id)
+{
+	int i;
+	int ret;
+
+	if (!sharp_data)
+		return -EINVAL;
+
+	for (i = 0; handlers[i].version_check; i++) {
+		if (handlers[i].version_check() && handlers[i].get_sharp_data) {
+			ret = handlers[i].get_sharp_data(conn_state_ptr, sharp_data, version_id);
+			if (ret)
+				pr_warn("WARN: Failed to find sharp data in %s baseparameter\n",
+					handlers[i].version_name);
+			return ret;
+		}
+	}
+	pr_warn("WARN: Unsupported baseparameter version[%d] for sharp data\n", bp_version);
 
 	return -EINVAL;
 }
