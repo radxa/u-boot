@@ -1980,6 +1980,11 @@ static bool vop2_is_left_right_mode(struct connector_state *conn_state)
 	return conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE;
 }
 
+static bool vop2_is_odd_even_mode(struct connector_state *conn_state)
+{
+	return conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_ODD_EVEN_MODE;
+}
+
 static inline bool is_vop3(struct vop2 *vop2)
 {
 	if (vop2->version == VOP_VERSION_RK3568 || vop2->version == VOP_VERSION_RK3588)
@@ -5355,8 +5360,7 @@ static void rk3568_vop2_setup_dual_channel_if(struct display_state *state)
 	struct vop2 *vop2 = cstate->private;
 	u32 vp_offset = (cstate->crtc_id * 0x100);
 
-	if (conn_state->output_flags &
-	    ROCKCHIP_OUTPUT_DUAL_CHANNEL_ODD_EVEN_MODE) {
+	if (vop2_is_odd_even_mode(conn_state)) {
 		vop2_mask_write(vop2, RK3568_DSP_IF_CTRL, EN_MASK,
 				LVDS_DUAL_EN_SHIFT, 1, false);
 		vop2_mask_write(vop2, RK3568_DSP_IF_CTRL, EN_MASK,
@@ -5472,8 +5476,7 @@ static unsigned long rk3568_setup_interface(struct display_state *state)
 				IF_CTRL_MIPI_PIN_POL_SHIFT, val, false);
 	}
 
-	if (vop2_is_left_right_mode(conn_state) ||
-	    conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_ODD_EVEN_MODE)
+	if (vop2_is_left_right_mode(conn_state) || vop2_is_odd_even_mode(conn_state))
 		rk3568_vop2_setup_dual_channel_if(state);
 
 	if (conn_state->output_if & VOP_OUTPUT_IF_eDP0) {
