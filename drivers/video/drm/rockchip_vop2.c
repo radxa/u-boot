@@ -1975,6 +1975,11 @@ static inline const char *vop2_plane_phys_id_to_string(u8 phys_id)
 	return vop2_layer_name_list[phys_id];
 }
 
+static bool vop2_is_left_right_mode(struct connector_state *conn_state)
+{
+	return conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE;
+}
+
 static inline bool is_vop3(struct vop2 *vop2)
 {
 	if (vop2->version == VOP_VERSION_RK3568 || vop2->version == VOP_VERSION_RK3588)
@@ -4395,14 +4400,12 @@ static unsigned long vop2_calc_cru_cfg(struct display_state *state,
 	int output_mode = conn_state->output_mode;
 	int K = 1;
 
-	if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE &&
-	    output_mode == ROCKCHIP_OUT_MODE_YUV420) {
+	if (vop2_is_left_right_mode(conn_state) && output_mode == ROCKCHIP_OUT_MODE_YUV420) {
 		printf("Dual channel and YUV420 can't work together\n");
 		return -EINVAL;
 	}
 
-	if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE ||
-	    output_mode == ROCKCHIP_OUT_MODE_YUV420)
+	if (vop2_is_left_right_mode(conn_state) || output_mode == ROCKCHIP_OUT_MODE_YUV420)
 		K = 2;
 
 	if (output_type == DRM_MODE_CONNECTOR_HDMIA) {
@@ -4410,7 +4413,7 @@ static unsigned long vop2_calc_cru_cfg(struct display_state *state,
 		 * K = 2: dclk_core = if_pixclk_rate > if_dclk_rate
 		 * K = 1: dclk_core = hdmie_edp_dclk > if_pixclk_rate
 		 */
-		if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE ||
+		if (vop2_is_left_right_mode(conn_state) ||
 		    output_mode == ROCKCHIP_OUT_MODE_YUV420) {
 			dclk_rate = dclk_rate >> 1;
 			K = 2;
@@ -4462,7 +4465,7 @@ static unsigned long vop2_calc_cru_cfg(struct display_state *state,
 		*dclk_out_div = dclk_rate / dclk_out_rate;
 		*dclk_core_div = dclk_rate / dclk_core_rate;
 	} else if (output_type == DRM_MODE_CONNECTOR_DSI) {
-		if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE)
+		if (vop2_is_left_right_mode(conn_state))
 			K = 2;
 		if (cstate->dsc_enable)
 			/* dsc output is 96bit, dsi input is 192 bit */
@@ -4519,7 +4522,7 @@ static int vop2_calc_dsc_clk(struct display_state *state)
 	u64 v_pixclk = mode->crtc_clock * 1000LL; /* video timing pixclk */
 	u8 k = 1;
 
-	if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE)
+	if (vop2_is_left_right_mode(conn_state))
 		k = 2;
 
 	cstate->dsc_txp_clk_rate = v_pixclk;
@@ -4573,7 +4576,7 @@ static unsigned long rk3588_setup_interface(struct display_state *state)
 			return 0;
 		}
 
-		if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE)
+		if (vop2_is_left_right_mode(conn_state))
 			k = 2;
 
 		cstate->dsc_id = output_if & (VOP_OUTPUT_IF_MIPI0 | VOP_OUTPUT_IF_HDMI0) ? 0 : 1;
@@ -4665,7 +4668,7 @@ static unsigned long rk3588_setup_interface(struct display_state *state)
 		}
 	}
 
-	if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE) {
+	if (vop2_is_left_right_mode(conn_state)) {
 		vop2_mask_write(vop2, RK3568_VP0_MIPI_CTRL + vp_offset, EN_MASK,
 				MIPI_DUAL_EN_SHIFT, 1, false);
 		if (conn_state->output_flags & ROCKCHIP_OUTPUT_DATA_SWAP)
@@ -4804,8 +4807,7 @@ static unsigned long rk3576_setup_interface(struct display_state *state)
 	u8 port_pix_rate = vop2->data->vp_data[cstate->crtc_id].pixel_rate;
 	int output_if = conn_state->output_if;
 	bool dclk_inv, yc_swap = false;
-	bool split_mode = !!(conn_state->output_flags &
-			     ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE);
+	bool split_mode = vop2_is_left_right_mode(conn_state);
 	bool post_dclk_core_sel = false, pix_half_rate = false, post_dclk_out_sel = false;
 	bool interface_dclk_sel, interface_pix_clk_sel = false;
 	bool double_pixel = mode->flags & DRM_MODE_FLAG_DBLCLK ||
@@ -4979,7 +4981,7 @@ static unsigned long rk3576_setup_interface(struct display_state *state)
 		}
 	}
 
-	if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE) {
+	if (vop2_is_left_right_mode(conn_state)) {
 		vop2_mask_write(vop2, RK3568_VP0_MIPI_CTRL + vp_offset, EN_MASK,
 				MIPI_DUAL_EN_SHIFT, 1, false);
 		if (conn_state->output_flags & ROCKCHIP_OUTPUT_DATA_SWAP)
@@ -5109,8 +5111,7 @@ static unsigned long rk3572_setup_interface(struct display_state *state)
 	u8 port_pix_rate = vop2->data->vp_data[cstate->crtc_id].pixel_rate;
 	int output_if = conn_state->output_if;
 	bool dclk_inv, yc_swap = false;
-	bool split_mode = !!(conn_state->output_flags &
-			     ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE);
+	bool split_mode = vop2_is_left_right_mode(conn_state);
 	bool post_dclk_core_sel = false, pix_half_rate = false, post_dclk_out_sel = false;
 	bool interface_dclk_sel, interface_pix_clk_sel = false;
 	bool double_pixel = mode->flags & DRM_MODE_FLAG_DBLCLK ||
@@ -5278,7 +5279,7 @@ static unsigned long rk3572_setup_interface(struct display_state *state)
 		}
 	}
 
-	if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE) {
+	if (vop2_is_left_right_mode(conn_state)) {
 		vop2_mask_write(vop2, RK3568_VP0_MIPI_CTRL + vp_offset, EN_MASK,
 				MIPI_DUAL_EN_SHIFT, 1, false);
 		if (conn_state->output_flags & ROCKCHIP_OUTPUT_DATA_SWAP)
@@ -5471,10 +5472,8 @@ static unsigned long rk3568_setup_interface(struct display_state *state)
 				IF_CTRL_MIPI_PIN_POL_SHIFT, val, false);
 	}
 
-	if (conn_state->output_flags &
-		    ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE ||
-	    conn_state->output_flags &
-		    ROCKCHIP_OUTPUT_DUAL_CHANNEL_ODD_EVEN_MODE)
+	if (vop2_is_left_right_mode(conn_state) ||
+	    conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_ODD_EVEN_MODE)
 		rk3568_vop2_setup_dual_channel_if(state);
 
 	if (conn_state->output_if & VOP_OUTPUT_IF_eDP0) {
@@ -5771,7 +5770,7 @@ static void vop2_dsc_enable(struct display_state *state, struct vop2 *vop2, u8 d
 			dsc_interface_mode = VOP_DSC_IF_MIPI_VIDEO_MODE;
 	}
 
-	if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE)
+	if (vop2_is_left_right_mode(conn_state))
 		vop2_mask_write(vop2, RK3588_DSC_8K_SYS_CTRL + ctrl_regs_offset, DSC_MAN_MODE_MASK,
 				DSC_MAN_MODE_SHIFT, 0, false);
 	else
@@ -5803,7 +5802,7 @@ static void vop2_dsc_enable(struct display_state *state, struct vop2 *vop2, u8 d
 		u32 dly_num, dsc_cds_rate_mhz, val = 0;
 		int k = 1;
 
-		if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE)
+		if (vop2_is_left_right_mode(conn_state))
 			k = 2;
 
 		if (target_bpp >> 4 < dsc_data->min_bits_per_pixel)
@@ -6475,7 +6474,7 @@ static int rockchip_vop2_init(struct display_state *state)
 				OVL_YUV_FULL_MODE_SHIFT + cstate->crtc_id, 1, false);
 
 	if (cstate->dsc_enable) {
-		if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE) {
+		if (vop2_is_left_right_mode(conn_state)) {
 			vop2_dsc_enable(state, vop2, 0, dclk_rate * 1000LL);
 			vop2_dsc_enable(state, vop2, 1, dclk_rate * 1000LL);
 		} else {
@@ -7672,7 +7671,7 @@ static void vop2_dsc_cfg_done(struct display_state *state)
 	u8 dsc_id = cstate->dsc_id;
 	u32 ctrl_regs_offset = (dsc_id * 0x30);
 
-	if (conn_state->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE) {
+	if (vop2_is_left_right_mode(conn_state)) {
 		vop2_mask_write(vop2, RK3588_DSC_8K_CFG_DONE, EN_MASK,
 				DSC_CFG_DONE_SHIFT, 1, false);
 		vop2_mask_write(vop2, RK3588_DSC_8K_CFG_DONE + 0x30, EN_MASK,
