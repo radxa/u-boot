@@ -305,6 +305,9 @@ struct crtc_state {
 	bool win_r2y_en;
 	bool win_y2r_en;
 	u32 win_csc_mode;
+
+	struct bp_sharp_data sharp_data;
+	bool sharp_en;
 };
 
 struct panel_state {

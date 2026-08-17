@@ -2586,6 +2586,11 @@ void rockchip_display_fixup(void *blob)
 			FDT_SET_U32("cubic_lut,offset", get_cubic_lut_offset(s->crtc_state.crtc_id));
 
 #undef FDT_SET_U32
+		if (s->crtc_state.sharp_en) {
+			offset = fdt_path_offset(blob, path);
+			fdt_setprop_empty(blob, offset, "sharp,enable");
+		}
+
 		active_display_num++;
 	}
 

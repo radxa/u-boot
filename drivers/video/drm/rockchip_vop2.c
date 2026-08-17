@@ -2410,6 +2410,35 @@ static int vop2_get_cluster_win_id(u8 phys_id)
 	}
 }
 
+static bool post_sharp_enabled(struct display_state *state)
+{
+	struct crtc_state *cstate = &state->crtc_state;
+	struct connector_state *conn_state = &state->conn_state;
+	struct vop2 *vop2 = cstate->private;
+	const struct vop2_data *vop2_data = vop2->data;
+	const struct vop2_vp_data *vp_data = &vop2_data->vp_data[cstate->crtc_id];
+	struct bp_sharp_data *sharp_data = &cstate->sharp_data;
+	bool sharp_en;
+
+	if (!(vp_data->feature & VOP_FEATURE_POST_SHARP))
+		return false;
+
+	if (sharp_data->plat == VOP_VERSION_RK3576 || sharp_data->plat == VOP_VERSION_RK3538)
+		sharp_en = sharp_data->full_regs.p_reg_addr[0] & BIT(0);
+	else
+		sharp_en = sharp_data->lite_regs.p_reg_addr[0] & BIT(0);
+	if (!sharp_en)
+		return false;
+
+	if (conn_state->overscan.left_margin != 100 || conn_state->overscan.right_margin != 100 ||
+	    conn_state->overscan.top_margin != 100 || conn_state->overscan.bottom_margin != 100) {
+		printf("post scale is enabled, sharp can't be enabled\n");
+		return false;
+	}
+
+	return true;
+}
+
 static void rk3568_vop2_load_lut(struct vop2 *vop2, int crtc_id,
 				 u32 *lut_regs, u32 *lut_val, int lut_len)
 {
@@ -2923,6 +2952,68 @@ static void vop3_post_acm_config(struct display_state *state, struct vop2 *vop2)
 	cstate->acm_en = true;
 }
 
+static void vop2_post_sharp_config(struct display_state *state, struct vop2 *vop2)
+{
+	struct connector_state *conn_state = &state->conn_state;
+	struct crtc_state *cstate = &state->crtc_state;
+	struct rockchip_vp *vp = &cstate->crtc->vps[cstate->crtc_id];
+	sharp_full_regs *full_regs;
+	sharp_lite_regs *lite_regs;
+	u32 *sharp_regs = (u32 *)vop2->sharp_res;
+	u32 *regs;
+	u32 sharp_regs_len;
+	int i;
+
+	if (vp->sharp_disabled || vp->bypass_mode) {
+		writel(0x0, sharp_regs + RK3576_SHARP_CTRL);
+		cstate->sharp_en = false;
+		return;
+	}
+
+	if (vop2_is_left_right_mode(conn_state) || vop2_is_odd_even_mode(conn_state)) {
+		if (post_sharp_enabled(state))
+			printf("WARN: split is enabled, can't enable sharp\n");
+
+		cstate->sharp_en = false;
+		return;
+	}
+
+	if (vop2->version == VOP_VERSION_RK3576) {
+		/*
+		 * sharp work in yuv color space, if it is rgb
+		 * overlay sharp shouldn't be enabled
+		 */
+		if (!cstate->yuv_overlay || !post_sharp_enabled(state)) {
+			/*
+			 * Only disable all submodule when sharp turn off,
+			 * keep sw_sharp_enable always on
+			 */
+			writel(0x1, sharp_regs + RK3576_SHARP_CTRL);
+			cstate->sharp_en = false;
+			return;
+		}
+	} else if (!post_sharp_enabled(state)) {
+		writel(0x0, sharp_regs + RK3576_SHARP_CTRL);
+		cstate->sharp_en = false;
+		return;
+	}
+
+	if (vop2->version == VOP_VERSION_RK3576 || vop2->version == VOP_VERSION_RK3538) {
+		full_regs = &cstate->sharp_data.full_regs;
+		sharp_regs_len = ARRAY_SIZE(full_regs->p_reg_addr);
+		regs = full_regs->p_reg_addr;
+	} else {
+		lite_regs = &cstate->sharp_data.lite_regs;
+		sharp_regs_len = ARRAY_SIZE(lite_regs->p_reg_addr);
+		regs = lite_regs->p_reg_addr;
+	}
+
+	for (i = 0; i < sharp_regs_len; i++)
+		writel(regs[i], sharp_regs + RK3576_SHARP_CTRL + i);
+
+	cstate->sharp_en = true;
+}
+
 static void vop3_get_csc_info_from_bcsh(struct bp_bcsh_info *bcsh_info,
 					struct bp_csc_info *csc_info)
 {
@@ -3014,8 +3105,15 @@ static void vop3_post_csc_config(struct display_state *state, struct vop2 *vop2)
 	if (vop2->version != VOP_VERSION_RK3528 && vop2->version != VOP_VERSION_RK3576)
 		r2y_csc_supported = true;
 
+	/*
+	 * RK3576:
+	 * overlay -> sharp -> r2y -> acm -> y2r
+	 * RK3538/RK3572:
+	 * overlay -> r2y -> sharp -> acm -> y2r
+	 */
 	ret = rockchip_baseparameter_acm_data_get((uintptr_t)conn_state, &acm_data);
-	if (!ret && acm_data.acm_enable) {
+	if ((!ret && acm_data.acm_enable) ||
+	    (vop2->version != VOP_VERSION_RK3576 && post_sharp_enabled(state))) {
 		if (!cstate->yuv_overlay)
 			post_r2y_en = true;
 
@@ -4096,6 +4194,7 @@ static void vop2_global_initial(struct vop2 *vop2, struct display_state *state)
 static void rockchip_vop2_sharp_init(struct vop2 *vop2, struct display_state *state)
 {
 	struct crtc_state *cstate = &state->crtc_state;
+	struct connector_state *conn_state = &state->conn_state;
 	const struct vop2_data *vop2_data = vop2->data;
 	const struct vop2_vp_data *vp_data = &vop2_data->vp_data[cstate->crtc_id];
 	struct rockchip_vp *vp = &cstate->crtc->vps[cstate->crtc_id];
@@ -4118,6 +4217,18 @@ static void rockchip_vop2_sharp_init(struct vop2 *vop2, struct display_state *st
 	 */
 	if (vop2->version == VOP_VERSION_RK3576)
 		writel(true << SW_SHARP_ENABLE_SHIFT, vop2->sharp_res + RK3576_SHARP_CTRL);
+
+	if (vop2->version == VOP_VERSION_RK3576 || vop2->version == VOP_VERSION_RK3538)
+		ret = rockchip_baseparameter_sharp_data_get((uintptr_t)conn_state,
+							    &cstate->sharp_data, RK_SHARP_FULL);
+	else
+		ret = rockchip_baseparameter_sharp_data_get((uintptr_t)conn_state,
+							    &cstate->sharp_data, RK_SHARP_LITE);
+	if (ret) {
+		pr_info("Failed to get sharp data for VP%d\n", cstate->crtc_id);
+		return;
+	}
+	cstate->sharp_data.plat = vop2->version;
 }
 
 static void rockchip_vop2_acm_init(struct vop2 *vop2, struct display_state *state)
@@ -6326,7 +6437,12 @@ static int rockchip_vop2_init(struct display_state *state)
 	if (cstate->splice_mode)
 		vop2_dither_setup(cstate, conn_state->bus_format, cstate->splice_crtc_id);
 
-	cstate->yuv_overlay = is_yuv_output(conn_state->bus_format) ? 1 : 0;
+	/* sharp must work in yuv color space */
+	if (post_sharp_enabled(state))
+		cstate->yuv_overlay = true;
+	else
+		cstate->yuv_overlay = is_yuv_output(conn_state->bus_format);
+
 	vop2_mask_write(vop2, RK3568_OVL_CTRL, EN_MASK, cstate->crtc_id,
 			cstate->yuv_overlay, false);
 
@@ -6475,6 +6591,9 @@ static int rockchip_vop2_init(struct display_state *state)
 	if (vop2->version >= VOP_VERSION_RK3572)
 		vop2_mask_write(vop2, RK3568_OVL_CTRL, OVL_YUV_FULL_MODE_MASK,
 				OVL_YUV_FULL_MODE_SHIFT + cstate->crtc_id, 1, false);
+
+	if (cstate->feature & VOP_FEATURE_POST_SHARP)
+		vop2_post_sharp_config(state, vop2);
 
 	if (cstate->dsc_enable) {
 		if (vop2_is_left_right_mode(conn_state)) {
