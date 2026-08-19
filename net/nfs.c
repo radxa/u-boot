@@ -664,7 +664,8 @@ static int nfs3_get_attributes_offset(uint32_t *data)
 static int nfs_readlink_reply(uchar *pkt, unsigned len)
 {
 	struct rpc_t rpc_pkt;
-	int rlen;
+	u32 rlen;
+	size_t data_offset;
 	int nfsv3_data_offset = 0;
 
 	debug("%s\n", __func__);
@@ -690,20 +691,27 @@ static int nfs_readlink_reply(uchar *pkt, unsigned len)
 	/* new path length */
 	rlen = ntohl(rpc_pkt.u.reply.data[1 + nfsv3_data_offset]);
 
-	if (((uchar *)&(rpc_pkt.u.reply.data[0]) - (uchar *)(&rpc_pkt) + rlen) > len)
+	data_offset = (uchar *)&rpc_pkt.u.reply.data[2 + nfsv3_data_offset] -
+		      (uchar *)&rpc_pkt;
+
+	/* reject a length that runs past the received packet */
+	if (data_offset > len || rlen > len - data_offset)
 		return -NFS_RPC_DROP;
 
 	if (*((char *)&(rpc_pkt.u.reply.data[2 + nfsv3_data_offset])) != '/') {
-		int pathlen;
+		size_t pathlen;
+		size_t new_len;
 
 		strcat(nfs_path, "/");
 		pathlen = strlen(nfs_path);
-		if (pathlen + rlen >= sizeof(nfs_path_buff))
+		if (pathlen >= sizeof(nfs_path_buff) ||
+		    rlen >= sizeof(nfs_path_buff) - pathlen)
 			return -NFS_RPC_DROP;
+		new_len = pathlen + rlen;
 		memcpy(nfs_path + pathlen,
 		       (uchar *)&(rpc_pkt.u.reply.data[2 + nfsv3_data_offset]),
 		       rlen);
-		nfs_path[pathlen + rlen] = 0;
+		nfs_path[new_len] = 0;
 	} else {
 		if (rlen >= sizeof(nfs_path_buff))
 			return -NFS_RPC_DROP;
