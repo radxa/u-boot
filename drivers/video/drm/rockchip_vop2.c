@@ -1509,6 +1509,8 @@
 
 #define VOP2_MAX_MULTI_AREA_WIN		4
 
+#define VOP2_MAX_SYNC_GROUPS		11
+
 enum vop_csc_format {
 	CSC_BT601L,
 	CSC_BT709L,
@@ -1928,16 +1930,18 @@ struct vop2 {
 	u32 esmart_lb_mode;
 	u8 active_vp_mask;
 	/**
-	 * @sync_vp_mask: Bitmask of video ports with the display synchronization function;
+	 * @sync_vp_masks: Array of the video port group bitmasks with the
+	 * display synchronization function;
 	 *
-	 * If the VP0 and VP1 are synchronized via DT configs:
-	 *   &vop {
-	 *       rockchip,sync-vp-mask = /bits/ 8 <3>;
-	 *   };
-	 *
-	 * The value of it should be the same with above DT property: 0x3.
+	 * A group of VPs can only be synchronized after all the members of
+	 * it are active. Among the fully active groups that contain the VP
+	 * just enabled, the one with the most VPs is synchronized.
 	 */
-	u8 sync_vp_mask;
+	u8 sync_vp_masks[VOP2_MAX_SYNC_GROUPS];
+	/**
+	 * @num_sync_vp_masks: Number of the valid entries in sync_vp_masks;
+	 */
+	u8 num_sync_vp_masks;
 	bool global_init;
 	bool merge_irq;
 	const struct vop2_data *data;
@@ -3802,6 +3806,63 @@ static void rk3568_assign_plane_mask(struct display_state *state)
 	}
 }
 
+static void vop2_parse_sync_vp_masks(struct vop2 *vop2, struct display_state *state)
+{
+	struct crtc_state *cstate = &state->crtc_state;
+	const u8 *masks;
+	char masks_str[VOP2_MAX_SYNC_GROUPS * 5 + 1];
+	int len, i, j, k;
+	u8 mask;
+
+	masks = dev_read_prop(cstate->dev, "rockchip,sync-vp-mask", &len);
+	/* The rockchip,sync-vp-mask property is absent. */
+	if (!masks || len <= 0)
+		return;
+
+	if (len > VOP2_MAX_SYNC_GROUPS) {
+		pr_err("Too many sync-vp-mask groups: %d, max is %d\n", len, VOP2_MAX_SYNC_GROUPS);
+		return;
+	}
+
+	/* Drop the invalid groups and keep only the first of the duplicated ones */
+	for (i = 0, j = 0; i < len; i++) {
+		mask = masks[i];
+
+		if (hweight8(mask) < 2) {
+			pr_err("sync-vp-mask 0x%x has less than 2 VPs\n", mask);
+			continue;
+		}
+
+		if (mask & ~(BIT(vop2->data->nr_vps) - 1)) {
+			pr_err("sync-vp-mask 0x%x has VPs beyond %d\n", mask, vop2->data->nr_vps);
+			continue;
+		}
+
+		for (k = 0; k < j; k++) {
+			if (vop2->sync_vp_masks[k] == mask)
+				break;
+		}
+		if (k < j) {
+			pr_err("drop duplicated sync-vp-mask 0x%x\n", mask);
+			continue;
+		}
+
+		vop2->sync_vp_masks[j++] = mask;
+	}
+
+	if (!j) {
+		pr_err("no valid sync-vp-mask, disable the sync function\n");
+		return;
+	}
+
+	vop2->num_sync_vp_masks = j;
+
+	for (i = 0; i < j; i++)
+		snprintf(masks_str + i * 5, 6, " 0x%02x", vop2->sync_vp_masks[i]);
+
+	pr_info("Parse %d sync vp masks:%s\n", vop2->num_sync_vp_masks, masks_str);
+}
+
 static void vop2_global_initial(struct vop2 *vop2, struct display_state *state)
 {
 	struct crtc_state *cstate = &state->crtc_state;
@@ -4017,7 +4078,7 @@ static void vop2_global_initial(struct vop2 *vop2, struct display_state *state)
 				EN_MASK, LUT_USE_AXI1_SHIFT, 0, false);
 	}
 
-	dev_read_u8(cstate->dev, "rockchip,sync-vp-mask", &vop2->sync_vp_mask);
+	vop2_parse_sync_vp_masks(vop2, state);
 
 	vop2->global_init = true;
 }
@@ -7732,12 +7793,10 @@ static int rk3576_vop2_post_enable(struct display_state *state)
 	return 0;
 }
 
-static bool rockchip_vop2_wait_vps_standby(struct display_state *state)
+static bool vop2_wait_vps_standby(struct display_state *state, u32 crtc_mask)
 {
-	struct crtc_state *cstate = &state->crtc_state;
-	struct vop2 *vop2 = cstate->private;
-	u32 sync_vp_mask = vop2->sync_vp_mask;
-	u32 nr_vps = hweight32(sync_vp_mask);
+	struct vop2 *vop2 = state->crtc_state.private;
+	u32 nr_vps = hweight32(crtc_mask);
 	u32 vp_id, vp_offset, val;
 	int i;
 
@@ -7746,9 +7805,9 @@ static bool rockchip_vop2_wait_vps_standby(struct display_state *state)
 	 * state: 1 is in standby while 0 is not.
 	 */
 	for (i = 0; i < nr_vps; i++) {
-		vp_id = ffs(sync_vp_mask) - 1;
+		vp_id = ffs(crtc_mask) - 1;
 		vp_offset = vp_id * 0x100;
-		sync_vp_mask &= ~BIT(vp_id);
+		crtc_mask &= ~BIT(vp_id);
 		val = vop2_readl(vop2, RK3568_VP0_MIPI_CTRL + vp_offset);
 		if (!(val & BIT(EDPI_WMS_FS_SHIFT)))
 			return false;
@@ -7757,7 +7816,7 @@ static bool rockchip_vop2_wait_vps_standby(struct display_state *state)
 	return true;
 }
 
-static int rockchip_vop2_sync(struct display_state *state, u32 crtc_mask)
+static int vop2_crtc_sync(struct display_state *state, u32 crtc_mask)
 {
 	struct crtc_state *cstate = &state->crtc_state;
 	struct connector_state *conn_state = &state->conn_state;
@@ -7774,7 +7833,7 @@ static int rockchip_vop2_sync(struct display_state *state, u32 crtc_mask)
 	if (!crtc_mask)
 		return 0;
 
-	pr_info("Sync crtc_mask: 0x%x\n", crtc_mask);
+	pr_debug("Sync crtc_mask: 0x%x\n", crtc_mask);
 
 	nr_vps = hweight32(crtc_mask);
 	sync_vp_mask = crtc_mask;
@@ -7789,10 +7848,11 @@ static int rockchip_vop2_sync(struct display_state *state, u32 crtc_mask)
 		timeout_ms += DIV_ROUND_UP(1000, drm_mode_vrefresh(mode));
 	}
 
-	ret = readx_poll_timeout(rockchip_vop2_wait_vps_standby, state,
-				 status, status, timeout_ms * 1000 * 3 / 2);
+	ret = read_poll_timeout(vop2_wait_vps_standby, status, status,
+				0, timeout_ms * 1000 * 3 / 2,
+				state, crtc_mask);
 	if (ret)
-		printf("Wait vps standby timeout\n");
+		pr_err("Wait vps standby timeout, crtc_mask: 0x%x\n", crtc_mask);
 
 	sync_vp_mask = crtc_mask;
 	for (i = 0; i < nr_vps; i++) {
@@ -7804,7 +7864,42 @@ static int rockchip_vop2_sync(struct display_state *state, u32 crtc_mask)
 				STANDBY_EN_SHIFT, 0, false);
 	}
 
-	return 0;
+	return ret;
+}
+
+static void vop2_crtc_sync_vps(struct display_state *state)
+{
+	struct crtc_state *cstate = &state->crtc_state;
+	struct vop2 *vop2 = cstate->private;
+	u8 sync_mask = 0, mask;
+	int i;
+
+	/*
+	 * A group of VPs can only be synchronized after all the members of it
+	 * are active, and the synchronization is only triggered by the VP that
+	 * belongs to a fully active group. Among the fully active groups that
+	 * contain the VP just enabled, the one with the most VPs, which is
+	 * also the first one listed on a tie, is synchronized, so that a
+	 * re-enabled member of a larger group resynchronizes the whole group
+	 * rather than a subgroup of it.
+	 */
+	for (i = 0; i < vop2->num_sync_vp_masks; i++) {
+		mask = vop2->sync_vp_masks[i];
+
+		if (!(mask & BIT(cstate->crtc_id)))
+			continue;
+
+		if ((vop2->active_vp_mask & mask) != mask)
+			continue;
+
+		if (hweight8(mask) > hweight8(sync_mask))
+			sync_mask = mask;
+	}
+
+	if (!sync_mask)
+		return;
+
+	vop2_crtc_sync(state, sync_mask);
 }
 
 static int rockchip_vop2_post_enable(struct display_state *state)
@@ -7817,10 +7912,7 @@ static int rockchip_vop2_post_enable(struct display_state *state)
 	else if (vop2->version == VOP_VERSION_RK3576)
 		rk3576_vop2_post_enable(state);
 
-	if (vop2->sync_vp_mask) {
-		if ((vop2->active_vp_mask & vop2->sync_vp_mask) == vop2->sync_vp_mask)
-			rockchip_vop2_sync(state, vop2->sync_vp_mask);
-	}
+	vop2_crtc_sync_vps(state);
 
 	return 0;
 }
