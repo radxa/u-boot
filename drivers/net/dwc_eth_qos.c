@@ -1390,6 +1390,15 @@ static int eqos_bind(struct udevice *dev)
 	const size_t name_sz = 16;
 	char name[name_sz];
 
+	/*
+	 * The rk3562 gmac1 is not an EQOS core and is handled by the
+	 * gmac_rockchip driver. Returning -ENODEV makes the driver model
+	 * try the next driver with a matching compatible.
+	 */
+	if (device_is_compatible(dev, "rockchip,rk3562-gmac") &&
+	    dev_read_addr(dev) == 0xffb30000)
+		return -ENODEV;
+
 	/* Device name defaults to DT node name. */
 	if (ofnode_valid(dev_ofnode(dev)))
 		return 0;
@@ -1619,6 +1628,10 @@ static const struct udevice_id eqos_ids[] = {
 	},
 	{
 		.compatible = "rockchip,rk3538-gmac",
+		.data = (ulong)&eqos_rockchip_config
+	},
+	{
+		.compatible = "rockchip,rk3562-gmac",
 		.data = (ulong)&eqos_rockchip_config
 	},
 	{

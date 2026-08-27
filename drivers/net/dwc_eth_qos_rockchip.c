@@ -321,6 +321,133 @@ static void rk3538_integrated_phy_powerup(struct udevice *dev)
 	reset_deassert(&data->phy_reset);
 }
 
+/* sys_grf */
+#define RK3562_GRF_SYS_SOC_CON0			0x0400
+
+#define RK3562_GMAC0_CLK_RMII_MODE		GRF_BIT(5)
+#define RK3562_GMAC0_CLK_RGMII_MODE		GRF_CLR_BIT(5)
+
+#define RK3562_GMAC0_CLK_RMII_GATE		GRF_BIT(6)
+#define RK3562_GMAC0_CLK_RMII_NOGATE		GRF_CLR_BIT(6)
+
+#define RK3562_GMAC0_CLK_RMII_DIV2		GRF_BIT(7)
+#define RK3562_GMAC0_CLK_RMII_DIV20		GRF_CLR_BIT(7)
+
+#define RK3562_GMAC0_CLK_RGMII_DIV1		\
+				(GRF_CLR_BIT(7) | GRF_CLR_BIT(8))
+#define RK3562_GMAC0_CLK_RGMII_DIV5		\
+				(GRF_BIT(7) | GRF_BIT(8))
+#define RK3562_GMAC0_CLK_RGMII_DIV50		\
+				(GRF_CLR_BIT(7) | GRF_BIT(8))
+
+#define RK3562_GMAC0_CLK_SELET_CRU		GRF_CLR_BIT(9)
+#define RK3562_GMAC0_CLK_SELET_IO		GRF_BIT(9)
+
+/* ioc_grf */
+#define RK3562_GRF_IOC_GMAC_IOFUNC0_CON0	0x10400
+#define RK3562_GRF_IOC_GMAC_IOFUNC0_CON1	0x10404
+#define RK3562_GRF_IOC_GMAC_IOFUNC1_CON0	0x00400
+#define RK3562_GRF_IOC_GMAC_IOFUNC1_CON1	0x00404
+
+#define RK3562_GMAC_RXCLK_DLY_ENABLE		GRF_BIT(1)
+#define RK3562_GMAC_RXCLK_DLY_DISABLE		GRF_CLR_BIT(1)
+#define RK3562_GMAC_TXCLK_DLY_ENABLE		GRF_BIT(0)
+#define RK3562_GMAC_TXCLK_DLY_DISABLE		GRF_CLR_BIT(0)
+
+#define RK3562_GMAC_CLK_RX_DL_CFG(val)		HIWORD_UPDATE(val, 0xFF, 8)
+#define RK3562_GMAC_CLK_TX_DL_CFG(val)		HIWORD_UPDATE(val, 0xFF, 0)
+
+#define RK3562_GMAC0_IO_EXTCLK_SELET_CRU	GRF_CLR_BIT(2)
+#define RK3562_GMAC0_IO_EXTCLK_SELET_IO		GRF_BIT(2)
+
+static int rk3562_set_to_rgmii(struct udevice *dev,
+			       int tx_delay, int rx_delay)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+
+	regmap_write(data->grf, RK3562_GRF_SYS_SOC_CON0,
+		     RK3562_GMAC0_CLK_RGMII_MODE);
+
+	regmap_write(data->php_grf, RK3562_GRF_IOC_GMAC_IOFUNC0_CON1,
+		     DELAY_ENABLE(RK3562, tx_delay, rx_delay));
+	regmap_write(data->php_grf, RK3562_GRF_IOC_GMAC_IOFUNC0_CON0,
+		     DELAY_VALUE(RK3562, tx_delay, rx_delay));
+
+	regmap_write(data->php_grf, RK3562_GRF_IOC_GMAC_IOFUNC1_CON1,
+		     DELAY_ENABLE(RK3562, tx_delay, rx_delay));
+	regmap_write(data->php_grf, RK3562_GRF_IOC_GMAC_IOFUNC1_CON0,
+		     DELAY_VALUE(RK3562, tx_delay, rx_delay));
+
+	return 0;
+}
+
+static int rk3562_set_to_rmii(struct udevice *dev)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+
+	regmap_write(data->grf, RK3562_GRF_SYS_SOC_CON0,
+		     RK3562_GMAC0_CLK_RMII_MODE);
+
+	return 0;
+}
+
+static int rk3562_set_gmac_speed(struct udevice *dev)
+{
+	struct eqos_priv *eqos = dev_get_priv(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	u32 val = 0;
+
+	switch (eqos->phy->speed) {
+	case SPEED_10:
+		if (pdata->phy_interface == PHY_INTERFACE_MODE_RMII)
+			val = RK3562_GMAC0_CLK_RMII_DIV20;
+		else
+			val = RK3562_GMAC0_CLK_RGMII_DIV50;
+		break;
+	case SPEED_100:
+		if (pdata->phy_interface == PHY_INTERFACE_MODE_RMII)
+			val = RK3562_GMAC0_CLK_RMII_DIV2;
+		else
+			val = RK3562_GMAC0_CLK_RGMII_DIV5;
+		break;
+	case SPEED_1000:
+		if (pdata->phy_interface != PHY_INTERFACE_MODE_RMII)
+			val = RK3562_GMAC0_CLK_RGMII_DIV1;
+		else
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	regmap_write(data->grf, RK3562_GRF_SYS_SOC_CON0, val);
+
+	return 0;
+}
+
+static void rk3562_set_clock_selection(struct udevice *dev, bool enable)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	u32 value;
+
+	value = data->clock_input ? RK3562_GMAC0_CLK_SELET_IO :
+				    RK3562_GMAC0_CLK_SELET_CRU;
+	value |= enable ? RK3562_GMAC0_CLK_RMII_NOGATE :
+			  RK3562_GMAC0_CLK_RMII_GATE;
+	regmap_write(data->grf, RK3562_GRF_SYS_SOC_CON0, value);
+
+	value = data->clock_input ? RK3562_GMAC0_IO_EXTCLK_SELET_IO :
+				    RK3562_GMAC0_IO_EXTCLK_SELET_CRU;
+	regmap_write(data->php_grf, RK3562_GRF_IOC_GMAC_IOFUNC0_CON1,
+		     value);
+	regmap_write(data->php_grf, RK3562_GRF_IOC_GMAC_IOFUNC1_CON1,
+		     value);
+}
+
 #define RK3568_GRF_GMAC0_CON0		0x0380
 #define RK3568_GRF_GMAC0_CON1		0x0384
 #define RK3568_GRF_GMAC1_CON0		0x0388
@@ -1168,6 +1295,18 @@ static const struct rk_gmac_ops rk_gmac_ops[] = {
 		},
 	},
 	{
+		.compatible = "rockchip,rk3562-gmac",
+		/* gmac1 (RMII only) is supported by the gmac_rockchip driver */
+		.set_to_rgmii = rk3562_set_to_rgmii,
+		.set_to_rmii = rk3562_set_to_rmii,
+		.set_gmac_speed = rk3562_set_gmac_speed,
+		.set_clock_selection = rk3562_set_clock_selection,
+		.regs = {
+			0xffa80000, /* gmac0 */
+			0x0, /* sentinel */
+		},
+	},
+	{
 		.compatible = "rockchip,rk3568-gmac",
 		.set_to_rgmii = rk3568_set_to_rgmii,
 		.set_to_rmii = rk3568_set_to_rmii,
@@ -1299,6 +1438,7 @@ static int eqos_probe_resources_rk(struct udevice *dev)
 	if (device_is_compatible(dev, "rockchip,rk3588-gmac") ||
 	    device_is_compatible(dev, "rockchip,rk3576-gmac") ||
 	    device_is_compatible(dev, "rockchip,rk3572-gmac") ||
+	    device_is_compatible(dev, "rockchip,rk3562-gmac") ||
 	    device_is_compatible(dev, "rockchip,rv1126b-gmac")) {
 		data->php_grf =
 			syscon_regmap_lookup_by_phandle(dev, "rockchip,php-grf");

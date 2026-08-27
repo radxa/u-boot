@@ -10,6 +10,7 @@
 #include <log.h>
 #include <net.h>
 #include <phy.h>
+#include <regmap.h>
 #include <syscon.h>
 #include <asm/global_data.h>
 #include <asm/arch-rockchip/periph.h>
@@ -25,6 +26,7 @@
 #include <asm/arch-rockchip/grf_rv1108.h>
 #include <dm/pinctrl.h>
 #include <dt-bindings/clock/rk3288-cru.h>
+#include <linux/err.h>
 #include <linux/bitops.h>
 #include "designware.h"
 
@@ -32,6 +34,14 @@ DECLARE_GLOBAL_DATA_PTR;
 #define DELAY_ENABLE(soc, tx, rx) \
 	(((tx) ? soc##_TXCLK_DLY_ENA_GMAC_ENABLE : soc##_TXCLK_DLY_ENA_GMAC_DISABLE) | \
 	((rx) ? soc##_RXCLK_DLY_ENA_GMAC_ENABLE : soc##_RXCLK_DLY_ENA_GMAC_DISABLE))
+
+#ifndef GRF_BIT
+#define GRF_BIT(nr)		(BIT(nr) | BIT((nr) + 16))
+#define GRF_CLR_BIT(nr)	(BIT((nr) + 16))
+#endif
+
+/* Base address of the rk3562 gmac1, the only rk3562 MAC handled here */
+#define RK3562_GMAC1_BASE	0xffb30000
 
 /*
  * Platform data for the gmac
@@ -43,6 +53,7 @@ struct gmac_rockchip_plat {
 	bool clock_input;
 	int tx_delay;
 	int rx_delay;
+	struct regmap *ioc_grf;
 };
 
 struct rk_gmac_ops {
@@ -55,6 +66,22 @@ static int gmac_rockchip_of_to_plat(struct udevice *dev)
 {
 	struct gmac_rockchip_plat *pdata = dev_get_plat(dev);
 	const char *string;
+
+	/*
+	 * The rk3562 gmac0 is an EQOS core handled by the dwc_eth_qos
+	 * driver, only gmac1 is supported here. Returning -ENODEV makes
+	 * the driver model try the next driver with a matching compatible.
+	 */
+	if (device_is_compatible(dev, "rockchip,rk3562-gmac")) {
+		if (dev_read_addr(dev) != RK3562_GMAC1_BASE) {
+			return -ENODEV;
+		} else {
+			/* Only used on SoCs with the RMII clock selection in the IOC (e.g. rk3562) */
+			pdata->ioc_grf = syscon_regmap_lookup_by_phandle(dev, "rockchip,php-grf");
+			if (IS_ERR(pdata->ioc_grf))
+				pdata->ioc_grf = NULL;
+		}
+	}
 
 	string = dev_read_string(dev, "clock_in_out");
 	if (!strcmp(string, "input"))
@@ -551,6 +578,83 @@ static void rv1108_gmac_set_to_rmii(struct gmac_rockchip_plat *pdata)
 		     RV1108_GMAC_PHY_INTF_SEL_RMII);
 }
 
+/*
+ * RK3562 gmac1 is an RMII only MAC and not an EQOS core, so it is
+ * supported by this designware based driver, while gmac0 is supported
+ * by the dwc_eth_qos_rockchip driver.
+ *
+ * The sys_grf registers are written using the hiword-update format.
+ */
+/* sys_grf */
+#define RK3562_GRF_SYS_SOC_CON0		0x0400
+#define RK3562_GRF_SYS_SOC_CON1		0x0404
+
+#define RK3562_GMAC1_CLK_RMII_GATE	GRF_BIT(12)
+#define RK3562_GMAC1_CLK_RMII_NOGATE	GRF_CLR_BIT(12)
+
+#define RK3562_GMAC1_CLK_RMII_DIV2	GRF_BIT(13)
+#define RK3562_GMAC1_CLK_RMII_DIV20	GRF_CLR_BIT(13)
+
+#define RK3562_GMAC1_RMII_SPEED100	GRF_BIT(11)
+#define RK3562_GMAC1_RMII_SPEED10	GRF_CLR_BIT(11)
+
+#define RK3562_GMAC1_CLK_SELET_CRU	GRF_CLR_BIT(15)
+#define RK3562_GMAC1_CLK_SELET_IO	GRF_BIT(15)
+
+/* ioc_grf */
+#define RK3562_GRF_IOC_GMAC_IOFUNC1_CON1	0x00404
+
+#define RK3562_GMAC1_IO_EXTCLK_SELET_CRU	GRF_CLR_BIT(3)
+#define RK3562_GMAC1_IO_EXTCLK_SELET_IO		GRF_BIT(3)
+
+static int rk3562_gmac_fix_mac_speed(struct dw_eth_dev *priv)
+{
+	void *grf;
+	u32 val;
+
+	grf = syscon_get_first_range(ROCKCHIP_SYSCON_GRF);
+
+	switch (priv->phydev->speed) {
+	case 10:
+		writel(RK3562_GMAC1_RMII_SPEED10, grf + RK3562_GRF_SYS_SOC_CON0);
+		val = RK3562_GMAC1_CLK_RMII_DIV20;
+		break;
+	case 100:
+		writel(RK3562_GMAC1_RMII_SPEED100, grf + RK3562_GRF_SYS_SOC_CON0);
+		val = RK3562_GMAC1_CLK_RMII_DIV2;
+		break;
+	default:
+		debug("Unknown phy speed: %d\n", priv->phydev->speed);
+		return -EINVAL;
+	}
+
+	writel(val, grf + RK3562_GRF_SYS_SOC_CON1);
+
+	return 0;
+}
+
+static void rk3562_gmac_set_to_rmii(struct gmac_rockchip_plat *pdata)
+{
+	void *grf;
+	u32 val;
+
+	grf = syscon_get_first_range(ROCKCHIP_SYSCON_GRF);
+
+	/* Select the rmii clock source and ungate the clock */
+	val = pdata->clock_input ? RK3562_GMAC1_CLK_SELET_IO :
+				   RK3562_GMAC1_CLK_SELET_CRU;
+	val |= RK3562_GMAC1_CLK_RMII_NOGATE;
+	writel(val, grf + RK3562_GRF_SYS_SOC_CON1);
+
+	/* Select the clock source for the gmac1 io */
+	if (pdata->ioc_grf) {
+		val = pdata->clock_input ? RK3562_GMAC1_IO_EXTCLK_SELET_IO :
+					   RK3562_GMAC1_IO_EXTCLK_SELET_CRU;
+		regmap_write(pdata->ioc_grf, RK3562_GRF_IOC_GMAC_IOFUNC1_CON1,
+			     val);
+	}
+}
+
 static int gmac_rockchip_probe(struct udevice *dev)
 {
 	struct gmac_rockchip_plat *pdata = dev_get_plat(dev);
@@ -725,6 +829,11 @@ const struct rk_gmac_ops rk3399_gmac_ops = {
 	.set_to_rgmii = rk3399_gmac_set_to_rgmii,
 };
 
+const struct rk_gmac_ops rk3562_gmac_ops = {
+	.fix_mac_speed = rk3562_gmac_fix_mac_speed,
+	.set_to_rmii = rk3562_gmac_set_to_rmii,
+};
+
 const struct rk_gmac_ops rv1108_gmac_ops = {
 	.fix_mac_speed = rv1108_set_rmii_speed,
 	.set_to_rmii = rv1108_gmac_set_to_rmii,
@@ -745,6 +854,13 @@ static const struct udevice_id rockchip_gmac_ids[] = {
 	  .data = (ulong)&rk3368_gmac_ops },
 	{ .compatible = "rockchip,rk3399-gmac",
 	  .data = (ulong)&rk3399_gmac_ops },
+	/*
+	 * "rockchip,rk3562-gmac" is also matched by the dwc_eth_qos driver,
+	 * the instance is sorted out by the register base address in
+	 * gmac_rockchip_of_to_plat().
+	 */
+	{ .compatible = "rockchip,rk3562-gmac",
+	  .data = (ulong)&rk3562_gmac_ops },
 	{ .compatible = "rockchip,rv1108-gmac",
 	  .data = (ulong)&rv1108_gmac_ops },
 	{ }
