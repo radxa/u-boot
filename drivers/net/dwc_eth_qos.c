@@ -1641,6 +1641,10 @@ static const struct udevice_id eqos_ids[] = {
 		.compatible = "rockchip,rv1103b-gmac",
 		.data = (ulong)&eqos_rockchip_config
 	},
+	{
+		.compatible = "rockchip,rv1126b-gmac",
+		.data = (ulong)&eqos_rockchip_config
+	},
 #endif
 #if IS_ENABLED(CONFIG_DWC_ETH_QOS_QCOM)
 	{
