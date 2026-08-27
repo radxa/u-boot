@@ -57,6 +57,71 @@ struct rockchip_platform_data {
 
 #define DELAY_VALUE(soc, tx, rx) ((((tx) >= 0) ? soc##_GMAC_CLK_TX_DL_CFG(tx) : 0) | (((rx) >= 0) ? soc##_GMAC_CLK_RX_DL_CFG(rx) : 0))
 
+#define RK3506_GRF_SOC_CON8		0x0020
+#define RK3506_GRF_SOC_CON11		0x002c
+
+#define RK3506_GMAC_RMII_MODE		GRF_BIT(1)
+
+#define RK3506_GMAC_CLK_RMII_DIV2	GRF_BIT(3)
+#define RK3506_GMAC_CLK_RMII_DIV20	GRF_CLR_BIT(3)
+
+#define RK3506_GMAC_CLK_SELET_CRU	GRF_CLR_BIT(5)
+#define RK3506_GMAC_CLK_SELET_IO	GRF_BIT(5)
+
+#define RK3506_GMAC_CLK_RMII_GATE	GRF_BIT(2)
+#define RK3506_GMAC_CLK_RMII_NOGATE	GRF_CLR_BIT(2)
+
+static int rk3506_set_to_rmii(struct udevice *dev)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	u32 offset;
+
+	offset = (data->id == 1) ? RK3506_GRF_SOC_CON11 : RK3506_GRF_SOC_CON8;
+	regmap_write(data->grf, offset, RK3506_GMAC_RMII_MODE);
+
+	return 0;
+}
+
+static int rk3506_set_gmac_speed(struct udevice *dev)
+{
+	struct eqos_priv *eqos = dev_get_priv(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	u32 val, offset;
+
+	switch (eqos->phy->speed) {
+	case SPEED_10:
+		val = RK3506_GMAC_CLK_RMII_DIV20;
+		break;
+	case SPEED_100:
+		val = RK3506_GMAC_CLK_RMII_DIV2;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	offset = (data->id == 1) ? RK3506_GRF_SOC_CON11 : RK3506_GRF_SOC_CON8;
+	regmap_write(data->grf, offset, val);
+
+	return 0;
+}
+
+static void rk3506_set_clock_selection(struct udevice *dev, bool enable)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	u32 value, offset;
+
+	offset = (data->id == 1) ? RK3506_GRF_SOC_CON11 : RK3506_GRF_SOC_CON8;
+
+	value = data->clock_input ? RK3506_GMAC_CLK_SELET_IO :
+				    RK3506_GMAC_CLK_SELET_CRU;
+	value |= enable ? RK3506_GMAC_CLK_RMII_NOGATE :
+			  RK3506_GMAC_CLK_RMII_GATE;
+	regmap_write(data->grf, offset, value);
+}
+
 #define RK3538_PHPL_GRF_GMAC_IO_BUF_CON	0x0004
 #define RK3538_PHPL_GRF_GMAC_CON	0x0008
 
@@ -886,6 +951,17 @@ static int rv1103b_set_to_rmii(struct udevice *dev)
 }
 
 static const struct rk_gmac_ops rk_gmac_ops[] = {
+	{
+		.compatible = "rockchip,rk3506-gmac",
+		.set_to_rmii = rk3506_set_to_rmii,
+		.set_gmac_speed = rk3506_set_gmac_speed,
+		.set_clock_selection = rk3506_set_clock_selection,
+		.regs = {
+			0xff4c8000, /* gmac0 */
+			0xff4d0000, /* gmac1 */
+			0x0, /* sentinel */
+		},
+	},
 	{
 		.compatible = "rockchip,rk3538-gmac",
 		.set_to_rgmii = rk3538_set_to_rgmii,
