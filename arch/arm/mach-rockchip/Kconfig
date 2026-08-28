@@ -841,29 +841,6 @@ config ROCKCHIP_SMCCC
 	bool "Rockchip smc call support"
 	default y if ARM_SMCCC
 
-config ROCKCHIP_FPGA
-	bool "Enable Rockchip FPGA drivers"
-	depends on ARCH_ROCKCHIP
-	help
-	  Enale Rockchip FPGA specific functions.
-
-config SPL_ROCKCHIP_FPGA
-	bool "Enable Rockchip FPGA drivers in SPL"
-	depends on ARCH_ROCKCHIP && SPL
-	help
-	  Enale Rockchip FPGA specific functions in SPL.
-
-config FPGA_MMC
-	bool "FPGA board with MMC"
-	depends on ROCKCHIP_FPGA
-
-config FPGA_RAM
-	bool "FPGA board with RAM"
-	depends on ROCKCHIP_FPGA
-	select SPL_RAM_SUPPORT
-	select DM_RAMDISK
-	select RAMDISK_RO
-
 config ROCKCHIP_LOWLEVEL_INIT
 	bool "Rockchip lowlevel init"
 

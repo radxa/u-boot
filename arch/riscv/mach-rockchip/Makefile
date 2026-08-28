@@ -41,6 +41,7 @@ endif
 
 obj-y += $(rockchip_common)/cpu.o
 obj-y += $(rockchip_common)/sdram.o
+obj-$(CONFIG_$(PHASE_)ROCKCHIP_FPGA) += $(rockchip_common)/fpga.o
 obj-$(CONFIG_ROCKCHIP_PRELOADER_ATAGS) += $(rockchip_common)/atags.o
 obj-$(CONFIG_ROCKCHIP_VENDOR_PARTITION) += $(rockchip_common)/vendor.o
 obj-$(CONFIG_ROCKCHIP_VENDOR_PARTITION) += $(rockchip_common)/vendor_misc.o
