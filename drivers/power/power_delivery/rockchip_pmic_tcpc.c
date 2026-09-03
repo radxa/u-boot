@@ -165,6 +165,8 @@ struct rk_tcpc_chip {
 	/* pd status */
 	bool tx_fun_en;
 	bool rx_fun_en;
+	/* TX in flight: poll_event() must read INT_STS directly */
+	bool tx_pending;
 
 	/* port status */
 	bool vbus_on;
@@ -838,6 +840,8 @@ static int tcpm_pd_transmit(struct tcpc_dev *dev, enum tcpm_transmit_type type,
 	if (ret < 0)
 		goto out;
 
+	chip->tx_pending = true;
+
 	if (msg)
 		rk_tcpc_log(chip, "sending PD message header: %#x, len: %d", msg->header, cnt);
 	else
@@ -891,13 +895,22 @@ static void tcpm_poll_interrupt_event(struct tcpc_dev *dev)
 {
 	struct rk_tcpc_chip *chip = container_of(dev, struct rk_tcpc_chip, tcpc_dev);
 
-	if (!chip->int_present)
+	/*
+	 * The GPIO interrupt cannot be serviced while the tcpm state
+	 * machine runs in the timer interrupt context, e.g. tcpm_pd_transmit()
+	 * busy-waits here for the TX completion. When a TX is in flight,
+	 * poll the chip status directly so that events such as TX_SUCCESS
+	 * are still handled and the transmit does not always time out.
+	 */
+	if (!chip->int_present && !chip->tx_pending)
 		return;
 
 	rk_tcpc_irq_work(chip);
 
-	chip->int_present = false;
-	irq_handler_hw_enable(chip->irq);
+	if (chip->int_present) {
+		chip->int_present = false;
+		irq_handler_hw_enable(chip->irq);
+	}
 }
 
 static int tcpm_enter_low_power_mode(struct tcpc_dev *dev, bool attached, bool pd_capable)
@@ -1000,9 +1013,11 @@ static irqreturn_t rk_tcpc_irq_work(struct rk_tcpc_chip *chip)
 	if (int_status & RK_TCPC_INT_STS_TX_SUCCESS) {
 		rk_tcpc_log(chip, "IRQ: PD tx success");
 		tcpm_pd_transmit_complete(chip->tcpm_port, TCPC_TX_SUCCESS);
+		chip->tx_pending = false;
 	} else if (int_status & RK_TCPC_INT_STS_TX_FAILED) {
 		rk_tcpc_log(chip, "IRQ: PD tx failed");
 		tcpm_pd_transmit_complete(chip->tcpm_port, TCPC_TX_FAILED);
+		chip->tx_pending = false;
 	}
 
 	if (int_status & RK_TCPC_INT_STS_RX_HARD_RST) {
