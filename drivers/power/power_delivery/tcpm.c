@@ -1189,8 +1189,6 @@ static void tcpm_pd_ctrl_request(struct tcpm_port *port,
 			tcpm_set_state(port, SNK_TRANSITION_SINK, 0);
 			break;
 		case SOFT_RESET_SEND:
-			port->message_id = 0;
-			port->rx_msgid = -1;
 			if (port->pwr_role == TYPEC_SOURCE)
 				next_state = SRC_SEND_CAPABILITIES;
 			else
