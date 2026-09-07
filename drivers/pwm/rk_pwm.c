@@ -7,6 +7,7 @@
 #include <clk.h>
 #include <div64.h>
 #include <dm.h>
+#include <dm/device_compat.h>
 #include <dm/pinctrl.h>
 #include <log.h>
 #include <pwm.h>
@@ -19,6 +20,16 @@
 #include <power/regulator.h>
 
 DECLARE_GLOBAL_DATA_PTR;
+
+/*
+ * regs for pwm v1-v3
+ */
+/* PWM_CTRL */
+#define PWM_CTRL_V1		0xc
+#define PWM_CLK_SRC_SEL_SHIFT	10
+#define PWM_CLK_SRC_SEL_MASK	(1 << PWM_CLK_SRC_SEL_SHIFT)
+#define PWM_SRC_SEL_CLK_PWM	(0 << PWM_CLK_SRC_SEL_SHIFT)
+#define PWM_SRC_SEL_CLK_OSC	(1 << PWM_CLK_SRC_SEL_SHIFT)
 
 /*
  * regs for pwm v4
@@ -43,6 +54,9 @@ DECLARE_GLOBAL_DATA_PTR;
 #define CLK_PRESCALE(v)			HIWORD_UPDATE(v, 0, 2)
 #define CLK_SCALE(v)			HIWORD_UPDATE(v, 4, 12)
 #define CLK_SRC_SEL(v)			HIWORD_UPDATE(v, 13, 14)
+#define SRC_CLK_PWM			0
+#define SRC_CLK_PWM_OSC			1
+#define SRC_CLK_PWM_RC			2
 #define CLK_GLOBAL_SEL(v)		HIWORD_UPDATE(v, 15, 15)
 /* CTRL */
 #define CTRL_V4				0xc
@@ -83,6 +97,7 @@ struct rockchip_pwm_data {
 	unsigned int prescaler;
 	bool supports_polarity;
 	bool supports_lock;
+	bool supports_clk_sel;
 	bool vop_pwm;
 	u8 main_version;
 	u32 enable_conf;
@@ -301,9 +316,34 @@ static int rk_pwm_probe(struct udevice *dev)
 {
 	struct rk_pwm_priv *priv = dev_get_priv(dev);
 	struct clk clk;
+	const char *clk_src_name = "pwm";
+	u32 ctrl;
+	u32 clk_src_sel = 0;
 	int ret = 0;
 
-	ret = clk_get_by_index(dev, 0, &clk);
+	priv->data = (struct rockchip_pwm_data *)dev_get_driver_data(dev);
+
+	if (priv->data->supports_clk_sel && dev_read_string(dev, "rockchip,clk-src")) {
+		clk_src_name = dev_read_string(dev, "rockchip,clk-src");
+		if (!strcmp(clk_src_name, "osc")) {
+			clk_src_sel = priv->data->main_version >= 4 ? SRC_CLK_PWM_OSC :
+								      PWM_SRC_SEL_CLK_OSC;
+		} else if (!strcmp(clk_src_name, "rc")) {
+			if (priv->data->main_version < 4) {
+				dev_warn(dev, "Unsupported clk 'rc' for PWM v%d\n",
+					 priv->data->main_version);
+				clk_src_name = "pwm";
+			} else {
+				clk_src_sel = SRC_CLK_PWM_RC;
+			}
+		} else {
+			dev_warn(dev, "Invalid clk '%s', fall back to clk 'pwm'\n",
+				 clk_src_name);
+			clk_src_name = "pwm";
+		}
+	}
+
+	ret = clk_get_by_name(dev, clk_src_name, &clk);
 	if (ret < 0) {
 		debug("%s get clock fail!\n", __func__);
 		return -EINVAL;
@@ -315,13 +355,22 @@ static int rk_pwm_probe(struct udevice *dev)
 		return -EINVAL;
 	}
 	priv->freq = ret;
-	priv->data = (struct rockchip_pwm_data *)dev_get_driver_data(dev);
 
 	if (priv->data->supports_polarity) {
 		if (priv->data->main_version >= 4) {
 			priv->conf_polarity = DUTY_POSITIVE | INACTIVE_NEGATIVE;
 		} else {
 			priv->conf_polarity = PWM_DUTY_POSTIVE | PWM_INACTIVE_POSTIVE;
+		}
+	}
+
+	if (priv->data->supports_clk_sel) {
+		if (priv->data->main_version >= 4) {
+			writel(CLK_SRC_SEL(clk_src_sel), priv->base + CLK_CTRL);
+		} else {
+			ctrl = readl(priv->base + priv->data->regs->ctrl);
+			ctrl = (ctrl & ~PWM_CLK_SRC_SEL_MASK) | clk_src_sel;
+			writel(ctrl, priv->base + priv->data->regs->ctrl);
 		}
 	}
 
@@ -380,6 +429,7 @@ static const struct rockchip_pwm_data pwm_data_v1 = {
 	.prescaler = 2,
 	.supports_polarity = false,
 	.supports_lock = false,
+	.supports_clk_sel = false,
 	.vop_pwm = false,
 	.enable_conf = PWM_CTRL_OUTPUT_EN | PWM_CTRL_TIMER_EN,
 	.enable_conf_mask = BIT(1) | BIT(3),
@@ -392,6 +442,7 @@ static const struct rockchip_pwm_data pwm_data_v2 = {
 	.prescaler = 1,
 	.supports_polarity = true,
 	.supports_lock = false,
+	.supports_clk_sel = false,
 	.vop_pwm = false,
 	.enable_conf = PWM_OUTPUT_LEFT | PWM_LP_DISABLE | RK_PWM_ENABLE |
 		       PWM_CONTINUOUS,
@@ -405,6 +456,7 @@ static const struct rockchip_pwm_data pwm_data_vop = {
 	.prescaler = 1,
 	.supports_polarity = true,
 	.supports_lock = false,
+	.supports_clk_sel = false,
 	.vop_pwm = true,
 	.enable_conf = PWM_OUTPUT_LEFT | PWM_LP_DISABLE | RK_PWM_ENABLE |
 		       PWM_CONTINUOUS,
@@ -412,12 +464,27 @@ static const struct rockchip_pwm_data pwm_data_vop = {
 	.funcs = &pwm_funcs_v1,
 };
 
-static const struct rockchip_pwm_data pwm_data_v3 = {
+static const struct rockchip_pwm_data pwm_data_v3_rk3328 = {
 	.main_version = 0x03,
 	.regs = &pwm_regs_v2,
 	.prescaler = 1,
 	.supports_polarity = true,
 	.supports_lock = true,
+	.supports_clk_sel = false,
+	.vop_pwm = false,
+	.enable_conf = PWM_OUTPUT_LEFT | PWM_LP_DISABLE | RK_PWM_ENABLE |
+		       PWM_CONTINUOUS,
+	.enable_conf_mask = GENMASK(2, 0) | BIT(5) | BIT(8),
+	.funcs = &pwm_funcs_v1,
+};
+
+static const struct rockchip_pwm_data pwm_data_v3_rv1126 = {
+	.main_version = 0x03,
+	.regs = &pwm_regs_v2,
+	.prescaler = 1,
+	.supports_polarity = true,
+	.supports_lock = true,
+	.supports_clk_sel = true,
 	.vop_pwm = false,
 	.enable_conf = PWM_OUTPUT_LEFT | PWM_LP_DISABLE | RK_PWM_ENABLE |
 		       PWM_CONTINUOUS,
@@ -431,6 +498,7 @@ static const struct rockchip_pwm_data pwm_data_v4 = {
 	.prescaler = 1,
 	.supports_polarity = true,
 	.supports_lock = true,
+	.supports_clk_sel = true,
 	.vop_pwm = false,
 	.enable_conf = PWM_ENABLE_V4,
 	.funcs = &pwm_funcs_v4,
@@ -439,7 +507,8 @@ static const struct rockchip_pwm_data pwm_data_v4 = {
 static const struct udevice_id rk_pwm_ids[] = {
 	{ .compatible = "rockchip,rk2928-pwm", .data = (ulong)&pwm_data_v1},
 	{ .compatible = "rockchip,rk3288-pwm", .data = (ulong)&pwm_data_v2},
-	{ .compatible = "rockchip,rk3328-pwm", .data = (ulong)&pwm_data_v3},
+	{ .compatible = "rockchip,rk3328-pwm", .data = (ulong)&pwm_data_v3_rk3328},
+	{ .compatible = "rockchip,rv1126-pwm", .data = (ulong)&pwm_data_v3_rv1126},
 	{ .compatible = "rockchip,vop-pwm", .data = (ulong)&pwm_data_vop},
 	{ .compatible = "rockchip,rk3399-pwm", .data = (ulong)&pwm_data_v2},
 	{ .compatible = "rockchip,rk3576-pwm", .data = (ulong)&pwm_data_v4},
