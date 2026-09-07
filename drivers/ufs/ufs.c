@@ -2049,7 +2049,11 @@ int ufshcd_probe(struct udevice *ufs_dev, struct ufs_hba_ops *hba_ops)
 	/* Set descriptor lengths to specification defaults */
 	ufshcd_def_desc_sizes(hba);
 
-	ufshcd_ops_init(hba);
+	err = ufshcd_ops_init(hba);
+	if (err) {
+		dev_err(hba->dev, "ufs ops init failed, err = %d\n", err);
+		return err;
+	}
 
 	/* Read capabilties registers */
 	hba->capabilities = ufshcd_readl(hba, REG_CONTROLLER_CAPABILITIES);
