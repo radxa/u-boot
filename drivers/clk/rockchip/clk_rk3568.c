@@ -400,6 +400,9 @@ static ulong rk3568_pmuclk_get_rate(struct clk *clk)
 	case PCLK_PMU:
 		rate = rk3568_pmu_get_pmuclk(priv);
 		break;
+	case CLK_CAPTURE_PWM0_NDFT:
+		rate = OSC_HZ;
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -2685,6 +2688,11 @@ static ulong rk3568_clk_get_rate(struct clk *clk)
 	case CPLL_50M:
 	case CPLL_25M:
 		rate = rk3568_cpll_div_get_rate(priv, clk->id);
+		break;
+	case CLK_PWM1_CAPTURE:
+	case CLK_PWM2_CAPTURE:
+	case CLK_PWM3_CAPTURE:
+		rate = OSC_HZ;
 		break;
 	default:
 		return -ENOENT;

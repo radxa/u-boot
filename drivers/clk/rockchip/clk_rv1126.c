@@ -397,6 +397,10 @@ static ulong rv1126_pmuclk_get_rate(struct clk *clk)
 	case PCLK_PDPMU:
 		rate = rv1126_pdpmu_get_pmuclk(priv);
 		break;
+	case CLK_CAPTURE_PWM0:
+	case CLK_CAPTURE_PWM1:
+		rate = OSC_HZ;
+		break;
 	default:
 		debug("%s: Unsupported CLK#%ld\n", __func__, clk->id);
 		return -ENOENT;
@@ -1506,6 +1510,9 @@ static ulong rv1126_clk_get_rate(struct clk *clk)
 		break;
 	case DCLK_DECOM:
 		rate = rv1126_dclk_decom_get_clk(priv);
+		break;
+	case CLK_CAPTURE_PWM2:
+		rate = OSC_HZ;
 		break;
 	default:
 		debug("%s: Unsupported CLK#%ld\n", __func__, clk->id);

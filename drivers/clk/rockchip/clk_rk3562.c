@@ -1468,6 +1468,12 @@ static ulong rk3562_clk_get_rate(struct clk *clk)
 	case CLK_WDTNS:
 		rate = OSC_HZ;
 		break;
+	case CLK_CAPTURE_PWM1_PERI:
+	case CLK_CAPTURE_PWM2_PERI:
+	case CLK_CAPTURE_PWM3_PERI:
+	case CLK_CAPTURE_PMU1_PWM0:
+		rate = OSC_HZ;
+		break;
 	default:
 		return -ENOENT;
 	}

@@ -1730,6 +1730,12 @@ static ulong rk3588_clk_get_rate(struct clk *clk)
 	case CLK_HDMITX1_REF:
 		rate = rk3588_hdcp_get_rate(priv, clk->id);
 		break;
+	case CLK_PMU1PWM_CAPTURE:
+	case CLK_PWM1_CAPTURE:
+	case CLK_PWM2_CAPTURE:
+	case CLK_PWM3_CAPTURE:
+		rate = OSC_HZ;
+		break;
 #endif
 	default:
 		return -ENOENT;
