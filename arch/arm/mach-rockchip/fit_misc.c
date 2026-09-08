@@ -166,7 +166,7 @@ int board_fit_image_post_process(void *fit, int node, ulong *load_addr,
 		return ret;
 #endif
 
-#if CONFIG_IS_ENABLED(USING_KERNEL_DTB)
+#if CONFIG_IS_ENABLED(DM_KERNEL_DTB)
 	/* Avoid overriding processed(overlay, hw-dtb, ...) kernel dtb */
 	if (fit_image_check_type(fit, node, IH_TYPE_FLATDT)) {
 		if ((gd->flags & GD_FLG_KDTB_READY) && !gd->fdt_blob_kern) {
