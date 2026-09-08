@@ -221,6 +221,18 @@ int sip_smc_mcu_config(unsigned long mcu_id, unsigned long func, unsigned long a
 int psci_cpu_on(unsigned long cpuid, unsigned long entry_point);
 
 /*
+ * psci_cpu_on_ctx() - Standard ARM PSCI cpu on call with context.
+ *
+ * @cpuid:		cpu id
+ * @entry_point:	boot entry point
+ * @context:		boot context
+ *
+ * @return 0 on success, otherwise failed.
+ */
+int psci_cpu_on_ctx(unsigned long cpuid, unsigned long entry_point,
+			unsigned long context);
+
+/*
  * psci_cpu_off() - Standard ARM PSCI cpu off call.
  *
  * @state:		dummy, set 0 by default.

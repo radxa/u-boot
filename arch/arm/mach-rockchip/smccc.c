@@ -44,6 +44,16 @@ int psci_cpu_on(unsigned long cpuid, unsigned long entry_point)
 	return res.a0;
 }
 
+int psci_cpu_on_ctx(unsigned long cpuid, unsigned long entry_point,
+			unsigned long context)
+{
+	struct arm_smccc_res res;
+
+	res = __invoke_sip_fn_smc(ARM_PSCI_0_2_CPU_ON, cpuid, entry_point, context);
+
+	return res.a0;
+}
+
 int psci_cpu_off(uint32_t state)
 {
 	struct arm_smccc_res res;
