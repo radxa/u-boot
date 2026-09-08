@@ -180,10 +180,17 @@ static void setup_sync_bits_for_linux(void)
 static int smc_cpu_on(u32 cpu, u32 pe_state, u32 entry,
 		      boot_args_t *args, bool is_linux, bool pass_fdt)
 {
+	ulong ctx = 0; /* default */
 	int ret;
 
 	AMP_I("Brought up cpu[%x] with state 0x%x, entry 0x%08x ...",
 	      cpu, pe_state, entry);
+
+	/* arm32: Don't support AMP_BOOT_ARG01/AMP_BOOT_ARG23 */
+	if (!IS_ENABLED(CONFIG_ARM64) && pass_fdt) {
+		ctx = args->arg0;
+		goto finish;
+	}
 
 	/* if target pe state is default arch state, power up cpu directly */
 	if (is_default_pe_state(pe_state))
@@ -195,10 +202,11 @@ static int smc_cpu_on(u32 cpu, u32 pe_state, u32 entry,
 		return ret;
 	}
 
-	/* only linux or rtt-ofw(open firmware) enabled needs boot args */
+	/* only linux or arm64 rtt-ofw(open firmware) enabled needs boot args */
 	if (!is_linux && !pass_fdt)
 		goto finish;
 
+	/* arm64 */
 	ret = sip_smc_amp_cfg(AMP_BOOT_ARG01, cpu, args->arg0, args->arg1);
 	if (ret) {
 		AMP_E("smc boot arg01, ret=%d\n", ret);
@@ -210,9 +218,8 @@ static int smc_cpu_on(u32 cpu, u32 pe_state, u32 entry,
 		AMP_E("smc boot arg23, ret=%d\n", ret);
 		return ret;
 	}
-
 finish:
-	ret = psci_cpu_on(cpu, entry);
+	ret = psci_cpu_on_ctx(cpu, entry, ctx);
 	if (ret) {
 		printf("cpu up failed, ret=%d\n", ret);
 		return ret;
