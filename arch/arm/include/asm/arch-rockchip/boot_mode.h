@@ -50,4 +50,15 @@ int setup_boot_mode(void);
 
 #define BCB_MESSAGE_BLK_OFFSET		(16 * 1024 >> 9)
 
+enum {
+	BCB_MODE_NONE,
+	BCB_MODE_RECOVERY,
+	BCB_MODE_RECOVERY_RK_FWUPDATE,
+	BCB_MODE_RECOVERY_PCBA,
+	BCB_MODE_BOOTLOADER,
+};
+
+#define BCB_AUTO_OFF	-1
+int bcb_read_mode(int bcb_offset);
+
 #endif

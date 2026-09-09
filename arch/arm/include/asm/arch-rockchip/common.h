@@ -10,12 +10,6 @@
 
 extern struct bootm_headers images;
 
-enum {
-	BCB_MSG_RECOVERY_NONE,
-	BCB_MSG_RECOVERY_RK_FWUPDATE,
-	BCB_MSG_RECOVERY_PCBA,
-};
-
 #define RK_BLK_SIZE			512
 
 void bootm_mem_init(void);
@@ -23,7 +17,6 @@ void bootargs_setup(void);
 void rockusb_download(void);
 void rbrom_download(void);
 int usb_boot_init(void);
-int misc_get_recovery_msg(void);
 
 int rockchip_read_dtb_file(void *fdt_addr);
 int rockchip_ram_read_dtb_file(void *img, void *fdt_addr);

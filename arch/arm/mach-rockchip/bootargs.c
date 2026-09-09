@@ -32,8 +32,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-extern int misc_get_recovery_msg(void);
-
 static void bootargs_add_fuse(void)
 {
 #ifdef CONFIG_ROCKCHIP_PRELOADER_ATAGS
@@ -69,7 +67,7 @@ static void bootargs_add_misc(void)
 	uclass_id = dev_desc->uclass_id;
 	devnum = dev_desc->devnum;
 	if ((uclass_id == UCLASS_MMC && devnum == 1) || (uclass_id == UCLASS_USB)) {
-		if (misc_get_recovery_msg() == BCB_MSG_RECOVERY_RK_FWUPDATE) {
+		if (bcb_read_mode(BCB_AUTO_OFF) == BCB_MODE_RECOVERY_RK_FWUPDATE) {
 			if (uclass_id == UCLASS_MMC && devnum == 1) {
 				env_update("bootargs", "sdfwupdate");
 			} else if (uclass_id == UCLASS_USB) {
@@ -86,7 +84,7 @@ static void bootargs_add_misc(void)
 		env_update("bootargs", "androidboot.quiescent=1 pwm_bl.quiescent=1");
 
 	/* PCBA test needs more permission */
-	if (misc_get_recovery_msg() == BCB_MSG_RECOVERY_PCBA)
+	if (bcb_read_mode(BCB_AUTO_OFF) == BCB_MODE_RECOVERY_PCBA)
 		env_update("bootargs", "androidboot.selinux=permissive");
 }
 
