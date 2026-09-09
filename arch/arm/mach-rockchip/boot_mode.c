@@ -77,8 +77,12 @@ int bcb_read_mode(int bcb_offset)
 	if (bcb_read_message(bcb_offset, &bmsg))
 		return bcb_mode;
 
-	/* NOTE: bmsg.recovery, bmsg.command */
-	if (!strcmp(bmsg.recovery, "recovery\n--rk_fwupdate\n"))
+	/*
+	 * Don't change the priority/order.
+	 */
+	if (!strcmp(bmsg.command, "bootonce-bootloader"))
+		bcb_mode = BCB_MODE_BOOTLOADER;
+	else if (!strcmp(bmsg.recovery, "recovery\n--rk_fwupdate\n"))
 		bcb_mode = BCB_MODE_RECOVERY_RK_FWUPDATE;
 	else if (!strcmp(bmsg.recovery, "recovery\n--factory_mode=whole") ||
 		 !strcmp(bmsg.recovery, "recovery\n--factory_mode=small"))
@@ -88,6 +92,44 @@ int bcb_read_mode(int bcb_offset)
 		bcb_mode = BCB_MODE_RECOVERY;
 
 	return bcb_mode;
+}
+
+static int bcb_clear_mode(u32 bcb_offset)
+{
+	struct android_bootloader_message *buffer;
+	struct android_bootloader_message bmsg;
+	struct blk_desc *dev_desc;
+	struct disk_partition part;
+	ulong blkcnt;
+	int ret;
+
+	dev_desc = plat_bootdev();
+	if (!dev_desc)
+		return -ENODEV;
+
+	if (part_get_info_by_name(dev_desc, PART_MISC, &part) < 0)
+		return -EINVAL;
+
+	blkcnt = DIV_ROUND_UP(sizeof(bmsg), dev_desc->blksz);
+	if (!blkcnt)
+		return -EINVAL;
+
+	ret = bcb_read_message(bcb_offset, &bmsg);
+	if (ret)
+		return ret;
+
+	memset(bmsg.command, 0, sizeof(bmsg.command));
+	buffer = memalign(ARCH_DMA_MINALIGN, blkcnt * dev_desc->blksz);
+	if (!buffer)
+		return -ENOMEM;
+
+	memset(buffer, 0, blkcnt * dev_desc->blksz);
+	memcpy(buffer, &bmsg, sizeof(bmsg));
+	ret = blk_dwrite(dev_desc, part.start + bcb_offset,
+			 blkcnt, buffer) == blkcnt ? 0 : -EIO;
+	free(buffer);
+
+	return ret;
 }
 
 /*
@@ -109,7 +151,7 @@ int plat_boot_mode(void)
 	static int bcb_offset = -EINVAL;	/* static */
 	uint32_t reg_boot_mode;
 	char *env_reboot_mode;
-	int clear_boot_reg = 0;
+	int ret, clear_boot_reg = 0;
 	int bcb_mode = 0;
 #ifdef CONFIG_ANDROID_BOOT_IMAGE
 	u32 offset = android_bcb_msg_sector_offset();
@@ -190,10 +232,23 @@ int plat_boot_mode(void)
 		printf("boot mode: bootloader\n");
 		boot_mode[PH] = BOOT_MODE_BOOTLOADER;
 		clear_boot_reg = 1;
+		/* clear bcb */
+		if (bcb_read_mode(bcb_offset) == BCB_MODE_BOOTLOADER) {
+			ret = bcb_clear_mode(bcb_offset);
+			if (ret)
+				printf("failed to clear BCB: %d\n", ret);
+		}
 	} else if ((bcb_mode = bcb_read_mode(bcb_offset)) &&
-		   (bcb_mode == BCB_MODE_RECOVERY ||
-		    bcb_mode == BCB_MODE_RECOVERY_PCBA ||
-		    bcb_mode == BCB_MODE_RECOVERY_RK_FWUPDATE)) {
+		   (bcb_mode == BCB_MODE_BOOTLOADER)) {
+		printf("boot mode: bootloader (misc)\n");
+		boot_mode[PM] = BOOT_MODE_BOOTLOADER;
+		/* bootonce-bootloader is consumed only once */
+		ret = bcb_clear_mode(bcb_offset);
+		if (ret)
+			printf("failed to clear BCB: %d\n", ret);
+	} else if (bcb_mode == BCB_MODE_RECOVERY ||
+		   bcb_mode == BCB_MODE_RECOVERY_PCBA ||
+		   bcb_mode == BCB_MODE_RECOVERY_RK_FWUPDATE) {
 		printf("boot mode: recovery (misc)\n");
 		boot_mode[PM] = BOOT_MODE_RECOVERY;
 	} else {
