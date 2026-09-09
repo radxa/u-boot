@@ -10,6 +10,7 @@
  */
 
 #include <common.h>
+#include <android_bootloader_message.h>
 #include <env.h>
 #include <dm.h>
 #include <part.h>
@@ -30,22 +31,6 @@
 #include <asm/arch-rockchip/boot_mode.h>
 #include <asm/arch-rockchip/misc.h>
 #include <asm/arch-rockchip/vendor.h>
-
-struct bootloader_message {
-	char command[32];
-	char status[32];
-	char recovery[768];
-	/*
-	 * The 'recovery' field used to be 1024 bytes.  It has only ever
-	 * been used to store the recovery command line, so 768 bytes
-	 * should be plenty.  We carve off the last 256 bytes to store the
-	 * stage string (for multistage packages) and possible future
-	 * expansion.
-	 */
-	char stage[32];
-	char slot_suffix[32];
-	char reserved[192];
-};
 
 #ifdef CONFIG_ROCKCHIP_VENDOR_PARTITION
 static int rockchip_vendor_serial_number_set(void)
@@ -273,7 +258,7 @@ int rockchip_setup_serial_number(void)
 #ifdef CONFIG_USB_FUNCTION_FASTBOOT
 void board_run_recovery_wipe_data(void)
 {
-	struct bootloader_message bmsg;
+	struct android_bootloader_message bmsg;
 	struct blk_desc *dev_desc;
 	struct disk_partition part_info;
 #ifdef CONFIG_ANDROID_BOOT_IMAGE
@@ -297,11 +282,11 @@ void board_run_recovery_wipe_data(void)
 		goto out;
 	}
 
-	memset((char *)&bmsg, 0, sizeof(struct bootloader_message));
+	memset((char *)&bmsg, 0, sizeof(struct android_bootloader_message));
 	strcpy(bmsg.command, "boot-recovery");
 	strcpy(bmsg.recovery, "recovery\n--wipe_data");
 	bmsg.status[0] = 0;
-	cnt = DIV_ROUND_UP(sizeof(struct bootloader_message), dev_desc->blksz);
+	cnt = DIV_ROUND_UP(sizeof(struct android_bootloader_message), dev_desc->blksz);
 	ret = blk_dwrite(dev_desc, part_info.start + bcb_offset, cnt, &bmsg);
 	if (ret != cnt)
 		printf("Wipe data failed, ret=%d\n", ret);
