@@ -16,6 +16,9 @@
 /* Used by board_get_usable_ram_top(), space below the 4G address boundary */
 #define SDRAM_MAX_SIZE			(SZ_4G - CFG_SYS_SDRAM_BASE)
 
+/* Reserve low memory for secure firmware during SPL kernel boot. */
+#define SPL_RESV_MEM_SIZE		SZ_2M
+
 #define GICD_BASE                       0x2a701000
 #define GICC_BASE                       0x2a702000
 
