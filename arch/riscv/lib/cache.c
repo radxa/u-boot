@@ -9,6 +9,8 @@
 #include <asm/insn-def.h>
 #include <linux/const.h>
 
+DECLARE_GLOBAL_DATA_PTR;
+
 #define CBO_INVAL(base)						\
 	INSN_I(OPCODE_MISC_MEM, FUNC3(2), __RD(0),		\
 	       RS1(base), SIMM12(0))
@@ -86,10 +88,55 @@ void invalidate_icache_all(void)
 
 __weak void flush_dcache_all(void)
 {
+	u64 start, end;
+
+#if CONFIG_IS_ENABLED(RISCV_MMODE)
+	start = CFG_SYS_SDRAM_BASE;
+#ifdef SDRAM_MAX_SIZE
+	end = start + min((phys_size_t)SDRAM_MAX_SIZE, gd->ram_size);
+#else
+	end = start + gd->ram_size;
+#endif
+	cbo_flush(start, end);
+#else
+	int i;
+
+	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+		if (!gd->bd->bi_dram[i].size)
+			continue;
+
+		start = gd->bd->bi_dram[i].start;
+		end = start + gd->bd->bi_dram[i].size;
+		cbo_flush(start, end);
+	}
+#endif
 }
 
 __weak void invalidate_dcache_all(void)
 {
+	u64 start, end;
+
+#if CONFIG_IS_ENABLED(RISCV_MMODE)
+	start = CFG_SYS_SDRAM_BASE;
+#ifdef SDRAM_MAX_SIZE
+	end = start + min((phys_size_t)SDRAM_MAX_SIZE, gd->ram_size);
+#else
+	end = start + gd->ram_size;
+#endif
+	cbo_flush(start, end);
+#else
+	int i;
+
+	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+		if (!gd->bd->bi_dram[i].size)
+			continue;
+
+		start = gd->bd->bi_dram[i].start;
+		end = start + gd->bd->bi_dram[i].size;
+		cbo_inval(start, end);
+	}
+#endif
+
 }
 
 __weak void flush_dcache_range(unsigned long start, unsigned long end)
