@@ -99,8 +99,9 @@ enum bp_output_depth {
 };
 
 enum bp_csc_mode {
-	HIGH_QUALITY_MODE = 0,
-	LOW_LATENCY_MODE = 1,
+	HIGH_QUALITY_MODE = 0,		/* SWPQ BCSH. */
+	LOW_LATENCY_MODE = 1,		/* VOP BCSH. */
+	GAMMA_RGB_GAIN_MODE = 2,	/* Apply RGB gain through the gamma LUT instead of CSC. */
 };
 
 enum bp_sharp_version {

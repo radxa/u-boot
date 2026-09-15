@@ -300,6 +300,15 @@ static int rockchip_baseparameter_csc_info_v2(uintptr_t conn_state_ptr,
 	csc_info->g_offset = 256;
 	csc_info->b_offset = 256;
 	csc_info->csc_enable = bp_info->baseparameter_info_v2.pq_tuning_info.csc_info.csc_enable;
+	/*
+	 * GAMMA_RGB_GAIN_MODE indicates r/g/b gain are used for color temperature
+	 * adjustment. Set CSC r/g/b gain configurations to default value 256.
+	 */
+	if (csc_info->csc_enable == GAMMA_RGB_GAIN_MODE) {
+		csc_info->r_gain = 256;
+		csc_info->g_gain = 256;
+		csc_info->b_gain = 256;
+	}
 
 	return 0;
 }
