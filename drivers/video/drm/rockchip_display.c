@@ -2591,7 +2591,7 @@ void rockchip_display_fixup(void *blob)
 
 	if (active_display_num > 1) {
 		dmc_offset = fdt_path_offset(blob, "/dmc");
-		if (offset < 0) {
+		if (dmc_offset < 0) {
 			printf("DMC node is not available\n");
 			return;
 		}
