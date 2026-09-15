@@ -198,6 +198,13 @@ struct bp_gamma_lut_data {
 	u16 lblue[BP_GAMMA_LUT_DATA_ARRAY_SIZE];
 };
 
+struct bp_gamma_lut_data_v3 {
+	struct bp_gamma_lut_data lut_data;
+	u32 csc_r_gain;
+	u32 csc_g_gain;
+	u32 csc_b_gain;
+};
+
 struct bp_disp_header {
 	u32 connector_type;
 	u32 connector_id;
@@ -401,7 +408,7 @@ struct bp_disp_info_v3 {
 	struct bp_screen_info_v2 screen_info[BP_V2_SCREEN_INFO_ARRAY_SIZE];
 	struct bp_bcsh_info bcsh_info;
 	struct bp_overscan_info overscan_info;
-	struct bp_gamma_lut_data gamma_lut_data;
+	struct bp_gamma_lut_data_v3 gamma_lut_data;
 	struct bp_cubic_lut_data cubic_lut_data;
 	struct bp_framebuffer_info framebuffer_info;
 	struct bp_pq_tuning_info_v3 pq_tuning_info;

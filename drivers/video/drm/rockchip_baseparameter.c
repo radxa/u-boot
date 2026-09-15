@@ -626,10 +626,10 @@ static struct bp_gamma_lut_data *rockchip_baseparameter_gamma_lut_data_v3(uintpt
 	if (index < 0)
 		return NULL;
 
-	if (!bp_info->baseparameter_info_v3.disp_info[index].gamma_lut_data.size)
+	if (!bp_info->baseparameter_info_v3.disp_info[index].gamma_lut_data.lut_data.size)
 		return NULL;
 
-	return &bp_info->baseparameter_info_v3.disp_info[index].gamma_lut_data;
+	return &bp_info->baseparameter_info_v3.disp_info[index].gamma_lut_data.lut_data;
 }
 
 static struct bp_cubic_lut_data *rockchip_baseparameter_cubic_lut_data_v2(uintptr_t conn_state_ptr)
