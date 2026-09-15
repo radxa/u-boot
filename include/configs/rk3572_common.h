@@ -15,6 +15,9 @@
 #define CFG_SYS_SDRAM_BASE		0x40000000
 #define SDRAM_MAX_SIZE			(SZ_4G - CFG_SYS_SDRAM_BASE)
 
+/* Reserve low memory for secure firmware during SPL kernel boot. */
+#define SPL_RESV_MEM_SIZE		SZ_2M
+
 /* secure otp */
 #define OTP_UBOOT_ROLLBACK_OFFSET	0x610
 #define OTP_UBOOT_ROLLBACK_WORDS	2	/* 64 bits, 2 words */
