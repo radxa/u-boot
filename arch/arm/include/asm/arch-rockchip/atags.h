@@ -135,16 +135,9 @@ struct tag_tos_mem {
 		u64 phy_addr;
 		u32 size;
 		u32 flags;
-	} tee_mem;
+	} tee_mem[4];
 
-	struct {
-		char name[8];
-		u64 phy_addr;
-		u32 size;
-		u32 flags;
-	} drm_mem;
-
-	u64 reserved[7];
+	u64 reserved[1];
 	u32 reserved1;
 	u32 hash;
 } __packed;

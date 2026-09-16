@@ -70,12 +70,12 @@ static void fpga_init_atags(void)
 	/* op-tee */
 	memset(&t_tos, 0, sizeof(t_tos));
 	t_tos.version = 0;
-	strcpy(t_tos.tee_mem.name, "op-tee");
+	strcpy(t_tos.tee_mem[0].name, "op-tee");
 #ifdef CONFIG_ARM64
-	t_tos.tee_mem.phy_addr = 0x8400000; /* 132M offset */
-	t_tos.tee_mem.size = 0x1e00000;     /* 30M size */
+	t_tos.tee_mem[0].phy_addr = 0x8400000; /* 132M offset */
+	t_tos.tee_mem[0].size = 0x1e00000;     /* 30M size */
 #endif
-	t_tos.tee_mem.flags = 1;
+	t_tos.tee_mem[0].flags = 1;
 	atags_set_tag(ATAG_TOS_MEM, &t_tos);
 
 #ifdef CONFIG_FPGA_RAM

@@ -77,16 +77,17 @@ static void atags_print_tag(struct tag *t)
 		printf("     magic = 0x%x\n", t->hdr.magic);
 		printf("      size = 0x%x\n\n", t->hdr.size << 2);
 		printf("   version = 0x%x\n", t->u.tos_mem.version);
-		printf("   tee_mem:\n");
-		printf("            name = %s\n", t->u.tos_mem.tee_mem.name);
-		printf("        phy_addr = 0x%llx\n", t->u.tos_mem.tee_mem.phy_addr);
-		printf("            size = 0x%x\n", t->u.tos_mem.tee_mem.size);
-		printf("           flags = 0x%x\n", t->u.tos_mem.tee_mem.flags);
-		printf("   drm_mem:\n");
-		printf("            name = %s\n", t->u.tos_mem.drm_mem.name);
-		printf("        phy_addr = 0x%llx\n", t->u.tos_mem.drm_mem.phy_addr);
-		printf("            size = 0x%x\n", t->u.tos_mem.drm_mem.size);
-		printf("           flags = 0x%x\n", t->u.tos_mem.drm_mem.flags);
+		for (i = 0; i < ARRAY_SIZE(t->u.tos_mem.tee_mem); i++) {
+			printf("   tee_mem[%d]:\n", i);
+			printf("            name = %s\n",
+			       t->u.tos_mem.tee_mem[i].name);
+			printf("        phy_addr = 0x%llx\n",
+			       t->u.tos_mem.tee_mem[i].phy_addr);
+			printf("            size = 0x%x\n",
+			       t->u.tos_mem.tee_mem[i].size);
+			printf("           flags = 0x%x\n",
+			       t->u.tos_mem.tee_mem[i].flags);
+		}
 		for (i = 0; i < ARRAY_SIZE(t->u.tos_mem.reserved); i++)
 			printf("   res[%d] = 0x%llx\n", i, t->u.tos_mem.reserved[i]);
 		printf("     res1 = 0x%x\n", t->u.tos_mem.reserved1);

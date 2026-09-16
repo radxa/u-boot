@@ -117,9 +117,9 @@ struct memblock param_parse_optee_mem(void)
 	 * 2. Leagcy way: info in ddr 34M offset;
 	 */
 	t = atags_get_tag(ATAG_TOS_MEM);
-	if (t && (t->u.tos_mem.tee_mem.flags == 1)) {
-		mem.base = t->u.tos_mem.tee_mem.phy_addr;
-		mem.size = t->u.tos_mem.tee_mem.size;
+	if (t && (t->u.tos_mem.tee_mem[0].flags == 1)) {
+		mem.base = t->u.tos_mem.tee_mem[0].phy_addr;
+		mem.size = t->u.tos_mem.tee_mem[0].size;
 	}
 #endif
 
