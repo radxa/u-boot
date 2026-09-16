@@ -3,6 +3,7 @@
 #define __LINUX_BITMAP_H
 
 #include <asm/types.h>
+#include <asm/unaligned.h>
 #include <linux/types.h>
 #include <linux/bitops.h>
 #include <linux/string.h>
@@ -147,8 +148,10 @@ static inline unsigned long find_first_bit(const unsigned long *addr, unsigned l
 	unsigned long idx;
 
 	for (idx = 0; idx * BITS_PER_LONG < size; idx++) {
-		if (addr[idx])
-			return min(idx * BITS_PER_LONG + __ffs(addr[idx]), size);
+		unsigned long val = get_unaligned(addr + idx);
+
+		if (val)
+			return min(idx * BITS_PER_LONG + __ffs(val), size);
 	}
 
 	return size;
