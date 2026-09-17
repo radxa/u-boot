@@ -7,7 +7,8 @@
 
 # Process args and auto set variables
 source ./${srctree}/arch/arm/mach-rockchip/fit_args.sh
-rm -f ${srctree}/*.digest ${srctree}/*.bin.gz
+rm -f ${srctree}/*.digest ${srctree}/*.bin.gz \
+	${srctree}/*.aes128 ${srctree}/*.iv
 
 # Periph register base
 if grep -q '^CONFIG_ROCKCHIP_RK3576=y' .config ; then
@@ -55,6 +56,46 @@ function gen_comp_node()
 			};"
 }
 
+ENCRYPTION=
+ENCRYPT=
+# FIT_NO_CIPHER is inherited from "FIT_NO_CIPHER=... ./make.sh itb" in fit-core.sh.
+# --no-sign keeps cipher support in the code but leaves generated images unencrypted.
+if [ "${FIT_NO_CIPHER}" != "y" ] && grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config; then
+	ENCRYPTION="aes128"
+	ENCRYPT=".aes128"
+fi
+
+function gen_cipher_node()
+{
+	local IMAGE=$1
+	local KEY_FILE="keys/${ENCRYPTION}.key"
+	local KEY
+
+	if [ -z "${ENCRYPTION}" ]; then
+		return
+	fi
+
+	if [ ! -f "${KEY_FILE}" ] || [ "$(wc -c < "${KEY_FILE}")" -ne 16 ]; then
+		echo "ERROR: ${KEY_FILE} must be a 16-byte AES-128 key" >&2
+		exit 1
+	fi
+
+	KEY=$(xxd -p "${KEY_FILE}") || exit 1
+	openssl dgst -sha256 -binary -out "${IMAGE}.digest" "${IMAGE}" || exit 1
+	openssl rand -out "${IMAGE}.iv" 16 || exit 1
+	openssl enc -aes-128-ctr -in "${IMAGE}" -out "${IMAGE}${ENCRYPT}" \
+		-K "${KEY}" -iv "$(xxd -p "${IMAGE}.iv")" || exit 1
+
+	echo "			cipher {
+				algo = \"aes128\";
+				iv = /incbin/(\"./${IMAGE}.iv\");
+				hash {
+					algo = \"sha256\";
+					value = /incbin/(\"./${IMAGE}.digest\");
+				};
+			};"
+}
+
 # nodes
 function append_list()
 {
@@ -76,7 +117,7 @@ function gen_uboot_node()
 	UBOOT="u-boot-nodtb.bin"
 	echo "		uboot {
 			description = \"U-Boot\";
-			data = /incbin/(\"${UBOOT}${COMP}\");
+			data = /incbin/(\"${UBOOT}${COMP}${ENCRYPT}\");
 			type = \"standalone\";
 			arch = \"${U_ARCH}\";
 			os = \"U-Boot\";
@@ -85,6 +126,7 @@ function gen_uboot_node()
 	if [ "${COMPRESSION}" != "none" ]; then
 		gen_comp_node "${UBOOT}"
 	fi
+	gen_cipher_node "${UBOOT}${COMP}"
 	echo "			hash {
 				algo = \"sha256\";
 			};
@@ -99,13 +141,15 @@ function gen_fdt_node()
 		return
 	fi
 
+	FDT_IMAGE="u-boot.dtb"
 	echo "		fdt {
 			description = \"U-Boot dtb\";
-			data = /incbin/(\"./u-boot.dtb\");
+			data = /incbin/(\"./${FDT_IMAGE}${ENCRYPT}\");
 			type = \"flat_dt\";
 			arch = \"${U_ARCH}\";
-			compression = \"none\";
-			hash {
+			compression = \"none\";"
+	gen_cipher_node "${FDT_IMAGE}"
+	echo "			hash {
 				algo = \"sha256\";
 			};
 		};"
@@ -130,11 +174,12 @@ function gen_kfdt_node()
 	PROP_KERN_DTB='"kern-fdt"';
 	echo "		kern-fdt {
 			description = \"${KERN_DTB}\";
-			data = /incbin/(\"${KERN_DTB}\");
+			data = /incbin/(\"${KERN_DTB}${ENCRYPT}\");
 			type = \"flat_dt\";
 			arch = \"${U_ARCH}\";
-			compression = \"none\";
-			hash {
+			compression = \"none\";"
+	gen_cipher_node "${KERN_DTB}"
+	echo "			hash {
 				algo = \"sha256\";
 			};
 		};"
@@ -152,6 +197,7 @@ function gen_elf_nodes()
 	local LOADABLES
 	local FIRMWARE
 	local FIRMWARE_LOAD_ADDR
+	local FIRMWARE_IMAGE
 	local NUM=1
 
 	case "${TYPE}" in
@@ -181,9 +227,10 @@ function gen_elf_nodes()
 	do
 		FIRMWARE_LOAD_ADDR=`echo ${FIRMWARE} | awk -F "_" '{ printf $2 }' | awk -F "." '{ printf $1 }'`
 		if [ "${COMPRESSION}" != "none" -a ${NUM} -eq 1 ]; then
+			FIRMWARE_IMAGE="${FIRMWARE}${COMP}"
 			echo "		${NODE_PREFIX}-${NUM} {
 			description = \"${DESCRIPTION}\";
-			data = /incbin/(\"./${FIRMWARE}${COMP}\");
+			data = /incbin/(\"./${FIRMWARE_IMAGE}${ENCRYPT}\");
 			type = \"firmware\";
 			arch = \"${ARCH}\";
 			os = \"${OS}\";
@@ -191,15 +238,17 @@ function gen_elf_nodes()
 			load = ${FIT_ADDR_PREFIX}<"${FIRMWARE_LOAD_ADDR}">;"
 			gen_comp_node "${FIRMWARE}"
 		else
+			FIRMWARE_IMAGE="${FIRMWARE}"
 			echo "		${NODE_PREFIX}-${NUM} {
 			description = \"${DESCRIPTION}\";
-			data = /incbin/(\"./${FIRMWARE}\");
+			data = /incbin/(\"./${FIRMWARE_IMAGE}${ENCRYPT}\");
 			type = \"firmware\";
 			arch = \"${ARCH}\";
 			os = \"${OS}\";
 			compression = \"none\";
 			load = ${FIT_ADDR_PREFIX}<"${FIRMWARE_LOAD_ADDR}">;"
 		fi
+		gen_cipher_node "${FIRMWARE_IMAGE}"
 		echo "			hash {
 				algo = \"sha256\";
 			};
@@ -240,7 +289,7 @@ function gen_bl32_node()
 	TEE="tee.bin"
 	echo "		optee {
 			description = \"TEE\";
-			data = /incbin/(\"${TEE}${COMP}\");
+			data = /incbin/(\"${TEE}${COMP}${ENCRYPT}\");
 			type = \"firmware\";
 			arch = \"${ARCH}\";
 			os = \"op-tee\";
@@ -250,6 +299,7 @@ function gen_bl32_node()
 	if [ "${COMPRESSION}" != "none" ]; then
 		gen_comp_node "${TEE}"
 	fi
+	gen_cipher_node "${TEE}${COMP}"
 	echo "			hash {
 				algo = \"sha256\";
 			};
@@ -292,14 +342,17 @@ function gen_mcu_node()
 		# Periph register base < DRAM base < load addr
 		if [ "${COMPRESSION}" != "none" -a "$((MCU_ADDR_VAL))" -gt "$((DRAM_BASE_VAL))" ] &&
 		   [ "$((DRAM_BASE_VAL))" -gt "$((MAX_ADDR_VAL))" -o "$((MCU_ADDR_VAL))" -lt "$((MAX_ADDR_VAL))" ]; then
-				echo "			data = /incbin/(\"./${MCU}.bin${COMP}\");
+				MCU_IMAGE="${MCU}.bin${COMP}"
+				echo "			data = /incbin/(\"./${MCU_IMAGE}${ENCRYPT}\");
 				compression = \"${COMPRESSION}\";"
 				gen_comp_node "${MCU}.bin"
 		else
-			echo "			data = /incbin/(\"./${MCU}.bin\");
+			MCU_IMAGE="${MCU}.bin"
+			echo "			data = /incbin/(\"./${MCU_IMAGE}${ENCRYPT}\");
 			compression = \"none\";"
 		fi
 
+		gen_cipher_node "${MCU_IMAGE}"
 		echo "			hash {
 				algo = \"sha256\";
 			};
@@ -321,9 +374,10 @@ function gen_mcu_node()
 			type = \"standalone\";
 			arch = \"${ARCH}\";
 			load = ${FIT_ADDR_PREFIX}<"${INIT0_LOAD_ADDR}">;
-			data = /incbin/(\"./${INIT}.bin\");
-			compression = \"none\";
-			hash {
+			data = /incbin/(\"./${INIT}.bin${ENCRYPT}\");
+			compression = \"none\";"
+	gen_cipher_node "${INIT}.bin"
+	echo "			hash {
 				algo = \"sha256\";
 			};
 		};"
@@ -364,14 +418,17 @@ function gen_loadable_node()
 		# Periph register base < DRAM base < load addr
 		if [ "${COMPRESSION}" != "none" -a "$((LOAD_ADDR_VAL))" -gt "$((DRAM_BASE_VAL))" ] &&
 		   [ "$((DRAM_BASE_VAL))" -gt "$((MAX_ADDR_VAL))" -o "$((LOAD_ADDR_VAL))" -lt "$((MAX_ADDR_VAL))" ]; then
-				echo "			data = /incbin/(\"./${LOAD}.bin${COMP}\");
+				LOAD_IMAGE="${LOAD}.bin${COMP}"
+				echo "			data = /incbin/(\"./${LOAD_IMAGE}${ENCRYPT}\");
 				compression = \"${COMPRESSION}\";"
 				gen_comp_node "${LOAD}.bin"
 		else
-			echo "			data = /incbin/(\"./${LOAD}.bin\");
+			LOAD_IMAGE="${LOAD}.bin"
+			echo "			data = /incbin/(\"./${LOAD_IMAGE}${ENCRYPT}\");
 			compression = \"none\";"
 		fi
 
+		gen_cipher_node "${LOAD_IMAGE}"
 		echo "			hash {
 				algo = \"sha256\";
 			};
