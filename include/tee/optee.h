@@ -135,6 +135,11 @@ enum RK_DICE_TYPE {
 	RK_DICE_MAX
 };
 
+enum RK_AVB_TYPE {
+	RK_AVB_BOOT_INFO = 0,
+	RK_AVB_MAX
+};
+
 #define RK_MODE_ENCRYPT			1
 #define RK_MODE_DECRYPT			0
 
@@ -159,6 +164,10 @@ uint32_t optee_set_dice_data(enum RK_DICE_TYPE type,
 			     uint8_t *data, uint32_t data_size);
 uint32_t optee_get_dice_data(enum RK_DICE_TYPE type,
 			     uint8_t *data, uint32_t *data_size);
+uint32_t optee_set_avb_data(enum RK_AVB_TYPE type,
+			    uint8_t *data, uint32_t data_size);
+uint32_t optee_get_avb_data(enum RK_AVB_TYPE type,
+			    uint8_t *data, uint32_t *data_size);
 uint32_t optee_write_widevine_keybox(uint8_t *filename, uint32_t filename_size,
 				     uint8_t *key, uint32_t key_size,
 				     uint8_t *data, uint32_t data_size);
