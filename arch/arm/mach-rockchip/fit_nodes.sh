@@ -28,15 +28,32 @@ fi
 
 # compression
 if [ "${COMPRESSION}" == "gzip" ]; then
-	SUFFIX=".gz"
+	COMP=".gz"
 	COMPRESS_CMD="gzip -kf9"
 elif [ "${COMPRESSION}" == "lzma" ]; then
-	SUFFIX=".lzma"
+	COMP=".lzma"
 	COMPRESS_CMD="${srctree}/scripts/compress.sh lzma"
 else
 	COMPRESSION="none"
-	SUFFIX=
+	COMP=
 fi
+
+function gen_comp_node()
+{
+	local IMAGE=$1
+
+	openssl dgst -sha256 -binary -out "${IMAGE}.digest" "${IMAGE}" || exit 1
+	if [ -s "${IMAGE}" ]; then
+		${COMPRESS_CMD} "${IMAGE}" || exit 1
+	else
+		touch "${IMAGE}${COMP}" || exit 1
+	fi
+
+	echo "			digest {
+				value = /incbin/(\"./${IMAGE}.digest\");
+				algo = \"sha256\";
+			};"
+}
 
 # nodes
 function append_list()
@@ -59,24 +76,14 @@ function gen_uboot_node()
 	UBOOT="u-boot-nodtb.bin"
 	echo "		uboot {
 			description = \"U-Boot\";
-			data = /incbin/(\"${UBOOT}${SUFFIX}\");
+			data = /incbin/(\"${UBOOT}${COMP}\");
 			type = \"standalone\";
 			arch = \"${U_ARCH}\";
 			os = \"U-Boot\";
 			compression = \"${COMPRESSION}\";
 			load = ${FIT_ADDR_PREFIX}<"${UBOOT_LOAD_ADDR}">;"
 	if [ "${COMPRESSION}" != "none" ]; then
-		openssl dgst -sha256 -binary -out ${UBOOT}.digest ${UBOOT}
-		UBOOT_SZ=`ls -l ${UBOOT} | awk '{ print $5 }'`
-		if [ ${UBOOT_SZ} -gt 0 ]; then
-			${COMPRESS_CMD} ${srctree}/${UBOOT}
-		else
-			touch ${srctree}/${UBOOT}${SUFFIX}
-		fi
-		echo "			digest {
-				value = /incbin/(\"./${UBOOT}.digest\");
-				algo = \"sha256\";
-			};"
+		gen_comp_node "${UBOOT}"
 	fi
 	echo "			hash {
 				algo = \"sha256\";
@@ -174,25 +181,15 @@ function gen_elf_nodes()
 	do
 		FIRMWARE_LOAD_ADDR=`echo ${FIRMWARE} | awk -F "_" '{ printf $2 }' | awk -F "." '{ printf $1 }'`
 		if [ "${COMPRESSION}" != "none" -a ${NUM} -eq 1 ]; then
-			openssl dgst -sha256 -binary -out ${FIRMWARE}.digest ${FIRMWARE}
-			${COMPRESS_CMD} ${FIRMWARE}
-
 			echo "		${NODE_PREFIX}-${NUM} {
 			description = \"${DESCRIPTION}\";
-			data = /incbin/(\"./${FIRMWARE}${SUFFIX}\");
+			data = /incbin/(\"./${FIRMWARE}${COMP}\");
 			type = \"firmware\";
 			arch = \"${ARCH}\";
 			os = \"${OS}\";
 			compression = \"${COMPRESSION}\";
 			load = ${FIT_ADDR_PREFIX}<"${FIRMWARE_LOAD_ADDR}">;"
-			echo "			hash {
-				algo = \"sha256\";
-			};
-			digest {
-				value = /incbin/(\"./${FIRMWARE}.digest\");
-				algo = \"sha256\";
-			};
-		};"
+			gen_comp_node "${FIRMWARE}"
 		else
 			echo "		${NODE_PREFIX}-${NUM} {
 			description = \"${DESCRIPTION}\";
@@ -202,11 +199,11 @@ function gen_elf_nodes()
 			os = \"${OS}\";
 			compression = \"none\";
 			load = ${FIT_ADDR_PREFIX}<"${FIRMWARE_LOAD_ADDR}">;"
-			echo "			hash {
+		fi
+		echo "			hash {
 				algo = \"sha256\";
 			};
 		};"
-		fi
 
 		if [ ${NUM} -gt 1 ]; then
 			LOADABLES=`append_list "${LOADABLES}" "\"${NODE_PREFIX}-${NUM}\""`
@@ -243,7 +240,7 @@ function gen_bl32_node()
 	TEE="tee.bin"
 	echo "		optee {
 			description = \"TEE\";
-			data = /incbin/(\"${TEE}${SUFFIX}\");
+			data = /incbin/(\"${TEE}${COMP}\");
 			type = \"firmware\";
 			arch = \"${ARCH}\";
 			os = \"op-tee\";
@@ -251,12 +248,7 @@ function gen_bl32_node()
 			${ENTRY}
 			load = ${FIT_ADDR_PREFIX}<"${TEE_LOAD_ADDR}">;"
 	if [ "${COMPRESSION}" != "none" ]; then
-		openssl dgst -sha256 -binary -out ${TEE}.digest ${TEE}
-		${COMPRESS_CMD} ${TEE}
-		echo "			digest {
-				value = /incbin/(\"./${TEE}.digest\");
-				algo = \"sha256\";
-			};"
+		gen_comp_node "${TEE}"
 	fi
 	echo "			hash {
 				algo = \"sha256\";
@@ -300,14 +292,9 @@ function gen_mcu_node()
 		# Periph register base < DRAM base < load addr
 		if [ "${COMPRESSION}" != "none" -a "$((MCU_ADDR_VAL))" -gt "$((DRAM_BASE_VAL))" ] &&
 		   [ "$((DRAM_BASE_VAL))" -gt "$((MAX_ADDR_VAL))" -o "$((MCU_ADDR_VAL))" -lt "$((MAX_ADDR_VAL))" ]; then
-				openssl dgst -sha256 -binary -out ${MCU}.bin.digest ${MCU}.bin
-				${COMPRESS_CMD} ${MCU}.bin
-				echo "			data = /incbin/(\"./${MCU}.bin${SUFFIX}\");
-				compression = \"${COMPRESSION}\";
-				digest {
-					value = /incbin/(\"./${MCU}.bin.digest\");
-					algo = \"sha256\";
-				};"
+				echo "			data = /incbin/(\"./${MCU}.bin${COMP}\");
+				compression = \"${COMPRESSION}\";"
+				gen_comp_node "${MCU}.bin"
 		else
 			echo "			data = /incbin/(\"./${MCU}.bin\");
 			compression = \"none\";"
@@ -377,14 +364,9 @@ function gen_loadable_node()
 		# Periph register base < DRAM base < load addr
 		if [ "${COMPRESSION}" != "none" -a "$((LOAD_ADDR_VAL))" -gt "$((DRAM_BASE_VAL))" ] &&
 		   [ "$((DRAM_BASE_VAL))" -gt "$((MAX_ADDR_VAL))" -o "$((LOAD_ADDR_VAL))" -lt "$((MAX_ADDR_VAL))" ]; then
-				openssl dgst -sha256 -binary -out ${LOAD}.bin.digest ${LOAD}.bin
-				${COMPRESS_CMD} ${LOAD}.bin
-				echo "			data = /incbin/(\"./${LOAD}.bin${SUFFIX}\");
-				compression = \"${COMPRESSION}\";
-				digest {
-					value = /incbin/(\"./${LOAD}.bin.digest\");
-					algo = \"sha256\";
-				};"
+				echo "			data = /incbin/(\"./${LOAD}.bin${COMP}\");
+				compression = \"${COMPRESSION}\";"
+				gen_comp_node "${LOAD}.bin"
 		else
 			echo "			data = /incbin/(\"./${LOAD}.bin\");
 			compression = \"none\";"
