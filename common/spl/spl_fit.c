@@ -6,7 +6,9 @@
 
 #include <common.h>
 #include <cpu_func.h>
-#ifdef CONFIG_SPL_DM_KEYLAD
+#if defined(CONFIG_SPL_DM_KEYLAD) || \
+	(defined(CONFIG_SPL_FIT_CIPHER) && !defined(CONFIG_SPL_FIT_CIPHER_SW))
+#include <dm.h>
 #include <keylad.h>
 #endif
 #ifdef CONFIG_SPL_DM_CRYPTO
@@ -34,6 +36,7 @@
 #include <dice/dice.h>
 #include <linux/libfdt.h>
 #include <linux/printk.h>
+#include <aes_ext.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -211,11 +214,8 @@ static int get_aligned_image_size(struct spl_load_info *info, int data_size,
 
 #ifdef CONFIG_SPL_FIT_CIPHER
 static int spl_fit_image_uncipher(const void *fit, int noffset,
-				  ulong cipher_addr, size_t cipher_sz,
-				  ulong uncipher_addr)
+				  void *in_out, size_t cipher_sz)
 {
-	struct udevice *dev;
-	cipher_fw_context ctx;
 	int cipher_noffset;
 	const char *node_name;
 	const void *iv;
@@ -234,7 +234,7 @@ static int spl_fit_image_uncipher(const void *fit, int noffset,
 	if (cipher_noffset < 0) {
 		printf("Can't get cipher node offset for image '%s'\n",
 		       node_name);
-		return -1;
+		return 0;
 	}
 
 	if (fit_image_cipher_get_algo(fit, cipher_noffset, &algo_name)) {
@@ -260,31 +260,63 @@ static int spl_fit_image_uncipher(const void *fit, int noffset,
 		return -1;
 	}
 
+#ifdef CONFIG_SPL_FIT_CIPHER_SW
+	struct AES_ctx ctx;
+	const void *key;
+	int key_data_len;
+
+	/* reading aes_key which is inserted by fit-core.sh */
+	noffset = fdt_path_offset(gd->fdt_blob, "/aes_key");
+	if (noffset < 0) {
+		printf("Can't find /aes_key node\n");
+		return -ENODATA;
+	}
+	key = fdt_getprop(gd->fdt_blob, noffset, "data", &key_data_len);
+	if (!key) {
+		printf("Can't find /aes_key data\n");
+		return -ENODATA;
+	}
+	if (key_data_len != key_len) {
+		printf("Invalid /aes_key key length %d, expected %d\n",
+		       key_data_len, key_len);
+		return -EINVAL;
+	}
+
+	/* decrypt */
+	AES_init_ctx_iv(&ctx, key, iv);
+	AES_CTR_xcrypt_buffer(&ctx, in_out, cipher_sz);
+
+#else
+	struct udevice *dev;
+	cipher_fw_context ctx;
+
 	memset(&ctx, 0x00, sizeof(ctx));
 
-	ctx.algo    = CRYPTO_AES;
-	ctx.mode    = RK_MODE_CTR;
+	ctx.algo    = CIPHER_ALGO_AES;
+	ctx.mode    = CIPHER_MODE_CTR;
 	ctx.key_len = key_len;
 	ctx.iv      = iv;
 	ctx.iv_len  = iv_len;
 	ctx.fw_keyid = RK_FW_KEY0;
 
-	dev = crypto_get_device(CRYPTO_AES);
-	if (!dev) {
+	ret = uclass_get_device(UCLASS_CIPHER, 0, &dev);
+	if (ret) {
 		printf("No crypto device for expected AES\n");
 		return -ENODEV;
 	}
 
 	/* uncipher */
-	ret = crypto_fw_cipher(dev, &ctx, (void *)cipher_addr,
-		(void *)uncipher_addr, cipher_sz, true);
-
+	ret = crypto_fw_cipher(dev, &ctx, in_out, in_out, cipher_sz, true);
 	if (ret) {
 		printf("Uncipher data failed for image '%s', ret=%d\n",
 		       node_name, ret);
 		return ret;
 	}
-
+#endif
+	ret = fit_image_check_cipher_hash(fit, noffset, in_out, cipher_sz);
+	if (ret)
+		return ret;
+	puts("+ ");
 	return 0;
 }
 #endif
@@ -389,13 +421,6 @@ static int load_simple_fit(struct spl_load_info *info, ulong fit_offset,
 		comp_addr = load_addr;
 	}
 
-#ifdef CONFIG_SPL_FIT_CIPHER
-	ulong cipher_addr;
-
-	if (fit_image_get_cipher_addr(fit, node, &cipher_addr))
-		cipher_addr = comp_addr + FIT_MAX_SPL_IMAGE_SZ;
-#endif
-
 	if (!fit_image_get_data_position(fit, node, &offset)) {
 		external_data = true;
 	} else if (!fit_image_get_data_offset(fit, node, &offset)) {
@@ -455,18 +480,28 @@ static int load_simple_fit(struct spl_load_info *info, ulong fit_offset,
 
 
 	/* Check hashes and signature */
+	printf("## Checking %s 0x%08lx ", fit_get_name(fit, node, NULL), load_addr);
 	if (image_comp != IH_COMP_NONE && image_comp != IH_COMP_ZIMAGE)
-		printf("## Checking %s 0x%08lx (%s @0x%08lx) ... ",
-		       fit_get_name(fit, node, NULL), load_addr,
-		       (char *)fdt_getprop(fit, node, FIT_COMP_PROP, NULL),
-		       (long)src);
-	else
-		printf("## Checking %s 0x%08lx ... ",
-		       fit_get_name(fit, node, NULL), load_addr);
+		printf("(%s @0x%08lx) ",
+		       (char *)fdt_getprop(fit, node, FIT_COMP_PROP, NULL), (long)src);
+	if (fdt_subnode_offset(fit, node, FIT_CIPHER_NODENAME) > 0)
+		printf("(aes @0x%08lx) ", (long)src);
+	printf("... ");
 
 	if (!fit_image_verify_with_data(fit, node, gd_fdt_blob(), src,
 					length))
 		return -EPERM;
+
+#ifdef CONFIG_SPL_FIT_CIPHER
+	if (fdt_subnode_offset(fit, node, FIT_CIPHER_NODENAME) > 0) {
+		printf("OK ");
+		if (spl_fit_image_uncipher(fit, node, src, length))
+			return -EACCES;
+
+		if (image_comp != IH_COMP_NONE && image_comp != IH_COMP_ZIMAGE)
+			printf("OK ");
+	}
+#endif
 
 	if (CONFIG_IS_ENABLED(FIT_IMAGE_POST_PROCESS)) {
 		if (board_fit_image_post_process((void *)fit, node, (ulong *)&load_addr,

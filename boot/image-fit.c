@@ -1382,6 +1382,42 @@ int fit_image_check_hash(const void *fit, int noffset, const void *data,
 	return 0;
 }
 
+int fit_image_check_cipher_hash(const void *fit, int image_noffset,
+				const void *data, size_t size)
+{
+	const char *node_name;
+	char *err_msgp;
+	int cipher_noffset;
+	int hash_noffset;
+	int ret;
+
+	node_name = fdt_get_name(fit, image_noffset, NULL);
+	if (!node_name)
+		node_name = "<unknown>";
+
+	cipher_noffset = fdt_subnode_offset(fit, image_noffset,
+					   FIT_CIPHER_NODENAME);
+	if (cipher_noffset < 0) {
+		printf("Can't get cipher node for image '%s'\n", node_name);
+		return -ENOENT;
+	}
+
+	hash_noffset = fdt_subnode_offset(fit, cipher_noffset,
+					 FIT_HASH_NODENAME);
+	if (hash_noffset < 0) {
+		printf("Missing plaintext hash for encrypted image '%s'\n",
+		       node_name);
+		return -ENOMSG;
+	}
+
+	ret = fit_image_check_hash(fit, hash_noffset, data, size, &err_msgp);
+	if (ret)
+		printf("%s, uncipher data hash for image '%s', ret=%d\n",
+		       err_msgp, node_name, ret);
+
+	return ret;
+}
+
 int fit_image_verify_with_data(const void *fit, int image_noffset,
 			       const void *key_blob, const void *data,
 			       size_t size)

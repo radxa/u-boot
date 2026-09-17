@@ -298,6 +298,22 @@ config SPL_FIT_ROLLBACK_PROTECT
 	help
 	  Enable SPL rollback-index protection for FIT image
 
+config SPL_FIT_CIPHER
+	bool "Enable ciphering data in a FIT uImages in SPL"
+	depends on SPL_DM && SPL_FIT_SIGNATURE
+	help
+	  Enable the feature of data ciphering/unciphering in the tool mkimage
+	  and in the u-boot support of the FIT image in SPL.
+
+config SPL_FIT_CIPHER_SW
+	bool "Use software AES for SPL FIT ciphering"
+	depends on SPL_FIT_CIPHER
+	select AES_EXT
+	help
+	  Use the software AES-128-CTR implementation and read the FIT key from
+	  the protected SPL device tree. Leave this disabled when the platform
+	  crypto driver provides the OTP-backed RK_FW_KEY0 key.
+
 config SPL_LOAD_FIT
 	bool "Enable SPL loading U-Boot as a FIT (basic fitImage features)"
 	depends on SPL

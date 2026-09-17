@@ -1270,6 +1270,8 @@ int fit_image_get_phase(const void *fit, int offset,
 
 int fit_image_check_hash(const void *fit, int noffset, const void *data,
 			 size_t size, char **err_msgp);
+int fit_image_check_cipher_hash(const void *fit, int image_noffset,
+				const void *data, size_t size);
 
 /**
  * fit_get_data_node() - Get verified image data for an image
