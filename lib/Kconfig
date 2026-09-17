@@ -474,6 +474,12 @@ config AES
 	  supported by the algorithm but only a 128-bit key is supported at
 	  present.
 
+config AES_EXT
+	bool "Support the extended AES implementation written by kokke"
+	help
+	  This provides a means to encrypt and decrypt data using the AES
+	  (Advanced Encryption Standard), which is written by kokke.
+
 source "lib/ecdsa/Kconfig"
 source "lib/rsa/Kconfig"
 source "lib/crypto/Kconfig"

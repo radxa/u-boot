@@ -81,6 +81,7 @@ obj-$(CONFIG_$(PHASE_)CRC16) += crc16-ccitt.o
 obj-y += crypto/
 
 obj-$(CONFIG_$(PHASE_)ACPI) += acpi/
+obj-$(CONFIG_AES_EXT) += aes_ext.o
 obj-$(CONFIG_ECDSA) += ecdsa/
 obj-$(CONFIG_$(XPL_)RSA) += rsa/
 obj-$(CONFIG_HASH) += hash-checksum.o
