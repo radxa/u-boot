@@ -103,8 +103,9 @@ function gen_fdt_node()
 			};
 		};"
 
-	FDT_SIGN=", \"fdt\""
-	FDT="fdt = \"fdt\"${PROP_KERN_DTB};"
+	FDT_SIGN="\"fdt\""
+	FDT_LIST=`append_list "\"fdt\"" "${PROP_KERN_DTB}"`
+	FDT="fdt = ${FDT_LIST};"
 };
 
 function gen_kfdt_node()
@@ -119,7 +120,7 @@ function gen_kfdt_node()
 	fi
 
 	if [ -f ${srctree}/${KERN_DTB} ]; then
-	PROP_KERN_DTB=', "kern-fdt"';
+	PROP_KERN_DTB='"kern-fdt"';
 	echo "		kern-fdt {
 			description = \"${KERN_DTB}\";
 			data = /incbin/(\"${KERN_DTB}\");
@@ -268,7 +269,7 @@ function gen_bl32_node()
 
 function gen_mcu_node()
 {
-	for ((i=0, n=0; i<5; i++))
+	for ((i=0; i<5; i++))
 	do
 		if [ ${i} -eq 0 ]; then
 			MCU_ADDR=${MCU0_LOAD_ADDR}
@@ -317,14 +318,9 @@ function gen_mcu_node()
 			};
 		};"
 
-		if [ ${n} -eq 0 ]; then
-			STANDALONE_LIST=${STANDALONE_LIST}"\"${MCU}\""
-		else
-			STANDALONE_LIST=${STANDALONE_LIST}", \"${MCU}\""
-		fi
-		n=`expr ${n} + 1`
+		STANDALONE_LIST=`append_list "${STANDALONE_LIST}" "\"${MCU}\""`
 
-		STANDALONE_SIGN=", \"standalone\""
+		STANDALONE_SIGN="\"standalone\""
 		STANDALONE_MCU="standalone = ${STANDALONE_LIST};"
 	done
 
@@ -344,7 +340,8 @@ function gen_mcu_node()
 				algo = \"sha256\";
 			};
 		};"
-	STANDALONE_MCU="standalone = \"init0\"${STANDALONE_LIST};"
+	STANDALONE_LIST=`append_list "\"init0\"" "${STANDALONE_LIST}"`
+	STANDALONE_MCU="standalone = ${STANDALONE_LIST};"
 }
 
 function gen_loadable_node()
@@ -488,6 +485,9 @@ function gen_firmware_configurations()
 	LOADABLES=`append_list "${LOADABLE_UBOOT}" "${LOADABLE_FIRMWARE}"`
 	LOADABLES=`append_list "${LOADABLES}" "${LOADABLE_TEE}"`
 	LOADABLES=`append_list "${LOADABLES}" "${LOADABLE_OTHER}"`
+	SIGN_IMAGES=`append_list "\"firmware\"" "\"loadables\""`
+	SIGN_IMAGES=`append_list "${SIGN_IMAGES}" "${FDT_SIGN}"`
+	SIGN_IMAGES=`append_list "${SIGN_IMAGES}" "${STANDALONE_SIGN}"`
 
 echo "	};
 
@@ -504,7 +504,7 @@ echo "	};
 				${ALGO_NAME}
 				${ALGO_PADDING}
 				key-name-hint = \"dev\";
-				sign-images = \"firmware\", \"loadables\"${FDT_SIGN}${STANDALONE_SIGN};
+				sign-images = ${SIGN_IMAGES};
 			};
 		};
 	};
@@ -534,12 +534,11 @@ if [ ! -z "${LOADABLE_UBOOT}" ] || [ ! -z "${LOADABLE_OTHER}" ]; then
 	LOADABLE_UBOOT="\"uboot\""
 	LOADABLE_LIST=`append_list "${LOADABLE_UBOOT}" "${LOADABLE_OTHER}"`
 	LOADABLES="loadables = ${LOADABLE_LIST};"
-	if [ -z ${FIRMWARE_SIGN} ]; then
-		LOADABLES_SIGN="\"loadables\""
-	else
-		LOADABLES_SIGN=", \"loadables\""
-	fi
+	LOADABLES_SIGN="\"loadables\""
 fi
+SIGN_IMAGES=`append_list "${FIRMWARE_SIGN}" "${LOADABLES_SIGN}"`
+SIGN_IMAGES=`append_list "${SIGN_IMAGES}" "${FDT_SIGN}"`
+SIGN_IMAGES=`append_list "${SIGN_IMAGES}" "${STANDALONE_SIGN}"`
 
 echo "	};
 
@@ -556,7 +555,7 @@ echo "	};
 				${ALGO_NAME}
 				${ALGO_PADDING}
 				key-name-hint = \"dev\";
-				sign-images = ${FIRMWARE_SIGN}${LOADABLES_SIGN}${FDT_SIGN}${STANDALONE_SIGN};
+				sign-images = ${SIGN_IMAGES};
 			};
 		};
 	};
