@@ -340,7 +340,14 @@ struct memblock *param_parse_ddr_mem(int *out_count)
 			size = t->u.ddr_mem.bank[i + count];
 			debug("bank[%d]: 0x%08llx - 0x%08llx\n", i, base, base + size);
 
-			if (CONFIG_NR_DRAM_BANKS == 1) {
+			/*
+			 * On RISCV platform:
+			 *
+			 * there maybe many NODEs and external DDR info from
+			 * ddr atags, we only care and manage the one where
+			 * we are running from.
+			 */
+			if (IS_ENABLED(CONFIG_RISCV)) {
 				/* Must match base address */
 				if (base != CFG_SYS_SDRAM_BASE)
 					continue;
