@@ -23,6 +23,8 @@
 #define MEMORY_POOL_SIZE	CONFIG_DRM_MEM_RESERVED_SIZE_MBYTES * 1024 * 1024
 
 int rockchip_show_bmp(const char *bmp);
+int rockchip_show_bmp_buffer(const char *bmp, uintptr_t addr, size_t size);
+int rockchip_cache_bmp_buffer(const char *bmp, uintptr_t addr, size_t size);
 int rockchip_show_logo(void);
 void rockchip_display_fixup(void *blob);
 

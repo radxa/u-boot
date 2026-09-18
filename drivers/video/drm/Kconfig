@@ -16,6 +16,30 @@ config DRM_MEM_RESERVED_SIZE_MBYTES
 	depends on DRM_ROCKCHIP
 	default 32
 
+config ROCKCHIP_FAT_LOGO
+	bool "Load a boot logo from FAT"
+	depends on DRM_ROCKCHIP && BOOTMETH_EXTLINUX
+	help
+	  Look for /logo.bmp on FAT partitions of the block device where an
+	  extlinux configuration was found. Missing or invalid images do not
+	  prevent OS boot. Replacing or removing the file changes the logo
+	  without rebuilding U-Boot.
+
+config ROCKCHIP_FAT_LOGO_PATH
+	string "FAT boot logo path"
+	depends on ROCKCHIP_FAT_LOGO
+	default "/logo.bmp"
+	help
+	  Absolute path of the BMP image on a FAT partition.
+
+config ROCKCHIP_FAT_KERNEL_LOGO_PATH
+	string "FAT kernel handoff logo path"
+	depends on ROCKCHIP_FAT_LOGO
+	default "/logo_kernel.bmp"
+	help
+	  Optional second BMP decoded for Rockchip DRM loader-logo handoff.
+	  When missing, the U-Boot-stage logo is reused.
+
 config DRM_DP_HELPER
 	bool
 	depends on DRM_ROCKCHIP
@@ -312,4 +336,3 @@ config ROCKCHIP_VIDCONSOLE_BPP8
 endchoice
 
 source "drivers/video/drm/display-serdes/Kconfig"
-

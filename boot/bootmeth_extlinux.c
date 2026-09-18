@@ -20,6 +20,10 @@
 #include <malloc.h>
 #include <mapmem.h>
 #include <mmc.h>
+#ifdef CONFIG_ROCKCHIP_FAT_LOGO
+#include <part.h>
+#include <video_rockchip.h>
+#endif
 #include <pxe_utils.h>
 
 struct extlinux_plat {
@@ -100,6 +104,85 @@ static int extlinux_check(struct udevice *dev, struct bootflow_iter *iter)
 	return 0;
 }
 
+#ifdef CONFIG_ROCKCHIP_FAT_LOGO
+static void *read_fat_logo(struct blk_desc *desc, int part, const char *path,
+			   loff_t *sizep)
+{
+	loff_t len_read, size;
+	void *buf;
+	int ret;
+
+	ret = fs_set_blk_dev_with_part(desc, part);
+	if (ret || fs_get_type() != FS_TYPE_FAT || fs_size(path, &size))
+		return NULL;
+	if (!size || size > 16 * 1024 * 1024) {
+		printf("Skipping FAT logo with invalid size %lld\n",
+		       (long long)size);
+		return NULL;
+	}
+
+	buf = memalign(ARCH_DMA_MINALIGN, size);
+	if (!buf)
+		return NULL;
+	ret = fs_set_blk_dev_with_part(desc, part);
+	if (!ret)
+		ret = fs_read(path, map_to_sysmem(buf), 0, size, &len_read);
+	if (ret || len_read != size) {
+		free(buf);
+		return NULL;
+	}
+	*sizep = size;
+
+	return buf;
+}
+
+static void extlinux_show_fat_logo(struct blk_desc *desc)
+{
+	static bool logo_shown;
+	struct disk_partition info;
+	const char *kpath = CONFIG_ROCKCHIP_FAT_KERNEL_LOGO_PATH;
+	const char *path = CONFIG_ROCKCHIP_FAT_LOGO_PATH;
+	loff_t ksize, size;
+	uintptr_t kaddr;
+	void *buf, *kbuf;
+	int part, ret;
+
+	if (logo_shown || !desc)
+		return;
+
+	for (part = 1; part <= MAX_SEARCH_PARTITIONS; part++) {
+		if (part_get_info(desc, part, &info))
+			continue;
+		buf = read_fat_logo(desc, part, path, &size);
+		if (!buf)
+			continue;
+
+		printf("Loading boot logo from partition %d:%s\n", part,
+		       CONFIG_ROCKCHIP_FAT_LOGO_PATH);
+		ret = rockchip_show_bmp_buffer("logo.bmp", map_to_sysmem(buf),
+					       size);
+		if (!ret) {
+			logo_shown = true;
+			kbuf = read_fat_logo(desc, part, kpath, &ksize);
+			if (kbuf) {
+				printf("Caching kernel logo from partition %d:%s\n",
+				       part, kpath);
+				kaddr = map_to_sysmem(kbuf);
+				rockchip_cache_bmp_buffer("logo_kernel.bmp", kaddr, ksize);
+				free(kbuf);
+			}
+		}
+		free(buf);
+		return;
+	}
+}
+#else
+static void extlinux_show_fat_logo(struct blk_desc *desc)
+{
+	(void)desc;
+}
+#endif
+
 /**
  * extlinux_fill_info() - Decode the extlinux file to find out its info
  *
@@ -169,6 +252,8 @@ static int extlinux_read_bootflow(struct udevice *dev, struct bootflow *bflow)
 	ret = extlinux_fill_info(bflow);
 	if (ret)
 		return log_msg_ret("inf", ret);
+
+	extlinux_show_fat_logo(desc);
 
 	return 0;
 }

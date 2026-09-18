@@ -1,0 +1,74 @@
+Radxa RK3576 FAT boot logo
+===========================
+
+The ROCK 4D, ROCK 4D SPI and NX4 C200 configurations can load a replaceable
+BMP logo from FAT without embedding the image in u-boot.itb. The feature is
+enabled by CONFIG_ROCKCHIP_FAT_LOGO and runs when the extlinux boot method
+finds a valid bootflow on a block device.
+
+Deployment
+----------
+
+Copy one or two uncompressed BMP files to the root of a FAT partition on the
+same block device as the extlinux bootflow:
+
+  sudo cp logo.bmp /path/to/fat/logo.bmp
+  sudo cp logo_kernel.bmp /path/to/fat/logo_kernel.bmp
+  sync
+
+The FAT partition does not have to contain extlinux.conf. U-Boot checks FAT
+partitions in partition-number order and uses the first /logo.bmp it finds.
+For example, Linux may mount the selected FAT partition at /config or
+/boot/efi, while extlinux.conf and the root filesystem reside on ext4.
+The Linux mount path is not part of the U-Boot filename.
+
+Replacing either BMP changes it without rebuilding U-Boot. As in the existing
+distro FAT-logo flow, a missing /logo.bmp is simply skipped and does not
+prevent OS boot. logo_kernel.bmp is optional; when missing, Linux handoff
+reuses logo.bmp. Empty, oversized or invalid BMP files are also ignored. The
+maximum input file size is 16 MiB per image. Use 24-bit, uncompressed BMPs
+whose dimensions fit the display and the DRM logo memory.
+
+Loading and handoff
+-------------------
+
+After a block-device extlinux bootflow becomes ready, U-Boot scans that
+device's FAT partitions, reads /logo.bmp, validates its BMP header and declared
+size, decodes it into the Rockchip DRM logo buffer and displays it. If
+/logo_kernel.bmp exists on the same partition, U-Boot decodes it into a second
+cache entry without displaying it yet.
+
+During rockchip_display_fixup(), U-Boot selects the cached logo_kernel.bmp for
+Rockchip DRM loader-logo handoff. If unavailable, it reuses the decoded
+logo.bmp cache. It passes the selected image's reserved-memory address, offset,
+dimensions, format and display timing to a compatible Rockchip Linux DRM
+driver.
+
+Scope and limitations
+---------------------
+
+- The feature applies to block-device extlinux bootflows, not PXE/network boot.
+- U-Boot must reach the extlinux scan before the image can appear. On an empty
+  disk containing only SPL/U-Boot, no FAT logo is available.
+- The image is not authenticated by the U-Boot FIT hash/signature. Protect the
+  FAT filesystem separately if untrusted logo replacement matters.
+- No new environment-variable switch is added; this follows the existing
+  file-presence behavior.
+- Updating only U-Boot does not replace the FAT image. Repartitioning or
+  formatting the selected FAT partition does.
+- The first automatic board_late_init resource-logo attempt may print a
+  harmless failure before extlinux identifies the FAT device. FAT loading is
+  performed later by bootmeth_extlinux.
+
+Validation
+----------
+
+U-Boot should print, for example:
+
+  Loading boot logo from partition 1:/logo.bmp
+  Caching kernel logo from partition 1:/logo_kernel.bmp
+
+Linux should expose a non-zero /reserved-memory/drm-logo region and logo
+offset/width/height/bpp properties on the active display route. These checks
+confirm the data and handoff path; use a display capture when flicker-free
+visual continuity is a release requirement.
