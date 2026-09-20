@@ -30,10 +30,12 @@ RAMDISK_ADDR_PLACEHOLDER="0xffffff02"
 # tools
 MKIMAGE="./tools/mkimage"
 RK_SIGN_TOOL="../rkbin/tools/rk_sign_tool"
+BOOT_MERGER="../rkbin/tools/boot_merger"
 FIT_UNPACK="./scripts/fit-unpack.sh"
 CHECK_SIGN="./tools/fit_check_sign"
 # key
 KEY_DIR="keys/"
+AES_KEY="keys/aes128.key"
 RSA_PRI_KEY="keys/dev.key"
 RSA_PUB_KEY="keys/dev.pubkey"
 RSA_CRT_KEY="keys/dev.crt"
@@ -130,6 +132,68 @@ function check_rsa_keys()
 	fi
 }
 
+function check_aes_key()
+{
+	if [ ! -f "${AES_KEY}" ] || [ "$(wc -c < "${AES_KEY}")" -ne 16 ]; then
+		echo "ERROR: ${AES_KEY} must be a 16-byte AES-128 key"
+		exit 1
+	fi
+}
+
+function unpack_fit()
+{
+	if [ "${ARG_NO_CIPHER}" != "y" ] && grep -q '^CONFIG_FIT_CIPHER=y' .config ; then
+		check_aes_key
+		${FIT_UNPACK} -f $1 -o $2 -k ${AES_KEY} -encrypt
+	else
+		${FIT_UNPACK} -f $1 -o $2
+	fi
+}
+
+function insert_aes_key()
+{
+	local DTB=$1
+
+	check_aes_key
+	fdtput -p -t bx ${DTB} /aes_key data $(xxd -p -c 1 ${AES_KEY})
+}
+
+function insert_spl_aes_key()
+{
+	if grep -q '^CONFIG_SPL_FIT_CIPHER_SW=y' .config ; then
+		insert_aes_key ${SPL_DTB}
+	else
+		check_aes_key
+	fi
+}
+
+function insert_uboot_aes_key()
+{
+	insert_aes_key ${UBOOT_DTB}
+}
+
+function rebuild_uboot_fdt()
+{
+	FDT_DATA=${UBOOT_DTB}
+
+	if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+		insert_spl_aes_key
+		openssl rand -out ${FDT_DATA}.iv 16
+		openssl dgst -sha256 -binary -out ${FDT_DATA}.digest ${FDT_DATA}
+		openssl enc -aes-128-ctr -in ${FDT_DATA} -out ${FDT_DATA}.aes128 \
+			-K "$(xxd -p -c 256 ${AES_KEY})" -iv "$(xxd -p -c 256 ${FDT_DATA}.iv)"
+	fi
+}
+
+function check_uboot_fdt_uncompressed()
+{
+	COMPRESSION=`fdtget -ts ${ITB_UBOOT} /images/fdt compression 2>/dev/null`
+	if [ "${COMPRESSION}" != "none" ]; then
+		echo "ERROR: U-Boot FDT compression must be none"
+		exit 1
+	fi
+}
+
 function validate_arg()
 {
 	case $1 in
@@ -185,6 +249,7 @@ function fit_process_args()
 				;;
 			--no-sign)
 				ARG_NO_SIGN="y"
+				ARG_NO_CIPHER="y"
 				ARG_SIGN="n"
 				shift 1
 				;;
@@ -275,14 +340,22 @@ function fit_raw_compile()
 
 function fit_gen_uboot_itb()
 {
+	if [ "${ARG_NO_CIPHER}" != "y" ] && grep -q '^CONFIG_FIT_CIPHER_SW=y' .config ; then
+		insert_uboot_aes_key
+	fi
+
 	# generate u-boot.its file
-	./make.sh itb ${ARG_INI_TRUST}
+	FIT_NO_CIPHER=${ARG_NO_CIPHER} ./make.sh itb ${ARG_INI_TRUST}
 
 	# check existance of file in its
 	check_its ${ITS_UBOOT}
 
 	if [ "${ARG_SIGN}" != "y" ]; then
+		if [ "${ARG_NO_CIPHER}" != "y" ] && grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+			insert_spl_aes_key
+		fi
 		${MKIMAGE} -f ${ITS_UBOOT} -E -p ${OFFS_DATA} ${ITB_UBOOT} -v ${ARG_VER_UBOOT}
+		check_uboot_fdt_uncompressed
 		if [ "${ARG_SPL_NEW}" == "y" ]; then
 			./make.sh --spl ${ARG_INI_LOADER}
 			echo "pack loader with new: spl/u-boot-spl.bin"
@@ -317,9 +390,11 @@ function fit_gen_uboot_itb()
 			${MKIMAGE} -f ${ITS_UBOOT} -k ${KEY_DIR} -K ${UBOOT_DTB} -E -p ${OFFS_DATA} -r ${ITB_UBOOT} -v ${ARG_VER_UBOOT}
 			echo "## Adding RSA public key into ${UBOOT_DTB}"
 		fi
+		rebuild_uboot_fdt
 
 		# Pack
 		${MKIMAGE} -f ${ITS_UBOOT} -k ${KEY_DIR} -K ${SPL_DTB} -E -p ${OFFS_DATA} -r ${ITB_UBOOT} -v ${ARG_VER_UBOOT}
+		check_uboot_fdt_uncompressed
 		mv ${SIG_BIN} ${SIG_UBOOT}
 
 		# burn-key-hash
@@ -351,8 +426,12 @@ function fit_gen_uboot_itb()
 
 		# host check signature
 		if [ "${ARG_NO_CHECK}" != "y" ]; then
+			CHECK_SIGN_AES=
+			if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+				CHECK_SIGN_AES="-a ${AES_KEY}"
+			fi
 			if [ "${ARG_SPL_NEW}" == "y" ]; then
-				 ${CHECK_SIGN} -f ${ITB_UBOOT} -k ${SPL_DTB} -s
+				 ${CHECK_SIGN} -f ${ITB_UBOOT} -k ${SPL_DTB} ${CHECK_SIGN_AES} -s
 			else
 				spl_file="../rkbin/"`sed -n "/FlashBoot=/s/FlashBoot=//p" ${ARG_INI_LOADER}  |tr -d '\r'`
 				offs=`fdtdump -s ${spl_file} | head -1 | awk -F ":" '{ print $2 }' | sed "s/ found fdt at offset //g" | tr -d " "`
@@ -361,7 +440,7 @@ function fit_gen_uboot_itb()
 				fi
 				offs=`printf %d ${offs} ` # hex -> dec
 				dd if=${spl_file} of=spl/u-boot-spl-old.dtb bs=${offs} skip=1 >/dev/null 2>&1
-				${CHECK_SIGN} -f ${ITB_UBOOT} -k spl/u-boot-spl-old.dtb -s
+				${CHECK_SIGN} -f ${ITB_UBOOT} -k spl/u-boot-spl-old.dtb ${CHECK_SIGN_AES} -s
 			fi
 		fi
 
@@ -424,7 +503,7 @@ function fit_fixup_address()
 function fit_gen_boot_itb()
 {
 	if [ ! -z ${ARG_BOOT_IMG} ]; then
-		${FIT_UNPACK} -f ${ARG_BOOT_IMG} -o ${FIT_DIR}/unpack
+		unpack_fit ${ARG_BOOT_IMG} ${FIT_DIR}/unpack
 		ITS_BOOT="${FIT_DIR}/unpack/image.its"
 	else
 		compression=`awk -F"," '/COMPRESSION=/  { printf $1 }' ${ARG_INI_TRUST} | tr -d ' ' | cut -c 13-`
@@ -433,6 +512,11 @@ function fit_gen_boot_itb()
 		fi
 		./arch/arm/mach-rockchip/make_fit_boot.sh -c ${compression} > ${ITS_BOOT}
 		check_its ${ITS_BOOT}
+		if [ "${ARG_NO_CIPHER}" != "y" ] && grep -q '^CONFIG_FIT_CIPHER=y' .config ; then
+			${MKIMAGE} -f ${ITS_BOOT} -E -p ${OFFS_DATA} ${ITB_BOOT} -v ${ARG_VER_BOOT}
+			unpack_fit ${ITB_BOOT} ${FIT_DIR}/unpack
+			ITS_BOOT="${FIT_DIR}/unpack/image.its"
+		fi
 	fi
 
 	if [ "${ARG_SIGN}" != "y" ]; then
@@ -486,7 +570,11 @@ function fit_gen_boot_itb()
 
 		# host check signature
 		if [ "${ARG_NO_CHECK}" != "y" ]; then
-			 ${CHECK_SIGN} -f ${ITB_BOOT} -k ${UBOOT_DTB}
+			CHECK_SIGN_AES=
+			if grep -q '^CONFIG_FIT_CIPHER=y' .config ; then
+				CHECK_SIGN_AES="-a ${AES_KEY}"
+			fi
+			${CHECK_SIGN} -f ${ITB_BOOT} -k ${UBOOT_DTB} ${CHECK_SIGN_AES}
 		fi
 
 		# minimize u-boot.dtb: clearn as 0 but not remove property.
@@ -512,7 +600,7 @@ function fit_gen_boot_itb()
 function fit_gen_recovery_itb()
 {
 	if [ ! -z ${ARG_RECOVERY_IMG} ]; then
-		${FIT_UNPACK} -f ${ARG_RECOVERY_IMG} -o ${FIT_DIR}/unpack
+		unpack_fit ${ARG_RECOVERY_IMG} ${FIT_DIR}/unpack
 		ITS_RECOVERY="${FIT_DIR}/unpack/image.its"
 	else
 		echo "ERROR: No recovery.img"
@@ -570,7 +658,11 @@ function fit_gen_recovery_itb()
 
 		# host check signature
 		if [ "${ARG_NO_CHECK}" != "y" ]; then
-			 ${CHECK_SIGN} -f ${ITB_RECOVERY} -k ${UBOOT_DTB}
+			CHECK_SIGN_AES=
+			if grep -q '^CONFIG_FIT_CIPHER=y' .config ; then
+				CHECK_SIGN_AES="-a ${AES_KEY}"
+			fi
+			${CHECK_SIGN} -f ${ITB_RECOVERY} -k ${UBOOT_DTB} ${CHECK_SIGN_AES}
 		fi
 
 		# minimize u-boot.dtb: clearn as 0 but not remove property.
@@ -648,22 +740,97 @@ function fit_gen_recovery_img()
 function fit_gen_loader()
 {
 	if [ "${ARG_SIGN}" == "y" ]; then
+		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+			check_aes_key
+			LOADER=
+			if ls *loader*.bin >/dev/null 2>&1 ; then
+				LOADER=`ls *loader*.bin | head -n 1`
+			elif ls *download*.bin >/dev/null 2>&1 ; then
+				LOADER=`ls *download*.bin | head -n 1`
+			fi
+			if [ -z "${LOADER}" ]; then
+				echo "ERROR: No loader found"
+				exit 1
+			fi
+
+			LOADER_CIPHER_DIR=fit/unpack_loader/
+			rm  ${LOADER_CIPHER_DIR} -rf && mkdir -p ${LOADER_CIPHER_DIR}
+			LOADER_IV=${LOADER_CIPHER_DIR}/nonce.bin
+			openssl rand -out ${LOADER_IV} 8
+			if [ -n "${LOADER}" ]; then
+				${BOOT_MERGER} unpack -i ${LOADER} -o ${LOADER_CIPHER_DIR}
+				cp ${ARG_INI_LOADER} ${LOADER_CIPHER_DIR}/MINIALL.ini
+				cp ${ARG_INI_LOADER} ${LOADER_CIPHER_DIR}/MINIALL_BACKUP.ini
+
+				DDR=`grep "Path1=bin/[^ ]*_ddr_" ${LOADER_CIPHER_DIR}/MINIALL.ini | tr -d ' '`
+				if [ -n "${DDR}" ]; then
+					DDR=${DDR/*=/}
+					NEW_DDR=`find ${LOADER_CIPHER_DIR} -name '*ddr*bin' | head -n 1`
+					${RK_SIGN_TOOL} aes --key ${AES_KEY} --nonce ${LOADER_IV} --init 1 --align 4 --bin ${NEW_DDR} ${NEW_DDR}.aes128
+					sed -i "s|Path1=${DDR}|Path1=${NEW_DDR}.aes128|g" ${LOADER_CIPHER_DIR}/MINIALL.ini
+				fi
+
+				USBPLUG=`grep "Path1=bin/[^ ]*_usbplug_" ${LOADER_CIPHER_DIR}/MINIALL.ini | tr -d ' '`
+				if [ -n "${USBPLUG}" ]; then
+					USBPLUG=${USBPLUG/*=/}
+					NEW_USBPLUG=`find ${LOADER_CIPHER_DIR} -name '*usbplug*bin' | head -n 1`
+					${RK_SIGN_TOOL} aes --key ${AES_KEY} --nonce ${LOADER_IV} --init 2 --align 4 --bin ${NEW_USBPLUG} ${NEW_USBPLUG}.aes128
+					sed -i "s|Path1=${USBPLUG}|Path1=${NEW_USBPLUG}.aes128|g" ${LOADER_CIPHER_DIR}/MINIALL.ini
+				fi
+
+				FlashData=`grep "FlashData=bin/[^ ]*" ${LOADER_CIPHER_DIR}/MINIALL.ini | tr -d ' '`
+				if [ -n "${FlashData}" ]; then
+					FlashData=${FlashData/*=/}
+					NEW_FlashData=`find ${LOADER_CIPHER_DIR} -name 'FlashData.bin' | head -n 1`
+					${RK_SIGN_TOOL} aes --key ${AES_KEY} --nonce ${LOADER_IV} --init 1 --align 4 --bin ${NEW_FlashData} ${NEW_FlashData}.aes128
+					sed -i "s|FlashData=${FlashData}|FlashData=${NEW_FlashData}.aes128|g" ${LOADER_CIPHER_DIR}/MINIALL.ini
+				fi
+
+				FlashBoot=`grep "FlashBoot=bin/[^ ]*" ${LOADER_CIPHER_DIR}/MINIALL.ini | tr -d ' '`
+				if [ -n "${FlashBoot}" ]; then
+					FlashBoot=${FlashBoot/*=/}
+					NEW_FlashBoot=`find ${LOADER_CIPHER_DIR} -name 'FlashBoot.bin' | head -n 1`
+					cp spl/u-boot-spl.bin ${NEW_FlashBoot}
+					${RK_SIGN_TOOL} aes --key ${AES_KEY} --nonce ${LOADER_IV} --init 2 --align 4 --bin ${NEW_FlashBoot} ${NEW_FlashBoot}.aes128
+					sed -i "s|FlashBoot=${FlashBoot}|FlashBoot=${NEW_FlashBoot}.aes128|g" ${LOADER_CIPHER_DIR}/MINIALL.ini
+				fi
+
+				FlashBoost=`grep "FlashBoost=bin/[^ ]*" ${LOADER_CIPHER_DIR}/MINIALL.ini | tr -d ' '`
+				if [ -n "${FlashBoost}" ]; then
+					FlashBoost=${FlashBoost/*=/}
+					NEW_FlashBoost=`find ${LOADER_CIPHER_DIR} -name 'FlashBoost.bin' | head -n 1`
+					${RK_SIGN_TOOL} aes --key ${AES_KEY} --nonce ${LOADER_IV} --init 3 --align 4 --bin ${NEW_FlashBoost} ${NEW_FlashBoost}.aes128
+					sed -i "s|FlashBoost=${FlashBoost}|FlashBoost=${NEW_FlashBoost}.aes128|g" ${LOADER_CIPHER_DIR}/MINIALL.ini
+				fi
+
+				${BOOT_MERGER} ${LOADER_CIPHER_DIR}/MINIALL.ini
+			fi
+		fi
 		${RK_SIGN_TOOL} cc --chip ${ARG_CHIP: 2: 6}
+		SS_FLAG=0
 		if [ -n "${ARG_ROLLBACK_IDX_LOADER}" ]; then
 			RK_LOADER_VER_VALUE=`printf '0x%04x%04x' "${ARG_ROLLBACK_IDX_LOADER}" "${ARG_ROLLBACK_IDX_LOADER}"`
 		fi
 		if grep -q '^CONFIG_SPL_REVOKE_PUB_KEY=y' .config ; then
+			SS_FLAG=$((SS_FLAG | 0x80))
 			${RK_SIGN_TOOL} lk --key ${LEGACY_RSA_PRI_KEY} --pubkey ${LEGACY_RSA_PUB_KEY}
 			if [ -n "${ARG_ROLLBACK_IDX_LOADER}" ]; then
-				${RK_SIGN_TOOL} ss --flag=0x80 --version "${RK_LOADER_VER_VALUE}"
-			else
-				${RK_SIGN_TOOL} ss --flag=0x80
+				${RK_SIGN_TOOL} ss --version "${RK_LOADER_VER_VALUE}"
 			fi
 		else
 			${RK_SIGN_TOOL} lk --key ${RSA_PRI_KEY} --pubkey ${RSA_PUB_KEY}
 			if [ -n "${ARG_ROLLBACK_IDX_LOADER}" ]; then
 				${RK_SIGN_TOOL} ss --version "${RK_LOADER_VER_VALUE}"
 			fi
+		fi
+		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+			SS_FLAG=$((SS_FLAG | 0x10))
+		fi
+		if [ ${SS_FLAG} -ne 0 ]; then
+			${RK_SIGN_TOOL} ss --flag=`printf '0x%x' ${SS_FLAG}`
+		fi
+		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+			${RK_SIGN_TOOL} ss --nonce=${LOADER_IV}
 		fi
 		if ls *loader*.bin >/dev/null 2>&1 ; then
 			${RK_SIGN_TOOL} sl --loader *loader*.bin
@@ -679,21 +846,26 @@ function fit_gen_loader()
 
 function fit_msg_uboot()
 {
+	MSG_CIPHER=
 	if [ "${ARG_SIGN}" != "y" ]; then
 		MSG_SIGN="no-signed"
 	else
 		MSG_SIGN="signed"
 	fi
+	if [ "${ARG_NO_CIPHER}" != "y" ] && grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+		MSG_CIPHER="cipher,"
+	fi
 
 	VERSION=`fdtget -ti ${ITB_UBOOT} / version`
+	MSG_VER=
 	if [ "${VERSION}" != "" ]; then
 		MSG_VER=", version=${VERSION}"
 	fi
 
 	if [ "${ARG_SPL_ROLLBACK_PROTECT}" == "y" ]; then
-		echo "Image(${MSG_SIGN}${MSG_VER}, rollback-index=${ARG_ROLLBACK_IDX_UBOOT}): ${IMG_UBOOT} (with uboot, trust...) is ready"
+		echo "Image(${MSG_CIPHER}${MSG_SIGN}${MSG_VER}, rollback-index=${ARG_ROLLBACK_IDX_UBOOT}): ${IMG_UBOOT} (with uboot, trust...) is ready"
 	else
-		echo "Image(${MSG_SIGN}${MSG_VER}): ${IMG_UBOOT} (FIT with uboot, trust...) is ready"
+		echo "Image(${MSG_CIPHER}${MSG_SIGN}${MSG_VER}): ${IMG_UBOOT} (FIT with uboot, trust...) is ready"
 	fi
 }
 
@@ -703,21 +875,26 @@ function fit_msg_boot()
 		return;
 	fi
 
+	MSG_CIPHER=
 	if [ "${ARG_SIGN}" != "y" ]; then
 		MSG_SIGN="no-signed"
 	else
 		MSG_SIGN="signed"
 	fi
+	if [ "${ARG_NO_CIPHER}" != "y" ] && grep -q '^CONFIG_FIT_CIPHER=y' .config ; then
+		MSG_CIPHER="cipher,"
+	fi
 
 	VERSION=`fdtget -ti ${ITB_BOOT} / version`
+	MSG_VER=
 	if [ "${VERSION}" != "" ]; then
 		MSG_VER=", version=${VERSION}"
 	fi
 
 	if [ "${ARG_ROLLBACK_PROTECT}" == "y" ]; then
-		echo "Image(${MSG_SIGN}${MSG_VER}, rollback-index=${ARG_ROLLBACK_IDX_BOOT}): ${IMG_BOOT} is ready"
+		echo "Image(${MSG_CIPHER}${MSG_SIGN}${MSG_VER}, rollback-index=${ARG_ROLLBACK_IDX_BOOT}): ${IMG_BOOT} is ready"
 	else
-		echo "Image(${MSG_SIGN}${MSG_VER}): ${IMG_BOOT} (FIT with kernel, fdt, resource...) is ready"
+		echo "Image(${MSG_CIPHER}${MSG_SIGN}${MSG_VER}): ${IMG_BOOT} (FIT with kernel, fdt, resource...) is ready"
 	fi
 }
 
@@ -727,26 +904,32 @@ function fit_msg_recovery()
 		return;
 	fi
 
+	MSG_CIPHER=
 	if [ "${ARG_SIGN}" != "y" ]; then
 		MSG_SIGN="no-signed"
 	else
 		MSG_SIGN="signed"
 	fi
+	if [ "${ARG_NO_CIPHER}" != "y" ] && grep -q '^CONFIG_FIT_CIPHER=y' .config ; then
+		MSG_CIPHER="cipher,"
+	fi
 
 	VERSION=`fdtget -ti ${ITB_RECOVERY} / version`
+	MSG_VER=
 	if [ "${VERSION}" != "" ]; then
 		MSG_VER=", version=${VERSION}"
 	fi
 
 	if [ "${ARG_ROLLBACK_PROTECT}" == "y" ]; then
-		echo "Image(${MSG_SIGN}${MSG_VER}, rollback-index=${ARG_ROLLBACK_IDX_RECOVERY}): ${IMG_RECOVERY} is ready"
+		echo "Image(${MSG_CIPHER}${MSG_SIGN}${MSG_VER}, rollback-index=${ARG_ROLLBACK_IDX_RECOVERY}): ${IMG_RECOVERY} is ready"
 	else
-		echo "Image(${MSG_SIGN}${MSG_VER}): ${IMG_RECOVERY} (FIT with kernel, fdt, resource...) is ready"
+		echo "Image(${MSG_CIPHER}${MSG_SIGN}${MSG_VER}): ${IMG_RECOVERY} (FIT with kernel, fdt, resource...) is ready"
 	fi
 }
 
 function fit_msg_loader()
 {
+	MSG_CIPHER=
 	LOADER=
 
 	if ls *loader*.bin >/dev/null 2>&1 ; then
@@ -763,10 +946,13 @@ function fit_msg_loader()
 	fi
 
 	if [ "${ARG_SIGN}" == "y" ]; then
+		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+			MSG_CIPHER="cipher,"
+		fi
 		if [ -n "${ARG_ROLLBACK_IDX_LOADER}" ]; then
-			echo "Image(signed, rollback-index=${ARG_ROLLBACK_IDX_LOADER}): ${LOADER} (with spl, ddr...) is ready"
+			echo "Image(${MSG_CIPHER}signed, rollback-index=${ARG_ROLLBACK_IDX_LOADER}): ${LOADER} (with spl, ddr...) is ready"
 		else
-			echo "Image(signed): ${LOADER} (with spl, ddr...) is ready"
+			echo "Image(${MSG_CIPHER}signed): ${LOADER} (with spl, ddr...) is ready"
 		fi
 	else
 		echo "Image(no-signed): ${LOADER} (with spl, ddr...) is ready"
