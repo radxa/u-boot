@@ -72,24 +72,18 @@ int fit_default_conf_get_node(const void *fit, const char *prop_name)
 	return fit_conf_get_prop_node(fit, conf_noffset, prop_name, IH_PHASE_NONE);
 }
 
-int fix_image_set_addr(const void *fit, const char *prop_name,
-		       ulong old, ulong new)
+static int fix_image_set_addr(const void *fit, const char *prop_name, ulong addr)
 {
 	int noffset;
-
-	/* do not fix if verified-boot */
-	if (!fit_image_addr_is_placeholder(old) ||
-	     fit_sig_require_conf(fit, gd_fdt_blob()))
-		return 0;
 
 	noffset = fit_default_conf_get_node(fit, prop_name);
 	if (noffset < 0)
 		return noffset;
 
 	/* optional */
-	fit_image_set_entry(fit, noffset, new);
+	fit_image_set_entry(fit, noffset, addr);
 
-	return fit_image_set_load(fit, noffset, new);
+	return fit_image_set_load(fit, noffset, addr);
 }
 
 static int fdt_image_get_offset_size(const void *fit, const char *prop_name,
@@ -228,10 +222,6 @@ static int fit_image_fixup_alloc(const void *fit, const char *prop_name,
 	int offset, size = 0;
 	int ret;
 
-	addr = env_get_ulong(addr_name, 16, 0);
-	if (!addr)
-		return -EINVAL;
-
 	ret = fit_image_get_param(fit, prop_name, &load, &offset, &size);
 	if (ret)
 		return (ret == -FDT_ERR_NOTFOUND) ? 0 : ret;
@@ -239,9 +229,25 @@ static int fit_image_fixup_alloc(const void *fit, const char *prop_name,
 	if (!size)
 		return 0;
 
-	ret = fix_image_set_addr(fit, prop_name, load, addr);
-	if (ret)
-		return ret;
+	/* Don't fixup if verified boot */
+	if (fit_image_addr_is_placeholder(load) &&
+	    !fit_sig_require_conf(fit, gd_fdt_blob())) {
+		addr = env_get_ulong(addr_name, 16, 0);
+		if (!addr)
+			return -EINVAL;
+
+		ret = fix_image_set_addr(fit, prop_name, addr);
+		if (ret)
+			return ret;
+	} else {
+		/*
+		 * FIT load address is authoritative: sync it back to env, so
+		 * that 'env == sysmem base == the address bootm really loads to'.
+		 */
+		addr = load;
+		env_set_hex(addr_name, addr);
+		printf("New %s: 0x%08lx\n", addr_name, addr);
+	}
 
 /*
  * 1. When need load HWID dtb, gd->fdt_blob points to HWID dtb
@@ -338,6 +344,7 @@ int fit_image_fail_process(const void *fit)
 {
 	ulong raddr, kaddr, faddr;
 
+	/* NOTE: env maybe override in fit_image_fixup_alloc() */
 	raddr = env_get_ulong("ramdisk_addr_r", 16, 0);
 	kaddr = env_get_ulong("kernel_addr_r", 16, 0);
 	faddr = env_get_ulong("fdt_addr_r", 16, 0);
@@ -346,6 +353,18 @@ int fit_image_fail_process(const void *fit)
 	sysmem_free((phys_addr_t)raddr);
 	sysmem_free((phys_addr_t)kaddr);
 	sysmem_free((phys_addr_t)faddr);
+
+#if defined(CONFIG_CMD_BOOTZ)
+	/*
+	 * 32-bit zImage is allocated at "kernel_addr_c" instead of
+	 * "kernel_addr_r", freeing a non-existent base is harmless.
+	 */
+	ulong kaddr_c;
+
+	kaddr_c = env_get_ulong("kernel_addr_c", 16, 0);
+	if (kaddr_c)
+		sysmem_free((phys_addr_t)kaddr_c);
+#endif
 
 	return 0;
 }
