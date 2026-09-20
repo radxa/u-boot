@@ -88,7 +88,13 @@ int do_bootelf(struct cmd_tbl *cmdtp, int fglag, int argc, char *const argv[]);
 boot_os_fn *bootm_os_get_boot_func(int os);
 
 #if defined(CONFIG_FIT_SIGNATURE)
-int bootm_host_load_images(const void *fit, int cfg_noffset, int is_spl);
+struct bootm_host_params {
+	int is_spl;
+	const uint8_t *aes_key;
+};
+
+int bootm_host_load_images(const void *fit, int cfg_noffset,
+			   const struct bootm_host_params *params);
 #endif
 
 int boot_selected_os(int state, struct bootm_info *bmi, boot_os_fn *boot_fn);

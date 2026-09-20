@@ -37,6 +37,7 @@
 
 #else
 #include "mkimage.h"
+#include <aes_ext.h>
 #endif
 
 #include <bootm.h>
@@ -1223,8 +1224,72 @@ void __weak switch_to_non_secure_mode(void)
 #else /* USE_HOSTCC */
 
 #if defined(CONFIG_FIT_SIGNATURE)
+static int bootm_host_uncipher_image(const void *fit, int noffset,
+				     uint8_t image_type, const uint8_t *aes_key,
+				     const void *data, size_t size,
+				     void **image_bufp)
+{
+	int cipher_noffset, hash_noffset, iv_len, ret;
+	const char *node_name;
+	const void *iv;
+	char *algo_name;
+	char *err_msgp;
+	struct AES_ctx ctx;
+	void *image_buf;
+
+	node_name = fdt_get_name(fit, noffset, NULL);
+	if (!aes_key) {
+		printf("AES key is required for encrypted image '%s'\n", node_name);
+		return -EACCES;
+	}
+
+	cipher_noffset = fdt_subnode_offset(fit, noffset, FIT_CIPHER_NODENAME);
+	if (fit_image_cipher_get_algo(fit, cipher_noffset, &algo_name) ||
+	    strcmp(algo_name, "aes128")) {
+		printf("Invalid cipher algorithm for image '%s'\n", node_name);
+		return -EINVAL;
+	}
+
+	iv = fdt_getprop(fit, cipher_noffset, "iv", &iv_len);
+	if (!iv || iv_len != AES_BLOCKLEN) {
+		printf("Invalid AES IV for image '%s'\n", node_name);
+		return -EINVAL;
+	}
+
+	image_buf = malloc(size);
+	if (!image_buf)
+		return -ENOMEM;
+	memcpy(image_buf, data, size);
+
+	printf("   Decrypting AES %s from 0x%08lx to 0x%08lx ... ",
+	       genimg_get_type_name(image_type), (ulong)data, (ulong)image_buf);
+	AES_init_ctx_iv(&ctx, aes_key, iv);
+	AES_CTR_xcrypt_buffer(&ctx, image_buf, size);
+
+	hash_noffset = fdt_subnode_offset(fit, cipher_noffset,
+					   FIT_HASH_NODENAME);
+	if (hash_noffset < 0) {
+		printf("Missing plaintext hash for encrypted image '%s'\n",
+		       node_name);
+		free(image_buf);
+		return -ENOMSG;
+	}
+
+	ret = fit_image_check_hash(fit, hash_noffset, image_buf, size,
+				   &err_msgp);
+	if (ret) {
+		printf("%s for decrypted image '%s'\n", err_msgp, node_name);
+		free(image_buf);
+		return ret;
+	}
+
+	puts("+ OK\n");
+	*image_bufp = image_buf;
+	return 0;
+}
+
 static int bootm_host_load_image(const void *fit, int req_image_type,
-				 int cfg_noffset, int index)
+				 int cfg_noffset, int index, const uint8_t *aes_key)
 {
 	const char *fit_uname_config = NULL;
 	ulong data, len;
@@ -1233,6 +1298,7 @@ static int bootm_host_load_image(const void *fit, int req_image_type,
 	ulong load_end, buf_size;
 	uint8_t image_type;
 	uint8_t image_comp;
+	void *image_buf;
 	void *load_buf;
 	int ret;
 
@@ -1253,12 +1319,28 @@ static int bootm_host_load_image(const void *fit, int req_image_type,
 	if (fit_image_get_comp(fit, noffset, &image_comp))
 		image_comp = IH_COMP_NONE;
 
+	image_buf = (void *)data;
+	if (fdt_subnode_offset(fit, noffset, FIT_CIPHER_NODENAME) >= 0) {
+		ret = bootm_host_uncipher_image(fit, noffset, image_type, aes_key,
+						 (void *)data, len, &image_buf);
+		if (ret)
+			return ret;
+
+		if (image_type == IH_TYPE_FLATDT && fdt_check_header(image_buf)) {
+			puts("Decrypted subimage data is not a FDT\n");
+			free(image_buf);
+			return -ENOEXEC;
+		}
+	}
+
 	/* Allow the image to expand by a factor of 4, should be safe */
 	buf_size = (1 << 20) + len * 4;
 	load_buf = malloc(buf_size);
-	ret = image_decomp(image_comp, 0, data, image_type, load_buf,
-			   (void *)data, len, buf_size, &load_end);
+	ret = image_decomp(image_comp, 0, (ulong)image_buf, image_type, load_buf,
+			   image_buf, len, buf_size, &load_end);
 	free(load_buf);
+	if (image_buf != (void *)data)
+		free(image_buf);
 
 	if (ret) {
 		ret = handle_decomp_error(image_comp, load_end - 0, buf_size, ret);
@@ -1269,7 +1351,8 @@ static int bootm_host_load_image(const void *fit, int req_image_type,
 	return 0;
 }
 
-int bootm_host_load_images(const void *fit, int cfg_noffset, int is_spl)
+int bootm_host_load_images(const void *fit, int cfg_noffset,
+			   const struct bootm_host_params *params)
 {
 	static uint8_t image_types[] = {
 		IH_TYPE_KERNEL,
@@ -1294,15 +1377,16 @@ int bootm_host_load_images(const void *fit, int cfg_noffset, int is_spl)
 	int index;
 	int i;
 
-	for (i = 0; !is_spl && i < ARRAY_SIZE(image_types); i++) {
+	for (i = 0; !params->is_spl && i < ARRAY_SIZE(image_types); i++) {
 		int ret;
 
-		ret = bootm_host_load_image(fit, image_types[i], cfg_noffset, 0);
+		ret = bootm_host_load_image(fit, image_types[i], cfg_noffset, 0,
+					    params->aes_key);
 		if (!err && ret && ret != -ENOENT)
 			err = ret;
 	}
 
-	for (i = 0; is_spl && i < ARRAY_SIZE(image_types_spl); i++) {
+	for (i = 0; params->is_spl && i < ARRAY_SIZE(image_types_spl); i++) {
 		int ret;
 
 		if (image_types_spl[i] == IH_TYPE_LOADABLE)
@@ -1310,7 +1394,8 @@ int bootm_host_load_images(const void *fit, int cfg_noffset, int is_spl)
 		else
 			index = 0;
 
-		ret = bootm_host_load_image(fit, image_types_spl[i], index, is_spl);
+		ret = bootm_host_load_image(fit, image_types_spl[i], cfg_noffset, index,
+					    params->aes_key);
 		if (!err && ret && ret != -ENOENT)
 			err = ret;
 	}

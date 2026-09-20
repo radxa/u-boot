@@ -27,6 +27,8 @@
  */
 int fdt_remove_unused_strings(const void *old, void *new);
 
+struct bootm_host_params;
+
 /**
  * fit_check_sign() - Check a signature in a FIT
  *
@@ -36,6 +38,7 @@ int fdt_remove_unused_strings(const void *old, void *new);
  * @return 0 if OK, -ve if signature failed
  */
 int fit_check_sign(const void *fit, const void *key,
-		   const char *fit_uname_config, int is_spl);
+		   const char *fit_uname_config,
+		   const struct bootm_host_params *params);
 
 #endif /* __FDT_HOST_H__ */

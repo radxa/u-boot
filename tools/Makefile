@@ -114,6 +114,7 @@ dumpimage-mkimage-objs := aisimage.o \
 			$(FIT_SIG_OBJS-y) \
 			$(FIT_CIPHER_OBJS-y) \
 			generated/boot/fdt_region.o \
+			generated/lib/aes_ext.o \
 			generated/boot/bootm.o \
 			generated/lib/crc32.o \
 			default_image.o \

@@ -575,6 +575,7 @@ int fit_image_cipher_data(const char *keydir, void *keydest,
 			  const char *cmdname)
 {
 	const char *image_name;
+	char *algo_name;
 	const void *data;
 	size_t size;
 	int cipher_node_offset, len;
@@ -615,6 +616,13 @@ int fit_image_cipher_data(const char *keydir, void *keydest,
 		fprintf(stderr, "Failure getting cipher node\n");
 		return -1;
 	}
+	/* Rockchip CTR data is encrypted by the FIT generation scripts. */
+	if (!fit_image_cipher_get_algo(fit, cipher_node_offset, &algo_name) &&
+	    !strcmp(algo_name, "aes128") &&
+	    !fdt_getprop(fit, cipher_node_offset, FIT_KEY_HINT, NULL) &&
+	    fdt_subnode_offset(fit, cipher_node_offset, FIT_HASH_NODENAME) >= 0)
+		return 0;
+
 	if (!IMAGE_ENABLE_ENCRYPT || !keydir)
 		return 0;
 	return fit_image_process_cipher(keydir, keydest, fit, image_name,
@@ -1382,7 +1390,8 @@ int fit_add_verification_data(const char *keydir, const char *keyfile,
 
 #ifdef CONFIG_FIT_SIGNATURE
 int fit_check_sign(const void *fit, const void *key,
-		   const char *fit_uname_config, int is_spl)
+		   const char *fit_uname_config,
+		   const struct bootm_host_params *params)
 {
 	int cfg_noffset;
 	int ret;
@@ -1397,7 +1406,7 @@ int fit_check_sign(const void *fit, const void *key,
 	if (ret)
 		return ret;
 	printf("Verified OK, loading images\n");
-	ret = bootm_host_load_images(fit, cfg_noffset, is_spl);
+	ret = bootm_host_load_images(fit, cfg_noffset, params);
 
 	return ret;
 }
