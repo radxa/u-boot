@@ -436,6 +436,9 @@ static int dw_hdmi_i2c_write(struct dw_hdmi_qp *hdmi,
 	}
 
 	while (length--) {
+		u8 data = *buf++;
+		u8 reg = i2c->slave_reg++;
+
 		retry = 100;
 
 		while (retry > 0) {
@@ -445,8 +448,8 @@ static int dw_hdmi_i2c_write(struct dw_hdmi_qp *hdmi,
 			}
 
 			i = 20;
-			hdmi_writel(hdmi, *buf++, I2CM_INTERFACE_WRDATA_0_3);
-			hdmi_modb(hdmi, i2c->slave_reg++ << 12, I2CM_ADDR,
+			hdmi_writel(hdmi, data, I2CM_INTERFACE_WRDATA_0_3);
+			hdmi_modb(hdmi, reg << 12, I2CM_ADDR,
 				I2CM_INTERFACE_CONTROL0);
 			hdmi_modb(hdmi, I2CM_FM_WRITE, I2CM_WR_MASK,
 				I2CM_INTERFACE_CONTROL0);
