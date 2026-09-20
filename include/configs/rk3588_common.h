@@ -14,6 +14,9 @@
 #define CFG_SYS_SDRAM_BASE		0
 #define SDRAM_MAX_SIZE			0xf0000000
 
+/* Reserve low memory for secure firmware during SPL kernel boot. */
+#define SPL_RESV_MEM_SIZE		SZ_2M
+
 #define GICD_BASE			0xfe600000
 #define GICR_BASE			0xfe680000
 #define GICC_BASE			0xfe600000
