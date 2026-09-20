@@ -320,6 +320,13 @@ void __noreturn spl_invoke_atf(struct spl_image_info *spl_image)
 	ulong platform_param = (ulong)blob;
 	int node;
 
+	/* Don't try to find /fit-images in kernel dtb */
+	if (spl_image->next_stage == SPL_NEXT_STAGE_KERNEL) {
+		bl32_entry = spl_image->entry_point_bl32;
+		bl33_entry = spl_image->entry_point_bl33;
+		goto finish;
+	}
+
 	/*
 	 * Find the OP-TEE binary (in /fit-images) load address or
 	 * entry point (if different) and pass it as the BL3-2 entry
@@ -346,6 +353,7 @@ void __noreturn spl_invoke_atf(struct spl_image_info *spl_image)
 	else
 		bl33_entry = spl_image->entry_point_bl33;
 
+finish:
 	/*
 	 * If ATF_NO_PLATFORM_PARAM is set, we override the platform
 	 * parameter and always pass 0.  This is a workaround for
