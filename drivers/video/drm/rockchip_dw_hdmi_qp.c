@@ -1056,6 +1056,49 @@ static unsigned int drm_rk_select_color(struct rockchip_hdmi *hdmi,
 
 #define SUPPORT_HDMI_ALLM	BIT(1)
 
+/*
+ * HDMI above 340MHz (ex. 4K) requires SCDC scrambling. A sink waking from standby
+ * cannot accept that with current implementation, so prefer the largest EDID mode
+ * below that limit; the timing still comes from the EDID, keeping the kernel
+ * handoff valid.
+ */
+#define LOGO_MAX_PIXEL_CLOCK	340000
+#define LOGO_MIN_VREFRESH	50
+
+static void dw_hdmi_qp_select_logo_mode(struct hdmi_edid_data *edid_data)
+{
+	struct drm_display_mode *mode, *best = NULL;
+	int i;
+
+	if (!edid_data->preferred_mode ||
+	    edid_data->preferred_mode->clock <= LOGO_MAX_PIXEL_CLOCK)
+		return;
+
+	for (i = 0; i < edid_data->modes; i++) {
+		mode = &edid_data->mode_buf[i];
+
+		if (mode->clock > LOGO_MAX_PIXEL_CLOCK ||
+		    mode->vrefresh < LOGO_MIN_VREFRESH)
+			continue;
+		if (!best || mode->hdisplay * mode->vdisplay >
+			     best->hdisplay * best->vdisplay)
+			best = mode;
+	}
+
+	if (!best) {
+		printf("no scrambling-free mode for the logo, keeping %dx%d\n",
+		       edid_data->preferred_mode->hdisplay,
+		       edid_data->preferred_mode->vdisplay);
+		return;
+	}
+
+	printf("logo: %dx%d needs SCDC scrambling, using %dx%d instead\n",
+	       edid_data->preferred_mode->hdisplay,
+	       edid_data->preferred_mode->vdisplay,
+	       best->hdisplay, best->vdisplay);
+	edid_data->preferred_mode = best;
+}
+
 void dw_hdmi_qp_select_output(struct hdmi_edid_data *edid_data,
 			      struct rockchip_connector *conn,
 			      unsigned int *bus_format,
@@ -1199,6 +1242,8 @@ null_basep:
 		       screen_info->mode.hdisplay,
 		       screen_info->mode.vdisplay);
 	drm_rk_select_mode(edid_data, screen_info);
+	if (!state->force_output)
+		dw_hdmi_qp_select_logo_mode(edid_data);
 
 	*bus_format = drm_rk_select_color(hdmi, edid_data, screen_info,
 					  dev_type, output_bus_format_rgb);
