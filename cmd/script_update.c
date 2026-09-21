@@ -210,7 +210,7 @@ static int do_tftp_update(struct cmd_tbl *cmdtp, int flag,
 			  int argc, char * const argv[])
 {
 	char cmd[128];
-	char *buf;
+	ulong addr;
 	int dhcp = 0;
 	int ret;
 
@@ -219,20 +219,21 @@ static int do_tftp_update(struct cmd_tbl *cmdtp, int flag,
 	if ((argc > 1) && !strcmp(argv[1], "-d"))
 		dhcp = 1;
 
-	buf = memalign(ARCH_DMA_MINALIGN, SCRIPT_FILE_MAX_SIZE * 2);
-	if (!buf)
+	addr = env_get_ulong("scriptaddr", 16, 0);
+	if (!addr) {
+		printf("Missing scriptaddr environment variable\n");
 		return CMD_RET_FAILURE;
+	}
 
 	if (dhcp)
 		run_command("dhcp", 0);
 
-	snprintf(cmd, sizeof(cmd), "tftp 0x%08lx tftp_update.txt", (ulong)buf);
+	snprintf(cmd, sizeof(cmd), "tftp 0x%08lx tftp_update.txt", addr);
 	ret = run_command(cmd, 0);
 	if (!ret) {
-		snprintf(cmd, sizeof(cmd), "script 0x%08lx", (ulong)buf);
+		snprintf(cmd, sizeof(cmd), "script 0x%08lx", addr);
 		ret = run_command(cmd, 0);
 	}
-	free(buf);
 
 	return ret;
 }
