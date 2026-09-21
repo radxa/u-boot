@@ -400,12 +400,12 @@ static int fit_image_load_one(const void *fit, struct blk_desc *dev_desc,
 	if (blk_dread(dev_desc, part->start + blk_off, blk_num, data) != blk_num)
 		return -EIO;
 
+	noffset = fit_default_conf_get_node(fit, prop_name);
+	if (noffset < 0)
+		return noffset;
+
 	if (check_hash) {
 		int hash_noffset;
-
-		noffset = fit_default_conf_get_node(fit, prop_name);
-		if (noffset < 0)
-			return noffset;
 
 		hash_noffset = fit_image_get_subnode(fit, noffset,
 						     FIT_HASH_NODENAME);
@@ -419,6 +419,17 @@ static int fit_image_load_one(const void *fit, struct blk_desc *dev_desc,
 
 		puts("+\n");
 	}
+
+#ifdef CONFIG_FIT_CIPHER
+	if (fdt_subnode_offset(fit, noffset, FIT_CIPHER_NODENAME) >= 0) {
+		printf("Decrypting %s ... ", fdt_get_name(fit, noffset, NULL));
+		ret = fit_image_uncipher(fit, noffset, (ulong)data, size,
+					 (ulong)data);
+		if (ret)
+			return ret;
+		puts("OK\n");
+	}
+#endif
 
 	return 0;
 }
