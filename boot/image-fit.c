@@ -28,6 +28,9 @@
 #include <memalign.h>
 #include <asm/global_data.h>
 #include <tee/optee.h>
+#ifdef CONFIG_FIT_CIPHER_SW
+#include <aes_ext.h>
+#endif
 #include <dice/dice.h>
 #ifdef CONFIG_DM_HASH
 #include <dm.h>
@@ -1600,17 +1603,21 @@ int fit_all_image_verify(const void *fit)
  *		};
  *	};
  */
-static int fit_image_uncipher(const void *fit, int noffset,
-			      ulong cipher_addr, size_t cipher_sz,
-			      ulong uncipher_addr)
+int fit_image_uncipher(const void *fit, int noffset,
+		       ulong in_addr, size_t len,
+		       ulong out_addr)
 {
-#if 0
+#ifdef CONFIG_FIT_CIPHER_SW
+	struct AES_ctx ctx;
+	const void *key;
+	int key_data_len;
+#else
 	rk_cipher_config config;
+#endif
 	int cipher_noffset;
 	const char *node_name;
 	const void *iv;
 	char *algo_name;
-	char *err_msgp;
 	int key_len = 16;
 	int iv_len;
 	int ret;
@@ -1641,6 +1648,29 @@ static int fit_image_uncipher(const void *fit, int noffset,
 		return -1;
 	}
 
+#ifdef CONFIG_FIT_CIPHER_SW
+	noffset = fdt_path_offset(gd->ufdt_blob, "/aes_key");
+	if (noffset < 0) {
+		printf("Can't find /aes_key node\n");
+		return -ENODATA;
+	}
+	key = fdt_getprop(gd->ufdt_blob, noffset, "data", &key_data_len);
+	if (!key) {
+		printf("Can't find /aes_key data\n");
+		return -ENODATA;
+	}
+	if (key_data_len != key_len) {
+		printf("Invalid /aes_key key length %d, expected %d\n",
+		       key_data_len, key_len);
+		return -EINVAL;
+	}
+
+	if (in_addr != out_addr)
+		memcpy((void *)out_addr, (void *)in_addr, len);
+
+	AES_init_ctx_iv(&ctx, key, iv);
+	AES_CTR_xcrypt_buffer(&ctx, (void *)out_addr, len);
+#else
 	memset(&config, 0, sizeof(config));
 	config.algo      = RK_ALGO_AES;
 	config.mode      = RK_CIPHER_MODE_CTR;
@@ -1648,31 +1678,20 @@ static int fit_image_uncipher(const void *fit, int noffset,
 	config.key_len   = key_len;
 	memcpy(config.iv, iv, key_len);
 
-	/* uncipher */
-	ret = trusty_fw_key_cipher(RK_FW_KEY0, &config,
-				   (u32)cipher_addr, (u32)uncipher_addr,
-				   (u32)cipher_sz);
+	ret = optee_fw_key_cipher(RK_FW_KEY0, &config,
+				   (u32)in_addr, (u32)out_addr, (u32)len);
 	if (ret) {
 		printf("Uncipher data failed for image '%s', ret=%d\n",
 		       node_name, ret);
 		return ret;
 	}
-
-	/* verify uncipher data hash  */
-	noffset = fdt_subnode_offset(fit, cipher_noffset, FIT_HASH_NODENAME);
-	if (noffset > 0) {
-		ret = fit_image_check_hash(fit, noffset,
-					   (void *)uncipher_addr,
-					   cipher_sz, &err_msgp);
-		if (ret) {
-			printf("%s, uncipher data hash for image '%s', ret=%d\n",
-			       err_msgp, node_name, ret);
-			return ret;
-		} else {
-			puts("+");
-		}
-	}
 #endif
+
+	ret = fit_image_check_cipher_hash(fit, noffset, (void *)out_addr, len);
+	if (ret)
+		return ret;
+	puts("+");
+
 	return 0;
 }
 #endif
@@ -2437,42 +2456,33 @@ int fit_image_load_index(struct bootm_headers *images, ulong addr,
 		bootstage_error(bootstage_id + BOOTSTAGE_SUB_GET_DATA);
 		return -ENOENT;
 	}
-#if 0
-	/* Decrypt data before uncompress/move */
-	if (IS_ENABLED(CONFIG_FIT_CIPHER) && IMAGE_ENABLE_DECRYPT) {
-		puts("   Decrypting Data ... ");
-		if (fit_image_uncipher(fit, noffset, &buf, &size)) {
-			puts("Error\n");
-			return -EACCES;
-		}
-		puts("OK\n");
-	}
-#endif
+
 #ifndef USE_HOSTCC
 	ret = fit_image_get_load(fit, noffset, &load);
 	if (ret < 0)
 		return ret;
 #endif
 
-	/* perform any post-processing on the image data */
-	if (!tools_build() && IS_ENABLED(CONFIG_FIT_IMAGE_POST_PROCESS)) {
 #if !defined(USE_HOSTCC)
-#if defined(CONFIG_FIT_CIPHER)
+	/* Decrypt data before uncompress/move */
+	if (IS_ENABLED(CONFIG_FIT_CIPHER) && IMAGE_ENABLE_DECRYPT) {
 		int cipher_noffset =
 			fdt_subnode_offset(fit, noffset, FIT_CIPHER_NODENAME);
 
 		if (cipher_noffset > 0) {
-			printf("   Decrypting Data ... ");
+			puts("   Decrypting Data ... ");
 			ret = fit_image_uncipher(fit, noffset, (ulong)buf, size, load);
 			if (ret) {
 				printf(" Error: %d\n", ret);
 				return -EACCES;
 			}
 			memcpy((void *)buf, (void *)load, size);
-			printf(" OK\n");
+			puts(" OK\n");
 		}
+	}
 #endif
-#endif
+	/* perform any post-processing on the image data */
+	if (!tools_build() && IS_ENABLED(CONFIG_FIT_IMAGE_POST_PROCESS)) {
 		/* perform any post-processing on the image data */
 		if (board_fit_image_post_process((void *)fit, noffset, &load,
 						 (ulong **)&buf, &size, NULL))

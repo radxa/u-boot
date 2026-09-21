@@ -177,11 +177,20 @@ config FIT_ROLLBACK_PROTECT
 
 config FIT_CIPHER
 	bool "Enable ciphering data in a FIT uImages"
-	depends on DM
+	depends on DM && FIT_SIGNATURE && OPTEE
 	select AES
 	help
 	  Enable the feature of data ciphering/unciphering in the tool mkimage
 	  and in the u-boot support of the FIT image.
+
+config FIT_CIPHER_SW
+	bool "Use software AES for FIT ciphering"
+	depends on FIT_CIPHER
+	select AES_EXT
+	help
+	  Use the software AES-128-CTR implementation and read the FIT key from
+	  the protected U-Boot device tree. Leave this disabled when the platform
+	  crypto service provides the OTP-backed RK_FW_KEY0 key.
 
 config FIT_VERBOSE
 	bool "Show verbose messages when FIT images fail"

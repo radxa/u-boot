@@ -1229,11 +1229,10 @@ static int bootm_host_uncipher_image(const void *fit, int noffset,
 				     const void *data, size_t size,
 				     void **image_bufp)
 {
-	int cipher_noffset, hash_noffset, iv_len, ret;
+	int cipher_noffset, iv_len, ret;
 	const char *node_name;
 	const void *iv;
 	char *algo_name;
-	char *err_msgp;
 	struct AES_ctx ctx;
 	void *image_buf;
 
@@ -1266,19 +1265,8 @@ static int bootm_host_uncipher_image(const void *fit, int noffset,
 	AES_init_ctx_iv(&ctx, aes_key, iv);
 	AES_CTR_xcrypt_buffer(&ctx, image_buf, size);
 
-	hash_noffset = fdt_subnode_offset(fit, cipher_noffset,
-					   FIT_HASH_NODENAME);
-	if (hash_noffset < 0) {
-		printf("Missing plaintext hash for encrypted image '%s'\n",
-		       node_name);
-		free(image_buf);
-		return -ENOMSG;
-	}
-
-	ret = fit_image_check_hash(fit, hash_noffset, image_buf, size,
-				   &err_msgp);
+	ret = fit_image_check_cipher_hash(fit, noffset, image_buf, size);
 	if (ret) {
-		printf("%s for decrypted image '%s'\n", err_msgp, node_name);
 		free(image_buf);
 		return ret;
 	}

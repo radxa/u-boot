@@ -1237,6 +1237,11 @@ int fit_image_get_entry(const void *fit, int noffset, ulong *entry);
 int fit_image_get_emb_data(const void *fit, int noffset, const void **data,
 			   size_t *size);
 int fit_image_get_comp_addr(const void *fit, int noffset, ulong *comp);
+#if !defined(USE_HOSTCC) && defined(CONFIG_FIT_CIPHER)
+int fit_image_uncipher(const void *fit, int noffset,
+		       ulong cipher_addr, size_t cipher_sz,
+		       ulong uncipher_addr);
+#endif
 int fit_image_set_load(const void *fit, int noffset, ulong load);
 int fit_image_set_entry(const void *fit, int noffset, ulong entry);
 int fit_image_get_data(const void *fit, int noffset,
