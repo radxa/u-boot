@@ -740,6 +740,9 @@ function fit_gen_recovery_img()
 function fit_gen_loader()
 {
 	if [ "${ARG_SIGN}" == "y" ]; then
+		# Reset settings
+		${RK_SIGN_TOOL} ss
+
 		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
 			check_aes_key
 			LOADER=
