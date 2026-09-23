@@ -27,6 +27,7 @@
 #define LAN_RGMII_DL_ID			16
 #define EBOOK_VCOM_ID			17
 #define FIRMWARE_VER_ID			18
+#define VBA_REGIONAL_ID			21
 #define MULTI_MODULE_KEY_ID		1068
 
 struct vendor_item {

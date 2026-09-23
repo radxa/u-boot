@@ -19,10 +19,13 @@
 #include <asm/arch-rockchip/atags.h>
 #include <asm/arch-rockchip/boot_mode.h>
 #include <asm/arch-rockchip/common.h>
+#include <asm/arch-rockchip/vendor.h>
 
 #include <display_options.h>
 #include <dm.h>
 #include <env.h>
+#include <linux/ctype.h>
+#include <linux/linux_string.h>
 #include <linux/stringify.h>
 #include <linux/string.h>
 
@@ -240,6 +243,32 @@ static void bootargs_add_android(bool verbose)
 		ddr_size = gd->ram_size + bidram_append_size();
 		snprintf(buf, sizeof(buf), "androidboot.ddr_size=0x%08lx", ddr_size);
 		env_update("bootargs", buf);
+	}
+
+	/* Android >= 16: VBA regional type from vendor storage (ID 21) */
+	if (IS_ENABLED(CONFIG_ROCKCHIP_VENDOR_PARTITION) &&
+	    gd->bd->bi_andr_version >= 16) {
+		static const char * const valid_regions[] = {
+			"ROW", "EEA", "NEU", "RU", "IND", "TUR", "US", "JP",
+		};
+		char vba_buf[32] = {0};
+		char vba_arg[64];
+		const char *region;
+		int ret, i;
+
+		ret = vendor_storage_read(VBA_REGIONAL_ID, vba_buf, 31);
+		debug("%s: read vba (id=%d): ret=%d raw='%s'\n",
+		      __func__, VBA_REGIONAL_ID, ret, vba_buf);
+		if (ret > 0) {
+			region = strim(vba_buf);
+			for (i = 0; i < ARRAY_SIZE(valid_regions); i++) {
+				if (!strcmp(region, valid_regions[i])) {
+					snprintf(vba_arg, sizeof(vba_arg), "androidboot.vba.regional=%s", region);
+					env_update("bootargs", vba_arg);
+					break;
+				}
+			}
+		}
 	}
 
 	/*
