@@ -1348,21 +1348,11 @@ int bootm_host_load_images(const void *fit, int cfg_noffset,
 		IH_TYPE_RAMDISK,
 	};
 	static uint8_t image_types_spl[] = {
-#ifdef CONFIG_SPL_ATF
 		IH_TYPE_FLATDT,
 		IH_TYPE_FIRMWARE,
-		IH_TYPE_LOADABLE,
-		IH_TYPE_LOADABLE,
-		IH_TYPE_LOADABLE,
-#else
-		IH_TYPE_FLATDT,
-		IH_TYPE_FIRMWARE,
-		IH_TYPE_LOADABLE,
-#endif
 	};
-	int loadable_index = 0;
+	int loadable_count;
 	int err = 0;
-	int index;
 	int i;
 
 	for (i = 0; !params->is_spl && i < ARRAY_SIZE(image_types); i++) {
@@ -1377,15 +1367,28 @@ int bootm_host_load_images(const void *fit, int cfg_noffset,
 	for (i = 0; params->is_spl && i < ARRAY_SIZE(image_types_spl); i++) {
 		int ret;
 
-		if (image_types_spl[i] == IH_TYPE_LOADABLE)
-			index = loadable_index++;
-		else
-			index = 0;
-
-		ret = bootm_host_load_image(fit, image_types_spl[i], cfg_noffset, index,
+		ret = bootm_host_load_image(fit, image_types_spl[i], cfg_noffset, 0,
 					    params->aes_key);
 		if (!err && ret && ret != -ENOENT)
 			err = ret;
+	}
+
+	if (params->is_spl) {
+		loadable_count = fit_conf_get_prop_node_count(fit, cfg_noffset,
+							      FIT_LOADABLE_PROP);
+		if (loadable_count == -FDT_ERR_NOTFOUND)
+			loadable_count = 0;
+		else if (loadable_count < 0)
+			return loadable_count;
+
+		for (i = 0; i < loadable_count; i++) {
+			int ret;
+
+			ret = bootm_host_load_image(fit, IH_TYPE_LOADABLE, cfg_noffset, i,
+						    params->aes_key);
+			if (!err && ret && ret != -ENOENT)
+				err = ret;
+		}
 	}
 
 	/* Return the first error we found */
