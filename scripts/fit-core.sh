@@ -743,7 +743,7 @@ function fit_gen_loader()
 		# Reset settings
 		${RK_SIGN_TOOL} ss
 
-		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config && ! grep -q '^CONFIG_SPL_FIT_CIPHER_SW=y' .config ; then
 			check_aes_key
 			LOADER=
 			if ls *loader*.bin >/dev/null 2>&1 ; then
@@ -826,13 +826,13 @@ function fit_gen_loader()
 				${RK_SIGN_TOOL} ss --version "${RK_LOADER_VER_VALUE}"
 			fi
 		fi
-		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config && ! grep -q '^CONFIG_SPL_FIT_CIPHER_SW=y' .config ; then
 			SS_FLAG=$((SS_FLAG | 0x10))
 		fi
 		if [ ${SS_FLAG} -ne 0 ]; then
 			${RK_SIGN_TOOL} ss --flag=`printf '0x%x' ${SS_FLAG}`
 		fi
-		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config && ! grep -q '^CONFIG_SPL_FIT_CIPHER_SW=y' .config ; then
 			${RK_SIGN_TOOL} ss --nonce=${LOADER_IV}
 		fi
 		if ls *loader*.bin >/dev/null 2>&1 ; then
@@ -949,7 +949,7 @@ function fit_msg_loader()
 	fi
 
 	if [ "${ARG_SIGN}" == "y" ]; then
-		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config ; then
+		if grep -q '^CONFIG_SPL_FIT_CIPHER=y' .config && ! grep -q '^CONFIG_SPL_FIT_CIPHER_SW=y' .config ; then
 			MSG_CIPHER="cipher,"
 		fi
 		if [ -n "${ARG_ROLLBACK_IDX_LOADER}" ]; then
