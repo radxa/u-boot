@@ -263,15 +263,16 @@ static int spl_fit_image_uncipher(const void *fit, int noffset,
 #ifdef CONFIG_SPL_FIT_CIPHER_SW
 	struct AES_ctx ctx;
 	const void *key;
+	int key_noffset;
 	int key_data_len;
 
 	/* reading aes_key which is inserted by fit-core.sh */
-	noffset = fdt_path_offset(gd->fdt_blob, "/aes_key");
-	if (noffset < 0) {
+	key_noffset = fdt_path_offset(gd->fdt_blob, "/aes_key");
+	if (key_noffset < 0) {
 		printf("Can't find /aes_key node\n");
 		return -ENODATA;
 	}
-	key = fdt_getprop(gd->fdt_blob, noffset, "data", &key_data_len);
+	key = fdt_getprop(gd->fdt_blob, key_noffset, "data", &key_data_len);
 	if (!key) {
 		printf("Can't find /aes_key data\n");
 		return -ENODATA;

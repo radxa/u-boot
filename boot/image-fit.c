@@ -1610,6 +1610,7 @@ int fit_image_uncipher(const void *fit, int noffset,
 #ifdef CONFIG_FIT_CIPHER_SW
 	struct AES_ctx ctx;
 	const void *key;
+	int key_noffset;
 	int key_data_len;
 #else
 	rk_cipher_config config;
@@ -1649,12 +1650,12 @@ int fit_image_uncipher(const void *fit, int noffset,
 	}
 
 #ifdef CONFIG_FIT_CIPHER_SW
-	noffset = fdt_path_offset(gd->ufdt_blob, "/aes_key");
-	if (noffset < 0) {
+	key_noffset = fdt_path_offset(gd->ufdt_blob, "/aes_key");
+	if (key_noffset < 0) {
 		printf("Can't find /aes_key node\n");
 		return -ENODATA;
 	}
-	key = fdt_getprop(gd->ufdt_blob, noffset, "data", &key_data_len);
+	key = fdt_getprop(gd->ufdt_blob, key_noffset, "data", &key_data_len);
 	if (!key) {
 		printf("Can't find /aes_key data\n");
 		return -ENODATA;
