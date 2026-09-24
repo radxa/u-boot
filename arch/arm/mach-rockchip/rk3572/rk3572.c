@@ -527,14 +527,16 @@ int rk_board_init(void)
 {
 #if defined(CONFIG_ROCKCHIP_VENDOR_PARTITION)
 	char licence_str[1024] = {0};
-	int ret, size;
-	char *ip_verify = "npu";
+	int i, ret, size;
+	char *ip_verify[] = {"npu", "npu-all"};
 
 	size = vendor_storage_read(MULTI_MODULE_KEY_ID, licence_str, 1024);
 	if (size > 0) {
-		ret = optee_verify_config_ip(licence_str, ip_verify);
-		if (ret)
-			printf("%s: %s verification failed!!!\n", __func__, ip_verify);
+		for (i = 0; i < ARRAY_SIZE(ip_verify); i++) {
+			ret = optee_verify_config_ip(licence_str, ip_verify[i]);
+			if (!ret)
+				printf("verify-config-ip: %s passed.\n", ip_verify[i]);
+		}
 	}
 #endif
 
