@@ -71,6 +71,10 @@ config ARCH_ROCKCHIP
 	select SPL_DM_SPI_FLASH if SPL
 	select SYS_MALLOC_F
 	select PANIC_HANG
+	select FRAMEPOINTER
+	select SPL_FRAMEPOINTER
+	select SHOW_REGS
+	select SPL_SHOW_REGS
 	imply DM_SPI
 	imply DM_SPI_FLASH
 	imply MMC
