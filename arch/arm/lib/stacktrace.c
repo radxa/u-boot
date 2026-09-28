@@ -98,6 +98,27 @@ struct unwind_idx {
 	uint32_t insn;
 };
 
+static ulong get_stack_top(void)
+{
+	/*
+	 * SPL: gd->start_addr_sp is not initialized if:
+	 * CONFIG_SPL_SKIP_RELOCATE=y && !CONFIG_IS_ENABLED(SYS_REPORT_STACK_F_USAGE)
+	 */
+	ulong stack_top = gd ? gd->start_addr_sp : 0;
+
+	if (!stack_top) {
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_STACK)
+		stack_top = CONFIG_SPL_STACK;
+#elif defined(CONFIG_TPL_BUILD) && defined(CONFIG_TPL_STACK)
+		stack_top = CONFIG_TPL_STACK;
+#elif defined(SYS_INIT_SP_ADDR)
+		stack_top = SYS_INIT_SP_ADDR;
+#endif
+	}
+
+	return stack_top;
+}
+
 static __always_inline uint32_t read_pc(void)
 {
 	uint32_t val;
@@ -220,8 +241,7 @@ static bool unwind_exec_read_byte(struct unwind_state_arm32 *state,
 static bool pop_vsp(uint32_t *reg, ulong *vsp, bool kernel_stack,
 		    ulong stack, size_t stack_size)
 {
-	if (*vsp > gd->start_addr_sp ||
-	    *vsp < gd->start_addr_sp - CONFIG_STACK_SIZE)
+	if (*vsp > stack || *vsp < stack - stack_size)
 		return false;
 
 	if (!copy_in(reg, (void *)*vsp, sizeof(*reg), kernel_stack))
@@ -522,7 +542,7 @@ void print_stack_arm32(struct unwind_state_arm32 *state,
 			pc = (ulong)state->registers[PC];
 
 		printf("	[< %08lx >]\n", pc);
-	} while (unwind_stack_arm32(state, exidx, exidx_sz,
+	} while (stack && unwind_stack_arm32(state, exidx, exidx_sz,
 				    kernel_stack, stack, stack_size));
 
 	printf("\nCopy info from \"=== Backtrace ===...\" to a file(eg. dump.txt), and run\n"
@@ -535,7 +555,7 @@ void dump_core_stack(struct pt_regs *regs)
 	struct unwind_state_arm32 state;
 	ulong exidx = (ulong)__exidx_start;
 	size_t exidx_sz = (ulong)__exidx_end - (ulong)__exidx_start;
-	ulong stack = gd->start_addr_sp;
+	ulong stack = get_stack_top();
 	size_t stack_size = CONFIG_STACK_SIZE;
 	int i;
 
@@ -562,7 +582,12 @@ void dump_core_stack(struct pt_regs *regs)
 
 void dump_stack(void)
 {
-	struct pt_regs regs = { 0 };
+	/*
+	 * Do not zero-initialize 'regs = {0}': memset() may be called before read_lr(),
+	 * overwriting lr with the return address inside dump_stack().
+	 * dump_core_stack() only reads the fields initialized below.
+	 */
+	struct pt_regs regs;
 
 	regs.ARM_r7 = read_r7();
 	regs.ARM_ip = read_fp();

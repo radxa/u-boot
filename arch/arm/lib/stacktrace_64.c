@@ -34,6 +34,27 @@ struct stackframe {
 	uint64_t pc;
 };
 
+static ulong get_stack_top(void)
+{
+	/*
+	 * SPL: gd->start_addr_sp is not initialized if:
+	 * CONFIG_SPL_SKIP_RELOCATE=y && !CONFIG_IS_ENABLED(SYS_REPORT_STACK_F_USAGE)
+	 */
+	ulong stack_top = gd ? gd->start_addr_sp : 0;
+
+	if (!stack_top) {
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_STACK)
+		stack_top = CONFIG_SPL_STACK;
+#elif defined(CONFIG_TPL_BUILD) && defined(CONFIG_TPL_STACK)
+		stack_top = CONFIG_TPL_STACK;
+#elif defined(SYS_INIT_SP_ADDR)
+		stack_top = SYS_INIT_SP_ADDR;
+#endif
+	}
+
+	return stack_top;
+}
+
 static __always_inline uint64_t read_fp(void)
 {
 	uint64_t val;
@@ -61,15 +82,17 @@ static __always_inline uint64_t read_pc(void)
 /* It's not allowed to access sp_el2 in EL2, so always return a valid sp */
 static __always_inline uint64_t read_sp(void)
 {
-	return gd->start_addr_sp - (CONFIG_STACK_SIZE / 2);
+	ulong stack_top = get_stack_top();
+
+	return stack_top ? stack_top - (CONFIG_STACK_SIZE / 2) : 0;
 }
 
-static bool walk_stackframe(struct stackframe *frame)
+static bool walk_stackframe(struct stackframe *frame, ulong stack_bottom,
+				    ulong stack_top)
 {
 	ulong fp = frame->fp;
 
-	if (fp > gd->start_addr_sp ||
-	    fp < gd->start_addr_sp - CONFIG_STACK_SIZE)
+	if (fp > stack_top || fp < stack_bottom)
 		return false;
 
 	frame->sp = fp + 0x10;
@@ -83,6 +106,8 @@ void dump_core_stack(struct pt_regs *regs)
 {
 	struct stackframe frame;
 	ulong pc, lr;
+	ulong stack_top = get_stack_top();
+	ulong stack_bottom = stack_top ? stack_top - CONFIG_STACK_SIZE : 0;
 #if defined(CONFIG_TPL_BUILD)
 	char *build = "tpl";
 #elif defined(CONFIG_SPL_BUILD)
@@ -115,7 +140,7 @@ void dump_core_stack(struct pt_regs *regs)
 			pc = (ulong)frame.pc;
 
 		printf("	[< %08lx >]\n", pc);
-	} while (walk_stackframe(&frame));
+	} while (stack_top && walk_stackframe(&frame, stack_bottom, stack_top));
 
 	printf("\nCopy info from \"=== Backtrace ===...\" to a file(eg. dump.txt), and run\n"
 	       "command in your U-Boot project: "
@@ -124,7 +149,12 @@ void dump_core_stack(struct pt_regs *regs)
 
 void dump_stack(void)
 {
-	struct pt_regs regs = { 0 };
+	/*
+	 * Do not zero-initialize 'regs = {0}'': memset() may be called before read_lr(),
+	 * overwriting x30 with the return address inside dump_stack().
+	 * dump_core_stack() only reads the fields initialized below.
+	 */
+	struct pt_regs regs;
 
 	regs.regs[29] = read_fp();
 	regs.regs[30] = read_lr();
