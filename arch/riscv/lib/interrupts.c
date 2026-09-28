@@ -14,6 +14,7 @@
 #include <hang.h>
 #include <interrupt.h>
 #include <irq_func.h>
+#include <stacktrace.h>
 #include <asm/global_data.h>
 #include <asm/ptrace.h>
 #include <asm/system.h>
@@ -34,7 +35,7 @@ static void show_efi_loaded_images(uintptr_t epc)
 
 static void __maybe_unused show_regs(struct pt_regs *regs)
 {
-	printf("\nSP:  " REG_FMT " GP:  " REG_FMT " TP:  " REG_FMT "\n",
+	printf("SP:  " REG_FMT " GP:  " REG_FMT " TP:  " REG_FMT "\n",
 	       regs->sp, regs->gp, regs->tp);
 	printf("T0:  " REG_FMT " T1:  " REG_FMT " T2:  " REG_FMT "\n",
 	       regs->t0, regs->t1, regs->t2);
@@ -54,33 +55,6 @@ static void __maybe_unused show_regs(struct pt_regs *regs)
 	       regs->s10, regs->s11, regs->t3);
 	printf("T4:  " REG_FMT " T5:  " REG_FMT " T6:  " REG_FMT "\n",
 	       regs->t4, regs->t5, regs->t6);
-}
-
-static void __maybe_unused show_backtrace(struct pt_regs *regs)
-{
-	uintptr_t *fp = (uintptr_t *)regs->s0;
-	unsigned count = 0;
-	ulong ra;
-
-	printf("\nbacktrace:\n");
-
-	/* there are a few entry points where the s0 register is
-	 * set to gd, so to avoid changing those, just abort if
-	 * the value is the same */
-	while (fp != NULL && fp != (uintptr_t *)gd) {
-		ra = fp[-1];
-		printf("%3d: FP: " REG_FMT " RA: " REG_FMT,
-		       count, (ulong)fp, ra);
-
-		if (gd && gd->flags & GD_FLG_RELOC)
-			printf(" - RA: " REG_FMT " reloc adjusted\n",
-			ra - gd->reloc_off);
-		else
-			printf("\n");
-
-		fp = (uintptr_t *)fp[-2];
-		count++;
-	}
 }
 
 /**
@@ -141,22 +115,27 @@ static void _exit_trap(ulong code, ulong epc, ulong tval, struct pt_regs *regs)
 		longjmp(gd->arch.resume->jump, 1);
 	}
 
+	show_stacktrace_header();
+
 	if (code < ARRAY_SIZE(exception_code))
 		printf("Unhandled exception: %s\n", exception_code[code]);
 	else
 		printf("Unhandled exception code: %ld\n", code);
 
-	printf("EPC: " REG_FMT " RA: " REG_FMT " TVAL: " REG_FMT "\n",
-	       epc, regs->ra, tval);
 	/* Print relocation adjustments, but only if gd is initialized */
 	if (gd && gd->flags & GD_FLG_RELOC)
-		printf("EPC: " REG_FMT " RA: " REG_FMT " reloc adjusted\n",
-		       epc - gd->reloc_off, regs->ra - gd->reloc_off);
+		printf("EPC: " REG_FMT " RA:  " REG_FMT " TVAL: " REG_FMT "\n",
+		       epc - gd->reloc_off, regs->ra - gd->reloc_off, tval);
+	else
+		printf("EPC: " REG_FMT " RA:  " REG_FMT " TVAL: " REG_FMT "\n",
+		       epc, regs->ra, tval);
 
 	if (CONFIG_IS_ENABLED(SHOW_REGS))
 		show_regs(regs);
-	if (CONFIG_IS_ENABLED(FRAMEPOINTER))
-		show_backtrace(regs);
+	if (CONFIG_IS_ENABLED(FRAMEPOINTER)) {
+		regs->sepc = epc;
+		dump_core_stack(regs);
+	}
 	show_code(epc);
 	show_efi_loaded_images(epc);
 	panic("\n");

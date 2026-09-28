@@ -20,6 +20,7 @@ obj-$(CONFIG_SBI) += sbi.o
 obj-$(CONFIG_SBI_IPI) += sbi_ipi.o
 endif
 obj-y	+= interrupts.o
+obj-y	+= stacktrace.o
 ifeq ($(CONFIG_$(XPL_)SYSRESET),)
 obj-y	+= reset.o
 endif
