@@ -876,7 +876,6 @@ select_ini_file
 handle_args_late
 sub_commands
 clean_files
-# ./arch/arm/mach-rockchip/make_fit_atf.sh -t 0x8400000 > u-boot.its
 make ${ARG_SPL_FWVER} ${ARG_FWVER} CROSS_COMPILE=${TOOLCHAIN} all --jobs=${JOB}
 pack_images
 finish
