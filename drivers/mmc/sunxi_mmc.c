@@ -36,6 +36,12 @@
 #define CCM_MMC_CTRL_MODE_SEL_NEW	0
 #endif
 
+#define SUNXI_MMC_GCTRL_DDR_MODE        BIT(10)
+#define SUNXI_MMC_DRV_DL                0x140
+#define SUNXI_MMC_DS_DL                 0x148
+#define SUNXI_MMC_DRV_DL_CMD_PHASE      BIT(16)
+#define SUNXI_MMC_DRV_DL_DATA_PHASE     BIT(17)
+
 struct sunxi_mmc_plat {
 	struct mmc_config cfg;
 	struct mmc mmc;
@@ -229,6 +235,20 @@ static int mmc_update_clk(struct sunxi_mmc_priv *priv)
 static int mmc_config_clock(struct sunxi_mmc_priv *priv, struct mmc *mmc)
 {
 	unsigned rval = readl(&priv->reg->clkcr);
+	unsigned int mod_clk = mmc->clock;
+	bool a523_emmc = IS_ENABLED(CONFIG_MACH_SUN55I_A523) &&
+			 priv->mmc_no == 2;
+	bool ddr_8bit = a523_emmc && mmc->selected_mode == MMC_DDR_52 &&
+			 mmc->bus_width == 8;
+
+	/*
+	 * The A523/T527 SMHC v4p6x runs the module clock at twice the
+	 * requested card clock, with another factor of two for 8-bit DDR52.
+	 */
+	if (a523_emmc)
+		mod_clk *= 2;
+	if (ddr_8bit)
+		mod_clk *= 2;
 
 	/* Disable Clock */
 	rval &= ~SUNXI_MMC_CLK_ENABLE;
@@ -236,12 +256,37 @@ static int mmc_config_clock(struct sunxi_mmc_priv *priv, struct mmc *mmc)
 	if (mmc_update_clk(priv))
 		return -1;
 
+	if (a523_emmc) {
+		if (mmc->ddr_mode)
+			setbits_le32(&priv->reg->gctrl, SUNXI_MMC_GCTRL_DDR_MODE);
+		else
+			clrbits_le32(&priv->reg->gctrl,
+				     SUNXI_MMC_GCTRL_DDR_MODE);
+	}
+
 	/* Set mod_clk to new rate */
-	if (mmc_set_mod_clk(priv, mmc->clock))
+	if (mmc_set_mod_clk(priv, mod_clk))
 		return -1;
 
-	/* Clear internal divider */
+	if (a523_emmc) {
+		/* Match the v4p6x 1x timing and output phases used by A523 MMC2. */
+		clrbits_le32(&priv->reg->ntsr, SUNXI_MMC_NTSR_MODE_SEL_NEW);
+		setbits_le32((void *)priv->reg + SUNXI_MMC_DRV_DL,
+			     SUNXI_MMC_DRV_DL_CMD_PHASE);
+		if (ddr_8bit)
+			setbits_le32((void *)priv->reg + SUNXI_MMC_DRV_DL,
+				     SUNXI_MMC_DRV_DL_DATA_PHASE);
+		else
+			clrbits_le32((void *)priv->reg + SUNXI_MMC_DRV_DL,
+				     SUNXI_MMC_DRV_DL_DATA_PHASE);
+		writel(SUNXI_MMC_CAL_DL_SW_EN,
+		       (void *)priv->reg + SUNXI_MMC_DS_DL);
+	}
+
+	/* Set the card clock divider. */
 	rval &= ~SUNXI_MMC_CLK_DIVIDER_MASK;
+	if (ddr_8bit)
+		rval |= 1;
 	writel(rval, &priv->reg->clkcr);
 
 #if defined(CONFIG_SUNXI_GEN_SUN6I) || defined(CONFIG_SUN50I_GEN_H6) || defined(CONFIG_SUNXI_GEN_NCAT2)
