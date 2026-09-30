@@ -17,11 +17,10 @@
 #include <tee/optee.h>
 
 #ifndef DICE_BUF_ADDR
-#error "DICE_BUF_ADDR must be defined in platform header"
+#define DICE_BUF_ADDR		(CFG_SYS_SDRAM_BASE + 0x8200000)
 #endif
-
 #ifndef DICE_BUF_SIZE
-#error "DICE_BUF_SIZE must be defined in platform header"
+#define DICE_BUF_SIZE		0x8000
 #endif
 
 #if DICE_DEBUG
