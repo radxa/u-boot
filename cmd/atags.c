@@ -39,7 +39,7 @@ static void atags_stat(void)
 
 static void atags_print_tag(struct tag *t)
 {
-	u32 i;
+	u32 i, count;
 
 	if (!t)
 		return;
@@ -99,12 +99,28 @@ static void atags_print_tag(struct tag *t)
 		printf("      size = 0x%x\n\n", t->hdr.size << 2);
 		printf("     count = 0x%x\n", t->u.ddr_mem.count);
 		printf("   version = 0x%x\n", t->u.ddr_mem.version);
-		for (i = 0; i < ARRAY_SIZE(t->u.ddr_mem.bank); i++)
-			printf("  bank[%d] = 0x%llx\n", i, t->u.ddr_mem.bank[i]);
-		printf("     flags = 0x%x\n", t->u.ddr_mem.flags);
-		for (i = 0; i < ARRAY_SIZE(t->u.ddr_mem.data); i++)
-			printf("  data[%d] = 0x%x\n", i, t->u.ddr_mem.data[i]);
-		printf("      hash = 0x%x\n", t->u.ddr_mem.hash);
+		count = t->u.ddr_mem.version >= 1 ?
+				ARRAY_SIZE(t->u.ddr_mem_ext.bank) :
+				ARRAY_SIZE(t->u.ddr_mem.bank);
+		for (i = 0; i < count; i++) {
+			if (t->u.ddr_mem.version >= 1)
+				printf("  bank[%d] = 0x%llx\n", i,
+				       t->u.ddr_mem_ext.bank[i]);
+			else
+				printf("  bank[%d] = 0x%llx\n", i,
+				       t->u.ddr_mem.bank[i]);
+		}
+		if (t->u.ddr_mem.version >= 1) {
+			printf("     flags = 0x%x\n", t->u.ddr_mem_ext.flags);
+			for (i = 0; i < ARRAY_SIZE(t->u.ddr_mem_ext.data); i++)
+				printf("  data[%d] = 0x%x\n", i, t->u.ddr_mem_ext.data[i]);
+			printf("      hash = 0x%x\n", t->u.ddr_mem_ext.hash);
+		} else {
+			printf("     flags = 0x%x\n", t->u.ddr_mem.flags);
+			for (i = 0; i < ARRAY_SIZE(t->u.ddr_mem.data); i++)
+				printf("  data[%d] = 0x%x\n", i, t->u.ddr_mem.data[i]);
+			printf("      hash = 0x%x\n", t->u.ddr_mem.hash);
+		}
 		break;
 	case ATAG_RAM_PARTITION:
 		printf("[ram_partition]:\n");

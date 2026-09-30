@@ -543,9 +543,20 @@ __weak void spl_fdt_fixup_memory(struct spl_image_info *spl_image)
 	t = atags_get_tag(ATAG_DDR_MEM);
 	if (t && t->u.ddr_mem.count) {
 		count = t->u.ddr_mem.count;
+		if (count > CONFIG_NR_DRAM_BANKS) {
+			printf("Dram banks num(%d) is over max(%d)!\n", count,
+			       CONFIG_NR_DRAM_BANKS);
+			return;
+		}
+
 		for (i = 0; i < count; i++) {
-			start[i] = t->u.ddr_mem.bank[i];
-			size[i] = t->u.ddr_mem.bank[i + count];
+			if (t->u.ddr_mem.version >= 1) {
+				start[i] = t->u.ddr_mem_ext.bank[i];
+				size[i] = t->u.ddr_mem_ext.bank[i + count];
+			} else {
+				start[i] = t->u.ddr_mem.bank[i];
+				size[i] = t->u.ddr_mem.bank[i + count];
+			}
 #ifdef SPL_RESV_MEM_SIZE
 			if ((start[i] == CFG_SYS_SDRAM_BASE) &&
 			    (start[i] + size[i] > CFG_SYS_SDRAM_BASE + SPL_RESV_MEM_SIZE)) {

@@ -221,7 +221,10 @@ int atags_set_tag(u32 magic, void *tagdata)
 		size = rk_atags_size(tag_tos_mem);
 		break;
 	case ATAG_DDR_MEM:
-		size = rk_atags_size(tag_ddr_mem);
+		if (((struct tag_ddr_mem *)tagdata)->version >= 1)
+			size = rk_atags_size(tag_ddr_mem_ext);
+		else
+			size = rk_atags_size(tag_ddr_mem);
 		break;
 	case ATAG_RAM_PARTITION:
 		size = rk_atags_size(tag_ram_partition);

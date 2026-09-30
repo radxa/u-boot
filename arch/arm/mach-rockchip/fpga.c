@@ -18,7 +18,7 @@ static void fpga_init_atags(void)
 	struct tag_ram_partition t_ram_part;
 #endif
 	struct tag_bootdev t_bootdev;
-	struct tag_ddr_mem t_ddrmem;
+	struct tag_ddr_mem_ext t_ddrmem;
 	struct tag_serial t_serial;
 	struct tag_tos_mem t_tos;
 #if defined(CONFIG_ARM64) || defined(CONFIG_ARM64_BOOT_AARCH32)
@@ -39,7 +39,7 @@ static void fpga_init_atags(void)
 
 	/* ddr memory */
 	memset(&t_ddrmem, 0, sizeof(t_ddrmem));
-	t_ddrmem.version = 0;
+	t_ddrmem.version = 1;
 	t_ddrmem.count = 1;
 	t_ddrmem.bank[0] = CFG_SYS_SDRAM_BASE;
 	t_ddrmem.bank[1] = SZ_512M;

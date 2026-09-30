@@ -319,13 +319,22 @@ struct memblock *param_parse_ddr_mem(int *out_count)
 #ifdef CONFIG_ROCKCHIP_PRELOADER_ATAGS
 	struct tag *t;
 	u64 base, size;
+	u32 flags, extsz;
 	int n;
 
 	t = atags_get_tag(ATAG_DDR_MEM);
 	if (t && t->u.ddr_mem.count) {
+		if (t->u.ddr_mem.version >= 1) {
+			flags = t->u.ddr_mem_ext.flags;
+			extsz = t->u.ddr_mem_ext.data[0];
+		} else {
+			flags = t->u.ddr_mem.flags;
+			extsz = t->u.ddr_mem.data[0];
+		}
+
 		/* extend top ram size */
-		if (t->u.ddr_mem.flags & DDR_MEM_FLG_EXT_TOP)
-			gd->ram_top_ext_size = t->u.ddr_mem.data[0];
+		if (flags & DDR_MEM_FLG_EXT_TOP)
+			gd->ram_top_ext_size = extsz;
 
 		/* normal ram size */
 		count = t->u.ddr_mem.count;
@@ -336,8 +345,13 @@ struct memblock *param_parse_ddr_mem(int *out_count)
 		}
 
 		for (i = 0, n = 0; i < count; i++) {
-			base = t->u.ddr_mem.bank[i];
-			size = t->u.ddr_mem.bank[i + count];
+			if (t->u.ddr_mem.version >= 1) {
+				base = t->u.ddr_mem_ext.bank[i];
+				size = t->u.ddr_mem_ext.bank[i + count];
+			} else {
+				base = t->u.ddr_mem.bank[i];
+				size = t->u.ddr_mem.bank[i + count];
+			}
 			debug("bank[%d]: 0x%08llx - 0x%08llx\n", i, base, base + size);
 
 			/*

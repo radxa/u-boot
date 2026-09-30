@@ -119,9 +119,18 @@ struct tag_bootdev {
 	u32 hash;
 } __packed;
 
-struct tag_ddr_mem {
+struct tag_ddr_mem_ext {
 	u32 count;
 	u32 version;
+	u32 flags;
+	u32 data[2];
+	u64 bank[64];
+	u32 hash;
+} __packed;
+
+struct tag_ddr_mem {
+	u32 count;
+	u32 version; /* v0 */
 	u64 bank[20];
 	u32 flags;
 	u32 data[2];
@@ -227,7 +236,8 @@ struct tag {
 		struct tag_core		core;
 		struct tag_serial	serial;
 		struct tag_bootdev	bootdev;
-		struct tag_ddr_mem	ddr_mem;
+		struct tag_ddr_mem_ext	ddr_mem_ext;
+		struct tag_ddr_mem	ddr_mem; /* v0 */
 		struct tag_tos_mem	tos_mem;
 		struct tag_ram_partition ram_part;
 		struct tag_atf_mem	atf_mem;
