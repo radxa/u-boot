@@ -39,6 +39,11 @@ config ROCKCHIP_RESOURCE_IMAGE
 	bool "Rockchip resource image support"
 	default y if ARM
 
+config ROCKCHIP_SMCCC
+	bool "Rockchip smc call support"
+	default y if ARM_SMCCC
+	default y if RISCV
+
 config ROCKCHIP_HWID_DTB
 	bool "Rockchip get dtb from resource image according to hw-id"
 	depends on ROCKCHIP_RESOURCE_IMAGE

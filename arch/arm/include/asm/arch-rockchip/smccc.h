@@ -7,7 +7,19 @@
 #ifndef __ROCKCHIP_SMCCC_H__
 #define __ROCKCHIP_SMCCC_H__
 
+#ifdef CONFIG_ARM
 #include <linux/arm-smccc.h>
+#else
+#include <asm/sbi.h>
+
+/* Reuse arm structure for risc-v ecall */
+struct arm_smccc_res {
+	unsigned long a0;
+	unsigned long a1;
+	unsigned long a2;
+	unsigned long a3;
+};
+#endif
 
 /* Rockchip platform SiP call ID */
 #define SIP_ATF_VERSION			0x82000001

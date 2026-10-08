@@ -33,6 +33,7 @@ obj-y += $(rockchip_common)/param.o
 
 obj-$(CONFIG_ROCKCHIP_FIT_IMAGE) += $(rockchip_common)/fit.o
 obj-$(CONFIG_ROCKCHIP_HWID_DTB) += $(rockchip_common)/hwid_dtb.o
+obj-$(CONFIG_ROCKCHIP_SMCCC) += $(rockchip_common)/smccc.o
 obj-$(CONFIG_ROCKCHIP_UIMAGE) += $(rockchip_common)/uimage.o
 obj-$(CONFIG_ROCKCHIP_MINIDUMP) += $(rockchip_common)/mini_dump.o
 obj-$(CONFIG_ROCKCHIP_RESOURCE_IMAGE) += $(rockchip_common)/resource.o
