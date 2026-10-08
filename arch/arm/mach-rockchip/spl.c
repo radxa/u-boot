@@ -361,14 +361,6 @@ int board_init_f_init_misc(void)
 	return boot_flags;
 }
 
-void spl_board_prepare_for_boot(void)
-{
-	if (!IS_ENABLED(CONFIG_ARM64) || CONFIG_IS_ENABLED(SYS_DCACHE_OFF))
-		return;
-
-	cleanup_before_linux();
-}
-
 #ifdef CONFIG_SPL_BOARD_INIT
 __weak int rk_spl_board_init(void)
 {

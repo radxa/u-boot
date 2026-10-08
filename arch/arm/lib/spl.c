@@ -54,7 +54,7 @@ void __weak board_init_f(ulong dummy)
 void __noreturn jump_to_image_linux(struct spl_image_info *spl_image)
 {
 	debug("Entering kernel arg pointer: 0x%p\n", spl_image->arg);
-	cleanup_before_linux();
+	spl_cleanup_before_jump(spl_image);
 	armv8_switch_to_el2((u64)spl_image->arg, 0, 0, 0,
 			    spl_image->entry_point, ES_TO_AARCH64);
 }
@@ -71,7 +71,7 @@ void __noreturn jump_to_image_linux(struct spl_image_info *spl_image)
 		__attribute__ ((noreturn));
 	image_entry_arg_t image_entry =
 		(image_entry_arg_t)(uintptr_t) spl_image->entry_point;
-	cleanup_before_linux();
+	spl_cleanup_before_jump(spl_image);
 	image_entry(0, machid, spl_image->arg);
 }
 #endif	/* CONFIG_ARM64 */
@@ -81,7 +81,7 @@ void __noreturn jump_to_image_linux(struct spl_image_info *spl_image)
 void __noreturn jump_to_image_optee(struct spl_image_info *spl_image)
 {
 	/* flush and turn off caches before jumping to OPTEE */
-	cleanup_before_linux();
+	spl_cleanup_before_jump(spl_image);
 
 	spl_optee_entry(NULL, NULL, spl_image->fdt_addr,
 			(void *)spl_image->entry_point);

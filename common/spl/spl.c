@@ -1001,14 +1001,12 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		       (spl_image.next_stage == SPL_NEXT_STAGE_KERNEL ? "Kernel" : "Unknown"),
 		       (ulong)spl_image.entry_point_os,
 		       (ulong)spl_image.entry_point);
-		spl_cleanup_before_jump(&spl_image);
 		spl_board_prepare_for_optee(spl_image_fdt_addr(&spl_image));
 		jump_to_image = &jump_to_image_optee;
 	} else if (CONFIG_IS_ENABLED(OPENSBI) && os == IH_OS_OPENSBI) {
 		printf("Jumping to U-Boot(0x%08lx) via RISC-V OpenSBI(0x%08lx)\n",
 		       (ulong)spl_image.entry_point_os,
 		       (ulong)spl_image.entry_point);
-		spl_cleanup_before_jump(&spl_image);
 		jump_to_image = &spl_invoke_opensbi;
 	} else if (CONFIG_IS_ENABLED(OS_BOOT) && os == IH_OS_LINUX) {
 #ifdef CONFIG_SPL_OS_BOOT
