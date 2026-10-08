@@ -200,11 +200,19 @@ int arch_fixup_fdt(void *blob)
 		dram_size[bank] = bd->bi_dram[bank].size;
 		if (dram_size[bank] == 0)
 			continue;
-
+#ifdef CONFIG_ARCH_FIXUP_FDT_MEMORY
 		printf("Adding bank: 0x%08llx - 0x%08llx (size: 0x%08llx)\n",
 		       dram_start[bank], dram_start[bank] + dram_size[bank],
 		       dram_size[bank]);
+#endif
 	}
+
+#ifdef CONFIG_OF_LIBFDT
+	err = fdt_fixup_memory_banks(blob, dram_start, dram_size,
+				     CONFIG_NR_DRAM_BANKS);
+	if (err)
+		return err;
+#endif
 
 	return 0;
 }
