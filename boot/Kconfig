@@ -136,7 +136,7 @@ config FIT_SIGNATURE
 config FIT_SIGNATURE_MAX_SIZE
 	hex "Max size of signed FIT structures"
 	depends on FIT_SIGNATURE
-	default 0x10000000
+	default 0x4000
 	help
 	  This option sets a max size in bytes for verified FIT uImages.
 	  A sane value of 256MB protects corrupted DTB structures from overlapping
@@ -277,7 +277,7 @@ config SPL_FIT_SIGNATURE
 config SPL_FIT_SIGNATURE_MAX_SIZE
 	hex "Max size of signed FIT structures in SPL"
 	depends on SPL_FIT_SIGNATURE
-	default 0x10000000
+	default 0x4000
 	help
 	  This option sets a max size in bytes for verified FIT uImages.
 	  A sane value of 256MB protects corrupted DTB structures from overlapping
@@ -494,7 +494,7 @@ config VPL_FIT_SIGNATURE
 config VPL_FIT_SIGNATURE_MAX_SIZE
 	hex "Max size of signed FIT structures in VPL"
 	depends on VPL_FIT_SIGNATURE
-	default 0x10000000
+	default 0x4000
 	help
 	  This option sets a max size in bytes for verified FIT uImages.
 	  A sane value of 256MB protects corrupted DTB structures from overlapping
