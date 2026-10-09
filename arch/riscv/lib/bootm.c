@@ -13,6 +13,7 @@
 #include <fdt_support.h>
 #include <hang.h>
 #include <log.h>
+#include <time.h>
 #include <asm/global_data.h>
 #include <dm/root.h>
 #include <image.h>
@@ -36,8 +37,8 @@ __weak void board_quiesce_devices(void *images)
  */
 static void announce_and_cleanup(struct bootm_headers *images, int fake)
 {
-	printf("\nStarting kernel ...%s\n\n", fake ?
-		"(fake run for tracing)" : "");
+	ulong us, tt_us;
+
 	bootstage_mark_name(BOOTSTAGE_ID_BOOTM_HANDOFF, "start_kernel");
 #ifdef CONFIG_BOOTSTAGE_FDT
 	bootstage_fdt_add_report();
@@ -60,6 +61,14 @@ static void announce_and_cleanup(struct bootm_headers *images, int fake)
 	dm_remove_devices_active();
 
 	cleanup_before_linux();
+
+	us = (get_ticks() - gd->sys_start_tick) / (gd->arch.timer_rate_hz / 1000000);
+	tt_us = get_ticks() / (gd->arch.timer_rate_hz / 1000000);
+	printf("Total: %ld.%ld/%ld.%ld ms\n", us / 1000, us % 1000, tt_us / 1000, tt_us % 1000);
+
+	printf("\nStarting kernel ...%s\n\n", fake ?
+		"(fake run for tracing)" : "");
+
 }
 
 static void boot_prep_linux(struct bootm_headers *images)
