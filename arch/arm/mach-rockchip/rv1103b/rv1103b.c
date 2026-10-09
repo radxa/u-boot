@@ -4,6 +4,8 @@
  * SPDX-License-Identifier:     GPL-2.0+
  */
 #include <dm.h>
+#include <fdt_support.h>
+#include <fdtdec.h>
 #include <spl.h>
 #include <wait_bit.h>
 #include <dm/uclass-id.h>
@@ -273,6 +275,10 @@ int rk_board_scan_bootdev(char **devtype, char **devnum)
 #endif
 
 #define GMAC_NODE_FDT_PATH			"/ethernet@20800000"
+#define GMAC_PHY_FDT_PATH			"/ethernet@20800000/mdio/ethernet-phy"
+#define OTP_MACPHY_TXLEVEL_FDT_PATH		"/otp/macphy-txlevel"
+#define GMAC_COMPAT_NEW				"rockchip,rv1106bs-gmac\0snps,dwmac-4.20a"
+#define GMAC_PHY_COMPAT_NEW			"ethernet-phy-id0680.8101\0ethernet-phy-ieee802.3-c22"
 #define	PHY_ADDR				2
 #define	PAGE_SWITCH				0x1f
 #define	DISABLE_APS_REG				0x12
@@ -385,9 +391,257 @@ static int rk_board_fdt_pwrdn_gmac(const void *blob)
 	return 0;
 }
 
+/* Max nvmem cells of a node to remap */
+#define NVMEM_CELLS_MAX		3
+
+/*
+ * Rewrite the nvmem-cells of the node at path with the phandles of the
+ * cells at the given paths, up to NVMEM_CELLS_MAX cells are supported.
+ * The property is rewritten in place as its length keeps unchanged.
+ */
+static int fdt_set_nvmem_cells(const void *blob, const char *path,
+			       const char *cells[], int count)
+{
+	fdt32_t phandles[NVMEM_CELLS_MAX];
+	int i, phandle;
+
+	if (count > NVMEM_CELLS_MAX)
+		return -EINVAL;
+
+	for (i = 0; i < count; i++) {
+		phandle = fdt_get_phandle_by_path(blob, cells[i]);
+		if (phandle < 0) {
+			printf("Failed to get phandle by path: %s, fixup %s\n", cells[i], path);
+			return phandle;
+		}
+
+		phandles[i] = cpu_to_fdt32(phandle);
+	}
+
+	return fdt_find_and_setprop((void *)blob, path, "nvmem-cells",
+				    phandles, count * sizeof(phandles[0]), 0);
+}
+
+/*
+ * Drop the first entry of a fixed size entries property, nothing to do
+ * if the property does not exist or it is the only entry. For string
+ * list properties pass strlen(first string) + 1 as the entry size.
+ * Note that fdt_setprop() may move the blob, so copy via a local buffer.
+ */
+static int fdt_del_prop_first_entry(const void *blob, int node,
+				    const char *prop, int entry_size)
+{
+	char buf[64];
+	const void *val;
+	int len, ret;
+
+	val = fdt_getprop(blob, node, prop, &len);
+	if (!val || len <= entry_size || len > (int)sizeof(buf))
+		return 0;
+
+	memcpy(buf, val + entry_size, len - entry_size);
+	ret = fdt_setprop((void *)blob, node, prop, buf, len - entry_size);
+	if (ret)
+		printf("Failed to fixup %s, ret: %d\n", prop, ret);
+
+	return ret;
+}
+
+static int fdt_fixup_cpuinfo(const void *blob)
+{
+	const char *cells[] = {
+		"/efuse@20820000/id@a",
+		"/efuse@20820000/cpu-version@8",
+		"/efuse@20820000/cpu-code@2",
+	};
+	int ret;
+
+	/* Replace cpu id, cpu version and cpu code */
+	ret = fdt_set_nvmem_cells(blob, "/cpuinfo", cells, ARRAY_SIZE(cells));
+	if (ret)
+		printf("Failed to fixup /cpuinfo nvmem-cells, ret: %d\n", ret);
+
+	return ret;
+}
+
+static int fdt_fixup_cpu_opp_table(const void *blob)
+{
+	int cpu_node, len, phandle;
+	u32 *pp;
+
+	/* Replace opp table */
+	phandle = fdt_get_phandle_by_path(blob, "/cpu0-opp-table-s");
+	if (phandle < 0) {
+		printf("Failed to get phandle by path: /cpu0-opp-table-s\n");
+		return phandle;
+	}
+
+	/* rv1103b is single core, patch the cpu@0 node only */
+	cpu_node = fdt_path_offset(blob, "/cpus/cpu@0");
+	if (cpu_node < 0) {
+		printf("Failed to get /cpus/cpu@0 node\n");
+		return -EINVAL;
+	}
+
+	pp = (u32 *)fdt_getprop(blob, cpu_node, "operating-points-v2", &len);
+	if (!pp) {
+		printf("Failed to get cpu operating-points-v2 prop\n");
+		return -EINVAL;
+	}
+	pp[0] = cpu_to_fdt32(phandle);
+
+	return 0;
+}
+
+static int fdt_fixup_npu_opp_table(const void *blob)
+{
+	int npu_node;
+	int phandle;
+	int len;
+	u32 *pp;
+
+	phandle = fdt_get_phandle_by_path(blob, "/npu-opp-table-s");
+	if (phandle < 0) {
+		printf("Failed to get phandle by path: /npu-opp-table-s\n");
+		return phandle;
+	}
+
+	npu_node = fdt_path_offset(blob, "/npu");
+	if (npu_node < 0) {
+		printf("Failed to get npu node\n");
+		return -EINVAL;
+	}
+
+	pp = (u32 *)fdt_getprop(blob, npu_node, "operating-points-v2", &len);
+	if (!pp)
+		return 0;
+	pp[0] = cpu_to_fdt32(phandle);
+
+	return 0;
+}
+
+static int fdt_fixup_tsadc_trim(const void *blob)
+{
+	const char *cells[] = {
+		"/efuse@20820000/cpu-tsadc-trim-l@1c",
+		"/efuse@20820000/cpu-tsadc-trim-h@1d",
+	};
+	int ret;
+
+	/* Replace tsadc trim l and tsadc trim h */
+	ret = fdt_set_nvmem_cells(blob, "/tsadc", cells, ARRAY_SIZE(cells));
+	if (ret)
+		printf("Failed to fixup /tsadc nvmem-cells, ret: %d\n", ret);
+
+	return ret;
+}
+
+static int fdt_fixup_pvtpll(const void *blob)
+{
+	const char *cpu_cells[] = {
+		"/efuse@20820000/cpu-opp-info@3c"
+	};
+	const char *npu_cells[] = {
+		"/efuse@20820000/npu-opp-info@48"
+	};
+	int ret;
+
+	/* Replace cpu opp info */
+	ret = fdt_set_nvmem_cells(blob, "/clocks/pvtpll-core@20460000",
+				  cpu_cells, ARRAY_SIZE(cpu_cells));
+	if (ret) {
+		printf("Failed to fixup pvtpll-core nvmem-cells, ret: %d\n", ret);
+		return ret;
+	}
+
+	/* Replace npu opp info */
+	ret = fdt_set_nvmem_cells(blob, "/clocks/pvtpll-npu@20f80000",
+				  npu_cells, ARRAY_SIZE(npu_cells));
+	if (ret)
+		printf("Failed to fixup pvtpll-npu nvmem-cells, ret: %d\n", ret);
+
+	return ret;
+}
+
+/*
+ * The rv1106bs gmac and its internal phy differ from rv1103b, patch the
+ * kernel dtb compatible strings, and drop the first nvmem cell and the
+ * first reset of the rmii phy, they are not present on rv1106bs (the
+ * nvmem cell references the /otp node which is deleted on rv1106bs).
+ */
+static int fdt_fixup_gmac(const void *blob)
+{
+	int phy, ret;
+
+	/* rewrite the compatibles, keep the fallback strings */
+	do_fixup_by_path((void *)blob, GMAC_NODE_FDT_PATH, "compatible",
+			 GMAC_COMPAT_NEW, sizeof(GMAC_COMPAT_NEW), 0);
+	do_fixup_by_path((void *)blob, GMAC_PHY_FDT_PATH, "compatible",
+			 GMAC_PHY_COMPAT_NEW, sizeof(GMAC_PHY_COMPAT_NEW), 0);
+
+	/* relocate the phy node, the compatible resize above moved it */
+	phy = fdt_path_offset(blob, GMAC_PHY_FDT_PATH);
+	if (phy < 0)
+		return 0;
+
+	/* drop the first nvmem cell, it points to the deleted /otp node */
+	ret = fdt_del_prop_first_entry(blob, phy, "nvmem-cells", sizeof(u32));
+	if (!ret)
+		ret = fdt_del_prop_first_entry(blob, phy, "nvmem-cell-names",
+					       strlen("txlevel") + 1);
+
+	/* drop the first reset, rv1106bs only has the macphy_s reset */
+	if (!ret)
+		ret = fdt_del_prop_first_entry(blob, phy, "resets", 2 * sizeof(u32));
+
+	return ret;
+}
+
+/* Fix kernel dtb */
 int rk_board_fdt_fixup(const void *blob)
 {
 	rk_board_fdt_pwrdn_gmac(blob);
+
+	if (soc_is_rv1106bs()) {
+		fdt_fixup_cpuinfo(blob);
+		fdt_fixup_cpu_opp_table(blob);
+		fdt_fixup_npu_opp_table(blob);
+		fdt_fixup_tsadc_trim(blob);
+		fdt_fixup_pvtpll(blob);
+		fdt_fixup_gmac(blob);
+		fdt_del_node_by_path(blob, "/otp");
+	} else {
+		fdt_del_node_by_path(blob, "/efuse");
+	}
+
+	return 0;
+}
+
+/* Fix kernel dtb that used in U-Boot rear stage */
+int rk_board_early_fdt_fixup(const void *blob)
+{
+	if (soc_is_rv1106bs()) {
+		fdt_fixup_gmac(blob);
+		fdt_del_node_by_path(blob, "/otp");
+		fdt_del_node_by_path(blob, "/secure-otp@20790000");
+	} else {
+		fdt_del_node_by_path(blob, "/efuse");
+		fdt_del_node_by_path(blob, "/secure-efuse@20790000");
+	}
+
+	return 0;
+}
+
+/* Fix dtb that used in SPL and U-Boot front stage */
+int fdtdec_board_setup(const void *fdt_blob)
+{
+	if (soc_is_rv1106bs()) {
+		fdt_del_node_by_path(fdt_blob, "/otp");
+		fdt_del_node_by_path(fdt_blob, "/secure-otp@20790000");
+	} else {
+		fdt_del_node_by_path(fdt_blob, "/efuse");
+		fdt_del_node_by_path(fdt_blob, "/secure-efuse@20790000");
+	}
 
 	return 0;
 }
