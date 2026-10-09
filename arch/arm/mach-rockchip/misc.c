@@ -164,14 +164,16 @@ int rockchip_cpuid_from_efuse(const u32 cpuid_offset,
 	struct udevice *dev;
 	int ret;
 
-	/* retrieve the device */
-#if IS_ENABLED(CONFIG_ROCKCHIP_EFUSE)
-	ret = uclass_get_device_by_driver(UCLASS_MISC,
-					  DM_DRIVER_GET(rockchip_efuse), &dev);
-#elif IS_ENABLED(CONFIG_ROCKCHIP_OTP)
-	ret = uclass_get_device_by_driver(UCLASS_MISC,
-					  DM_DRIVER_GET(rockchip_otp), &dev);
-#endif
+	/* retrieve the device, prefer the efuse and fall back to the otp */
+	ret = -ENODEV;
+	if (IS_ENABLED(CONFIG_ROCKCHIP_EFUSE))
+		ret = uclass_get_device_by_driver(UCLASS_MISC,
+						  DM_DRIVER_GET(rockchip_efuse),
+						  &dev);
+	if (ret && IS_ENABLED(CONFIG_ROCKCHIP_OTP))
+		ret = uclass_get_device_by_driver(UCLASS_MISC,
+						  DM_DRIVER_GET(rockchip_otp),
+						  &dev);
 	if (ret) {
 		printf("No efuse/otp device!\n");
 		return ret;
