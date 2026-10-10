@@ -300,6 +300,28 @@ static int rockchip_dwmmc_execute_tuning(struct dwmci_host *host, u32 opcode) { 
 static int rockchip_mmc_set_phase(struct dwmci_host *host, bool sample, int degrees) { return 0; }
 #endif
 
+int dwmci_post_set_ios(struct udevice *dev)
+{
+	struct rockchip_dwmmc_priv *priv = dev_get_priv(dev);
+	struct dwmci_host *host = &priv->host;
+	struct mmc *mmc = mmc_get_mmc_dev(dev);
+
+	/*
+	 * HS200 tuning leaves the sample phase tuned for the high clock.
+	 * At HS/legacy speeds (e.g. the pre-OS downgrade in mmc_deinit)
+	 * that phase mismatches and cmd6/cmd8 fail with -EIO, so restore
+	 * the default phase whenever we run at or below 52 MHz.
+	 */
+	if (mmc->clock <= 52000000) {
+		if (priv->usrid == USRID_INTER_PHASE)
+			rockchip_mmc_set_phase(host, true, priv->default_phase);
+		else if (priv->sample_clk.dev)
+			clk_set_phase(&priv->sample_clk, priv->default_phase);
+	}
+
+	return 0;
+}
+
 static int rockchip_dwmmc_of_to_plat(struct udevice *dev)
 {
 	struct rockchip_dwmmc_priv *priv = dev_get_priv(dev);

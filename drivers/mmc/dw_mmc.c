@@ -698,6 +698,11 @@ static int dwmci_set_ios(struct mmc *mmc)
 	}
 #endif
 
+	return dwmci_post_set_ios(dev);
+}
+
+__weak int dwmci_post_set_ios(struct udevice *dev)
+{
 	return 0;
 }
 
