@@ -611,6 +611,64 @@
 		};
 	};
 
+	efuse: efuse@20820000 {
+		compatible = "rockchip,rv1106bs-efuse";
+		reg = <0x20820000 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		clocks = <&cru CLK_EFUSEC>, <&cru PCLK_EFUSEC_NS>;
+		clock-names = "clk", "pclk";
+		rockchip,efuse-size = <80>;
+
+		/* Data cells */
+		cpu_code_s: cpu-code@2 {
+			reg = <0x02 0x2>;
+		};
+		efuse_cpu_version_s: cpu-version@8 {
+			reg = <0x08 0x1>;
+			bits = <3 3>;
+		};
+		cpu_npu_mbist_vmin_s: mbist-vmin@9 {
+			reg = <0x9 0x1>;
+			bits = <0 4>;
+		};
+		efuse_id_s: id@a {
+			reg = <0x0a 0x10>;
+		};
+		cpu_leakage_s: cpu-leakage@1a {
+			reg = <0x1a 0x1>;
+		};
+		log_leakage_s: log-leakage@1b {
+			reg = <0x1b 0x1>;
+		};
+		cpu_tsadc_trim_l_s: cpu-tsadc-trim-l@1c {
+			reg = <0x1c 0x1>;
+		};
+		cpu_tsadc_trim_h_s: cpu-tsadc-trim-h@1d {
+			reg = <0x1d 0x1>;
+			bits = <0 2>;
+		};
+		macphy_txamp_s: macphy-txamp@2d {
+			reg = <0x2d 0x2>;
+		};
+		macphy_adc_offset_s: macphy-adc-offset@33 {
+			reg = <0x33 0x2>;
+		};
+		cpu_pvtpll_s: cpu-pvtpll@36 {
+			reg = <0x36 0x2>;
+		};
+		npu_pvtpll_s: npu-pvtpll@38 {
+			reg = <0x38 0x2>;
+		};
+		cpu_opp_info_s: cpu-opp-info@3c {
+			reg = <0x3c 0x6>;
+		};
+		npu_opp_info_s: npu-opp-info@48 {
+			reg = <0x48 0x6>;
+		};
+	};
+
 	spi0: spi@20850000 {
 		compatible = "rockchip,rv1103b-spi", "rockchip,rk3066-spi";
 		reg = <0x20850000 0x1000>;
