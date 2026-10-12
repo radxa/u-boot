@@ -15,9 +15,9 @@
 #define SDRAM_MAX_SIZE			(SZ_64M + SZ_4M)
 #define RISCV_SMODE_TIMER_FREQ		24000000
 
-/* Offset 0~4M for preserved + opensbi */
+/* Offset 0~3M for preserved(2MB) + opensbi(1MB) */
 #define BOARD_RESERVE_MEM_BASE		CFG_SYS_SDRAM_BASE
-#define BOARD_RESERVE_MEM_SIZE		SZ_4M
+#define BOARD_RESERVE_MEM_SIZE		(SZ_2M + SZ_1M)
 
 /* atags is original used by RT-Thread, we have to reuse it */
 #define PLAT_ATAGS_PHYS_BASE		0x400001000
@@ -27,8 +27,8 @@
 #endif
 
 #define ENV_MEM_LAYOUT_SETTINGS		\
-	"fdt_addr_r=0x540700000\0"	\
-	"kernel_addr_r=0x540800000\0"	\
+	"fdt_addr_r=0x540300000\0"	\
+	"kernel_addr_r=0x540400000\0"	\
 	"ramdisk_addr_r=0x542000000\0"
 
 #define CFG_EXTRA_ENV_SETTINGS		\
