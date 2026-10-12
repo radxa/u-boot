@@ -38,6 +38,7 @@ static int fit_is_signed(const void *fit, const void *sig_blob)
 
 static inline int fit_image_addr_is_placeholder(ulong addr)
 {
+	/* this compatibles the 64-bit and 32-bit placeholder addr */
 	return (addr & 0xffffff00) == FIT_PLACEHOLDER_ADDR;
 }
 
