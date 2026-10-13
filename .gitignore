@@ -133,3 +133,6 @@ __pycache__
 
 # Clang's compilation database file
 /compile_commands.json
+/fit/
+/tools/bmp2gray16
+/tools/resource_tool
