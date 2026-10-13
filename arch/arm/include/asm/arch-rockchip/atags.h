@@ -186,12 +186,14 @@ struct tag_pub_key {
 struct tag_ram_partition {
 	u32 version;
 	u32 count;
-	u32 reserved[4];
+	u32 ramdisk_base;	/* in byte */
+	u32 ramdisk_size;	/* in byte */
+	u32 reserved[2];
 
 	struct {
 		char name[16];
-		u64 start;
-		u64 size;
+		u64 start;	/* in byte */
+		u64 size;	/* in byte */
 	} part[6];
 
 	u32 reserved1[3];
