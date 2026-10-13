@@ -76,6 +76,7 @@ __weak int rkusb_dev_bind_to_udc_data(struct udevice *dev)
 	return 0;
 }
 
+#if CONFIG_IS_ENABLED(USB_GADGET)
 static int rkusb_dev_bind(struct udevice *dev)
 {
 	return rkusb_dev_bind_to_udc_data(dev);
@@ -91,6 +92,7 @@ U_BOOT_DRIVER(rkusb) = {
 U_BOOT_DRVINFO(rkusb) = {
 	.name = "rkusb",
 };
+#endif
 #endif
 
 /* override weak */
