@@ -247,6 +247,12 @@ int atags_set_tag(u32 magic, void *tagdata)
 	case ATAG_FWVER:
 		size = rk_atags_size(tag_fwver);
 		break;
+	case ATAG_MOS:
+		size = rk_atags_size(tag_mos);
+		break;
+	case ATAG_CONSOLE:
+		size = rk_atags_size(tag_console);
+		break;
 	};
 
 	if (!size)

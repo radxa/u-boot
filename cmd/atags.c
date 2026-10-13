@@ -203,6 +203,30 @@ static void atags_print_tag(struct tag *t)
 		for (i = 0; i < FW_MAX; i++)
 			printf("    ver[%d] = %s\n", i, t->u.fwver.ver[i]);
 		break;
+	case ATAG_MOS:
+		printf("[mos]:\n");
+		printf("            magic = 0x%x\n", t->hdr.magic);
+		printf("             size = 0x%x\n\n", t->hdr.size << 2);
+		printf("          version = 0x%x\n", t->u.mos.version);
+		printf("  secondary_cold_boot_once = 0x%x\n", t->u.mos.secondary_cold_boot_once);
+		for (i = 0; i < ARRAY_SIZE(t->u.mos.reserved1); i++)
+			printf("         res1[%d] = 0x%x\n", i, t->u.mos.reserved1[i]);
+		printf("             hash = 0x%x\n", t->u.mos.hash);
+		break;
+	case ATAG_CONSOLE:
+		printf("[console]:\n");
+		printf("         magic = 0x%x\n", t->hdr.magic);
+		printf("          size = 0x%x\n\n", t->hdr.size << 2);
+		for (i = 0; i < MAX_CONSOLE; i++) {
+			if (t->u.console.hw[i].owner == OWNER_INVALID)
+				break;
+			printf("         owner = 0x%x\n", t->u.console.hw[i].owner);
+			printf("       uart_id = 0x%x\n", t->u.console.hw[i].uart_id);
+			printf("   uart_m_mode = 0x%x\n", t->u.console.hw[i].uart_m_mode);
+			printf("     uart_base = 0x%x\n", t->u.console.hw[i].uart_base);
+			printf(" uart_baudrate = %d\n\n", t->u.console.hw[i].uart_baudrate);
+		}
+		break;
 	default:
 		printf("%s: magic(%x) is not support\n", __func__, t->hdr.magic);
 	}
