@@ -12,7 +12,6 @@
 #include <asm/arch-rockchip/atags.h>
 #endif
 
-#ifdef HAVE_BLOCK_DEVICE
 #define RK_PARAM_OFFSET			0x2000
 #define MAX_PARAM_SIZE			(1024 * 64)
 
@@ -91,7 +90,7 @@ static int rkparm_param_parse(char *param, struct list_head *parts_head,
 			break;
 		}
 #ifndef PARTS_RKPARM
-		if (dev_desc->if_type != IF_TYPE_RKNAND)
+		if (dev_desc->uclass_id != UCLASS_RKNAND)
 			offset = RK_PARAM_OFFSET;
 #endif
 		part->start = start + offset;
@@ -105,7 +104,7 @@ static int rkparm_param_parse(char *param, struct list_head *parts_head,
 		next = strchr(next, ',');
 	}
 
-	dev_num = ((dev_desc->if_type << 8) + dev_desc->devnum);
+	dev_num = ((dev_desc->uclass_id << 8) + dev_desc->devnum);
 
 	return 0;
 }
@@ -134,7 +133,7 @@ static int rkparm_init_param(struct blk_desc *dev_desc,
 		return -ENOMEM;
 	}
 
-	if (dev_desc->if_type != IF_TYPE_RKNAND)
+	if (dev_desc->uclass_id != UCLASS_RKNAND)
 		offset = RK_PARAM_OFFSET;
 
 	ret = blk_dread(dev_desc, offset, MAX_PARAM_SIZE >> 9, (ulong *)param);
@@ -155,7 +154,7 @@ static void part_print_rkparm(struct blk_desc *dev_desc)
 	int i = 0;
 
 	if (list_empty(&parts_head) ||
-	    (dev_num != ((dev_desc->if_type << 8) + dev_desc->devnum)))
+	    (dev_num != ((dev_desc->uclass_id << 8) + dev_desc->devnum)))
 		ret = rkparm_init_param(dev_desc, &parts_head);
 
 	if (ret) {
@@ -187,7 +186,7 @@ static int part_get_info_rkparm(struct blk_desc *dev_desc, int idx,
 	}
 
 	if (list_empty(&parts_head) ||
-	    (dev_num != ((dev_desc->if_type << 8) + dev_desc->devnum))) {
+	    (dev_num != ((dev_desc->uclass_id << 8) + dev_desc->devnum))) {
 		ret = rkparm_init_param(dev_desc, &parts_head);
 		if (ret) {
 			printf("%s Invalid rkparm partition\n", __func__);
@@ -223,7 +222,7 @@ static int part_test_rkparm(struct blk_desc *dev_desc)
 	int ret = 0;
 
 	if (list_empty(&parts_head) ||
-	    (dev_num != ((dev_desc->if_type << 8) + dev_desc->devnum)))
+	    (dev_num != ((dev_desc->uclass_id << 8) + dev_desc->devnum)))
 		ret = rkparm_init_param(dev_desc, &parts_head);
 	if (ret)
 		ret = -1;
@@ -246,4 +245,3 @@ U_BOOT_PART_TYPE(b_rkparm) = {
 	.print		= part_print_ptr(part_print_rkparm),
 	.test		= part_test_rkparm,
 };
-#endif

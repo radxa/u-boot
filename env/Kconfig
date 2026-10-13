@@ -976,6 +976,21 @@ config VERSION_VARIABLE
 	  next reset.
 
 if ENV_IS_IN_FRAGMENT
+config ENVF
+	bool "Environment fragment is store in envf partition"
+	help
+	  Use this if you want to add a env fragment partition to overlay/store
+	  some specific environments.
+
+config SPL_ENVF
+	bool "Environment fragment is store in envf partition in SPL"
+	depends on ENVF && SPL
+	default y
+	help
+	  Use this if you want to add a env fragment partition to overlay/store
+	  some specific environments in SPL. But now only parse env partition
+	  table.
+
 config ENVF_LIST
 	string "Specific environments white list of env fragment"
 	default "blkdevparts mtdparts sys_bootargs app reserved"

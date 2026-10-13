@@ -7,8 +7,9 @@
 #include <common.h>
 #include <env_fragment.h>
 #include <malloc.h>
+#include <part.h>
+#include <vsprintf.h>
 
-#ifdef HAVE_BLOCK_DEVICE
 struct env_part {
 	char name[PART_NAME_LEN];
 	lbaint_t start;
@@ -16,7 +17,7 @@ struct env_part {
 	struct list_head node;
 };
 
-#define DEV_NUM(dev_desc)  (((dev_desc)->if_type << 8) + (dev_desc)->devnum)
+#define DEV_NUM(dev_desc)  (((dev_desc)->uclass_id << 8) + (dev_desc)->devnum)
 
 /*
  * What's this?
@@ -78,8 +79,10 @@ static int env_init_parts(struct blk_desc *dev_desc, struct list_head *parts_hea
 	char *parts_list = NULL;
 
 #if CONFIG_IS_ENABLED(ENVF)
+#ifdef CONFIG_MTD_BLK
 	parts_list = envf_get(dev_desc, "mtdparts");
 	if (!parts_list)
+#endif
 		parts_list = envf_get(dev_desc, "blkdevparts");
 #else
 	parts_list = ENV_PARTITIONS;
@@ -155,7 +158,7 @@ void part_print_env(struct blk_desc *dev_desc)
 }
 
 static int part_get_info_env(struct blk_desc *dev_desc, int idx,
-			     struct disk_partition *info)
+					    struct disk_partition *info)
 {
 	struct env_part *p = NULL;
 	struct list_head *node;
@@ -214,5 +217,4 @@ U_BOOT_PART_TYPE(a_b_env) = {
 	.print		= part_print_ptr(part_print_env),
 	.test		= part_test_env,
 };
-#endif
 

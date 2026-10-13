@@ -551,9 +551,12 @@ int env_export(env_t *env_out)
 void env_relocate(void)
 {
 	if (gd->env_valid == ENV_INVALID) {
-#if defined(CONFIG_ENV_IS_NOWHERE) || defined(CONFIG_XPL_BUILD) || defined(CONFIG_ENV_IS_FRAGMENT)
+#if defined(CONFIG_ENV_IS_NOWHERE) || defined(CONFIG_XPL_BUILD)
 		/* Environment not changable */
 		env_set_default(NULL, 0);
+#elif defined(CONFIG_ENV_IS_IN_FRAGMENT)
+		/* envf_load() imports the default env and overlays the fragment */
+		env_load();
 #else
 		bootstage_error(BOOTSTAGE_ID_NET_CHECKSUM);
 		env_set_default("bad CRC", 0);

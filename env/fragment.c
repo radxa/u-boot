@@ -40,10 +40,6 @@ DECLARE_GLOBAL_DATA_PTR;
 static u32 env_dev;
 static ulong env_size, env_offset, env_offset_redund;
 
-#if CONFIG_IS_ENABLED(ENV_PARTITION)
-static const char *part_type[] = { "mtdparts", "blkdevparts", };
-#endif
-
 /*
  * In case of env and env-backup partitions are too large that exceeds the limit
  * of CONFIG_SPL_SYS_MALLOC_F_LEN. we prefer to use a static address as an env
@@ -191,6 +187,12 @@ static const char *env_get_string(env_t *env, u32 size, const char *str)
 	const char *dp;
 	u32 env_size;
 
+#if CONFIG_IS_ENABLED(FIT_SIGNATURE)
+	/* Do nothing, ignore 'sys_bootargs' from env.img */
+	if (!strcmp(str, "sys_bootargs"))
+		return NULL;
+#endif
+
 	dp = (const char *)env->data;
 	env_size = size - ENV_HEADER_SIZE;
 	do {
@@ -213,15 +215,19 @@ static const char *env_get_string(env_t *env, u32 size, const char *str)
 	return NULL;
 }
 
-char *envf_get_part_table(struct blk_desc *desc)
+char *envf_get(struct blk_desc *desc, const char *name)
 {
 	const char *list = NULL;
-	env_t *env;
+	static env_t *env; /* static */
+	static enum uclass_id uclass;
+	static int devnum;
 
-	if (!desc)
-		goto out;
-
-	env = envf_read(desc);
+	/* Only when first read env or storage is changed, need to read again. */
+	if (!env || uclass != desc->uclass_id || devnum != desc->devnum) {
+		env = envf_read(desc);
+		uclass = desc->uclass_id;
+		devnum = desc->devnum;
+	}
 	if (!env)
 		goto out;
 
@@ -230,13 +236,9 @@ char *envf_get_part_table(struct blk_desc *desc)
 		ENVF_MSG("Backup  0x%08lx - 0x%08lx\n",
 			 env_offset_redund, env_offset_redund + env_size);
 
-	list = env_get_string(env, env_size, part_type[0]);
+	list = env_get_string(env, env_size, name);
 	if (!list)
-		list = env_get_string(env, env_size, part_type[1]);
-	if (!list)
-		ENVF_MSG("Unavailable env part table\n");
-	else
-		ENVF_MSG("OK\n");
+		ENVF_DBG("Unavailable env %s\n", name);
 out:
 	return (char *)list;
 }
@@ -257,7 +259,7 @@ static int envf_init_vars(void)
 		if (!strcmp(p, "bootargs")) {
 			printf("%s\n", EMSG_ARGS);
 			run_command("download", 0);
-#ifdef CONFIG_FIT_SIGNATURE
+#if CONFIG_IS_ENABLED(FIT_SIGNATURE)
 		} else if (!strcmp(p, "sys_bootargs")) {
 			/* Do nothing, ignore 'sys_bootargs' from env.img */
 #endif

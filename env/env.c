@@ -64,7 +64,7 @@ static enum env_location env_locations[] = {
 #ifdef CONFIG_ENV_IS_IN_BLK
 	ENVL_BLK,
 #endif
-#ifdef CONFIG_ENV_IS_IN_ENVF
+#ifdef CONFIG_ENV_IS_IN_FRAGMENT
 	ENVL_FRAGMENT,
 #endif
 #ifdef CONFIG_ENV_IS_NOWHERE
