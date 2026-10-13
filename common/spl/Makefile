@@ -23,7 +23,9 @@ endif
 ifdef CONFIG_XPL_BUILD
 obj-$(CONFIG_$(PHASE_)BOOTROM_SUPPORT) += spl_bootrom.o
 ifeq ($(CONFIG_$(PHASE_)LOAD_FIT),y)
-ifndef CONFIG_SPL_KERNEL_BOOT_PREBUILT
+ifdef CONFIG_SPL_KERNEL_BOOT_PREBUILT
+obj-$(CONFIG_ROCKCHIP_RV1103B) += spl_fit_tb_rv1106.o
+else
 obj-y += spl_fit.o
 endif
 endif
