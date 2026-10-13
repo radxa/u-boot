@@ -1,0 +1,152 @@
+/*
+ * (C) Copyright 2024 Rockchip Electronics Co., Ltd
+ *
+ * SPDX-License-Identifier:     GPL-2.0+
+ */
+
+ / {
+	aliases {
+		mmc1 = &sdmmc0;
+		mmc0 = &emmc;
+	};
+
+	chosen {
+		stdout-path = &uart0;
+		u-boot,spl-boot-order = "same-as-spl", &sdmmc0, &spi_nand, &spi_nor, &emmc;
+	};
+
+	secure-otp@20790000 {
+		compatible = "rockchip,rv1103b-secure-otp";
+		reg = <0x20790000 0x10000>;
+		secure_conf = <0x20250018>;
+		cru_rst_addr = <0x20000a20>;
+		mask_addr = <0x209d0000>;
+		u-boot,dm-spl;
+		status = "okay";
+	};
+
+	/*
+	 * crypto_s and crypto (crypto_ns) describe the same RV1103B crypto
+	 * instance. The driver's bind() only accepts the "secure" node in
+	 * SPL and the plain node in U-Boot proper, so both are declared to
+	 * let each build phase bind hardware crypto.
+	 */
+	crypto_s: crypto_s@20680000 {
+		compatible = "rockchip,crypto-v4";
+		reg = <0x20680000 0x2000>;
+		interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru ACLK_CRYPTO>, <&cru HCLK_CRYPTO>,
+			 <&cru CLK_CORE_CRYPTO>, <&cru CLK_PKA_CRYPTO>;
+		clock-names = "aclk", "hclk", "sclk", "pka";
+		assigned-clocks = <&cru CLK_CORE_CRYPTO>, <&cru CLK_PKA_CRYPTO>;
+		assigned-clock-rates = <300000000>, <300000000>;
+		resets = <&cru SRST_RESETN_CORE_CRYPTO>;
+		reset-names = "crypto-rst";
+		secure;
+		bootph-all;
+		status = "okay";
+	};
+};
+
+&hw_decompress {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&emmc {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&cru {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&grf {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&pinctrl {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&sdmmc0 {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&ioc {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&gpio0 {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&gpio1 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&gpio2 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&crypto {
+	u-boot,dm-spl;
+	bootph-all;
+	status = "okay";
+};
+
+&rng {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&saradc {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&sfc {
+	u-boot,dm-spl;
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	spi_nand: flash@0 {
+		u-boot,dm-spl;
+		compatible = "spi-nand";
+		reg = <0>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <80000000>;
+	};
+
+	spi_nor: flash@1 {
+		u-boot,dm-spl;
+		compatible = "jedec,spi-nor";
+		label = "sfc_nor";
+		reg = <0>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <80000000>;
+	};
+};
+
+&u2phy {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&u2phy_otg {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+

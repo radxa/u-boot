@@ -22,4 +22,5 @@ obj-$(CONFIG_ROCKCHIP_RK3572) += pinctrl-rk3572.o
 obj-$(CONFIG_ROCKCHIP_RK3576) += pinctrl-rk3576.o
 obj-$(CONFIG_ROCKCHIP_RK3588) += pinctrl-rk3588.o
 obj-$(CONFIG_ROCKCHIP_RV1108) += pinctrl-rv1108.o
+obj-$(CONFIG_ROCKCHIP_RV1103B) += pinctrl-rv1103b.o
 obj-$(CONFIG_ROCKCHIP_RV1126) += pinctrl-rv1126.o

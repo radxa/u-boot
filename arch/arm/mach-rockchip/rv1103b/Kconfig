@@ -1,0 +1,48 @@
+if ROCKCHIP_RV1103B
+
+config TARGET_EVB_RV1103B
+	bool "EVB_RV1103B"
+	select BOARD_LATE_INIT
+	help
+	  RV1103B EVB is a evaluation board for Rockchip RV1103B.
+
+config ROCKCHIP_BOOT_MODE_REG
+	default 0x20160200
+
+config ROCKCHIP_STIMER_BASE
+	default 0x20500000
+
+config SOC_SPECIFIC_OPTIONS # dummy
+	def_bool y
+	select HAS_CUSTOM_SYS_INIT_SP_ADDR
+
+config CUSTOM_SYS_INIT_SP_ADDR
+	default 0x00400000
+
+config SPL_STACK
+	default 0x03de0000
+
+config SPL_MAX_SIZE
+	default 0x40000
+
+config SPL_BSS_START_ADDR
+	default 0x03de0000
+
+config SPL_BSS_MAX_SIZE
+	default 0x20000
+
+config TEXT_BASE
+	default 0x00200000
+
+config SYS_LOAD_ADDR
+	default 0x00008000
+
+config SYS_MALLOC_F_LEN
+	default 0x80000
+
+config SYS_SOC
+	default "rockchip"
+
+source board/rockchip/evb_rv1103b/Kconfig
+
+endif

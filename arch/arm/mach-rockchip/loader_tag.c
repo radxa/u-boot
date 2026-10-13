@@ -83,6 +83,8 @@ int rockchip_get_loader_tag(u32 chip_info[])
 	chip_info[0] = 0x31313046;
 #elif defined(CONFIG_ROCKCHIP_RV1106)
 	chip_info[0] = 0x31313036;
+#elif defined(CONFIG_ROCKCHIP_RV1103B)
+	chip_info[0] = 0x31313045;
 #endif
 
 	return 0;

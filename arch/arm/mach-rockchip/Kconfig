@@ -583,6 +583,36 @@ config ROCKCHIP_RK3588
 	  SD3.0/MMC4.5, USB OTG 3.0, Type-C, USB 2.0, PCIe 3.0, SATA 3, Ethernet,
 	  SDIO3.0 I2C, UART, SPI, GPIO and PWM.
 
+config ROCKCHIP_RV1103B
+	bool "Support Rockchip RV1103B"
+	select CPU_V7A
+	select ARM_ZERO_CNTVOFF
+	select ROCKCHIP_BROM_HELPER
+	select DEBUG_UART_BOARD_INIT
+	select ARM_ERRATA_814220
+	imply ARM_SMCCC
+	imply SUPPORT_SPL
+	imply SUPPORT_TPL
+	imply SPL
+	select SKIP_LOWLEVEL_INIT_ONLY
+	imply BOARD_LATE_INIT
+	help
+	  The Rockchip RV1103B is a ARM-based SoC with a Cortex-A7 and
+	  other modules. RV1106B is a variant of RV1103B and shares the
+	  same configuration symbol.
+
+if ROCKCHIP_RV1103B
+
+config TPL_LDSCRIPT
+	default "arch/arm/mach-rockchip/u-boot-tpl.lds"
+
+config TPL_TEXT_BASE
+	default 0x210f7000
+
+config TPL_MAX_SIZE
+	default 32768
+endif
+
 config ROCKCHIP_RV1108
 	bool "Support Rockchip RV1108"
 	select CPU_V7A
@@ -787,7 +817,7 @@ config TPL_ROCKCHIP_EARLYRETURN_TO_BROM
 	  to allow multiple entries.
 
 config SPL_MMC
-	default y if !SPL_ROCKCHIP_BACK_TO_BROM
+	default y if !SPL_ROCKCHIP_BACK_TO_BROM && MMC
 
 config ROCKCHIP_SPI_IMAGE
 	bool "Build a SPI image for rockchip"
@@ -867,6 +897,7 @@ source "arch/arm/mach-rockchip/rk3572/Kconfig"
 source "arch/arm/mach-rockchip/rk3576/Kconfig"
 source "arch/arm/mach-rockchip/rk3588/Kconfig"
 source "arch/arm/mach-rockchip/rv1108/Kconfig"
+source "arch/arm/mach-rockchip/rv1103b/Kconfig"
 source "arch/arm/mach-rockchip/rv1126/Kconfig"
 
 if ROCKCHIP_COMMON_STACK_ADDR && SPL_SHARES_INIT_SP_ADDR

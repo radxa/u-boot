@@ -1,0 +1,23 @@
+/*
+ * SPDX-License-Identifier:     GPL-2.0+
+ *
+ * (C) Copyright 2024 Rockchip Electronics Co., Ltd
+ */
+
+/dts-v1/;
+#include "rv1106b-evb2.dts"
+
+/ {
+	model = "Rockchip RV1106B EVB2 Board";
+	compatible = "rockchip,rv1106b-evb2-spi-nand", "rockchip,rv1106b";
+
+	chosen {
+		stdout-path = &uart0;
+		u-boot,spl-boot-order = &spi_nand;
+	};
+};
+
+&spi_nand {
+	u-boot,dm-spl;
+	status = "okay";
+};
