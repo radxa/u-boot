@@ -5,6 +5,7 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <u-boot/crc.h>
 #include <errno.h>
 #include <fdt_support.h>
@@ -61,6 +62,10 @@ static int rk_meta_get_startup_part_info(struct spl_load_info *info, struct disk
 		                                                              i, meta_next.part_flag);
 		if (meta_next.part_flag != meta_p->part_flag)
 			break;
+
+		memcpy(meta_p, &meta_next, sizeof(struct meta_head));
+	}
+
 	if (meta_p->crc32 != crc32(0, (const unsigned char *)meta_p, sizeof(struct meta_head) - 4 - 4)) {
 		printf("Invalid meta crc32.\n");
 		return -EINVAL;
@@ -99,7 +104,7 @@ int spl_load_meta(struct spl_image_info *spl_image, struct spl_load_info *info)
 	uint32_t meta_per_part_size = 0;
 	uint32_t meta_startup_part_offset = 0;
 
-	if (part_get_info_by_name(info->dev, part_name, &part_info) <= 0) {
+	if (part_get_info_by_name(info->priv, part_name, &part_info) <= 0) {
 		debug("%s: no partition\n", __func__);
 		return -EINVAL;
 	}

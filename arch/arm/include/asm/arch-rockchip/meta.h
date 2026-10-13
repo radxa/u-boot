@@ -125,4 +125,8 @@ struct cmdline_info {
 	uint32_t crc32;
 };
 
+
+void rk_meta_bootargs_append(void *fdt);
+void rk_meta_process(void);
+
 #endif
