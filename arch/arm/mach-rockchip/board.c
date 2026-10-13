@@ -284,11 +284,17 @@ static void env_setup(void)
 
 int board_late_init(void)
 {
-#ifdef CONFIG_ROCKCHIP_SET_ETHADDR
-	rockchip_setup_macaddr();
-#endif
+	/*
+	 * Keep the serial number first: besides "serial#" it exports the SoC
+	 * cpuid as "cpuid#", which rockchip_setup_macaddr() hashes into the
+	 * MAC address when CONFIG_ROCKCHIP_VENDOR_PARTITION is disabled (that
+	 * build has no vendor partition to read a MAC from).
+	 */
 #ifdef CONFIG_ROCKCHIP_SET_SN
 	rockchip_setup_serial_number();
+#endif
+#ifdef CONFIG_ROCKCHIP_SET_ETHADDR
+	rockchip_setup_macaddr();
 #endif
 	rockusb_download();
 #ifdef CONFIG_ROCKCHIP_USB_BOOT
