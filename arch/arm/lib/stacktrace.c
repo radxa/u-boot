@@ -10,6 +10,7 @@
 #include <timestamp.h>
 #include <version.h>
 #include <version_string.h>
+#include <asm/global_data.h>
 #include <asm/sections.h>
 
 DECLARE_GLOBAL_DATA_PTR;

@@ -22,6 +22,7 @@
 #include <efi_loader.h>
 #include <irq_func.h>
 #include <semihosting.h>
+#include <stacktrace.h>
 #include <asm/global_data.h>
 #include <asm/proc-armv/ptrace.h>
 #include <asm/ptrace.h>

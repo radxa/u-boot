@@ -445,7 +445,7 @@ static int spl_dcache_enable(void)
 
 #ifndef CONFIG_ARM64
 	if (!gd->bd) {
-		gd->bd = calloc(1, sizeof(bd_t));
+		gd->bd = calloc(1, sizeof(struct bd_info));
 		if (!gd->bd) {
 			debug("spl: no bd_t memory\n");
 			return -ENOMEM;

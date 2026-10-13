@@ -5,6 +5,7 @@
 #include <common.h>
 #include <asm/io.h>
 #include <clk.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>

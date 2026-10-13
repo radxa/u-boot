@@ -126,6 +126,7 @@ config ARMV7_SET_CORTEX_SMPEN
 
 config SPL_ARMV7_SET_CORTEX_SMPEN
 	bool
+	default y if ARCH_ROCKCHIP
 	help
 	  Enable the ARM Cortex ACTLR.SMP enable bit on SPL startup.
 
