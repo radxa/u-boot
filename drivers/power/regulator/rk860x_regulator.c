@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 Rockchip Electronics Co., Ltd
+ *
+ * RK860x family overview (DIE_ID read from RK860X_ID1):
+ * DIE-ID   I2C-ADDR(7-bit) Vout Range/V  Default Vout/V  STEP/mV  DIE_ID
+ * RK860-0  0x40            0.7125-1.5    1.0             12.5     0x8
+ * RK860-1  0x41            0.7125-1.5    1.0             12.5     0x8
+ * RK860-2  0x42            0.5-1.5       0.8             6.25     0xA
+ * RK860-3  0x43            0.5-1.5       0.8             6.25     0xA
+ * RK860-4  0x42            0.5-1.5       1.4             6.25     0xA
+ * RK860-5  0x43            0.5-1.5       1.1             6.25     0xA
  */
 #include <common.h>
 #include <dm.h>
@@ -56,6 +65,8 @@ enum {
 	RK860X_CHIP_ID_01,
 	RK860X_CHIP_ID_02,
 	RK860X_CHIP_ID_03,
+	RK860X_CHIP_ID_04,
+	RK860X_CHIP_ID_05,
 };
 
 struct rk860x_regulator_info {
@@ -277,7 +288,7 @@ static int rk860x_regulator_set_suspend_voltage(struct udevice *dev,
 
 /* For 00,01 options:
  * VOUT = 0.7125V + NSELx * 12.5mV, from 0.7125 to 1.5V.
- * For 02,03 options:
+ * For 02,03,04,05 options:
  * VOUT = 0.5V + NSELx * 6.25mV, from 0.5 to 1.5V.
  */
 static int rk860x_device_setup(struct rk860x_regulator_info *di)
@@ -307,6 +318,8 @@ static int rk860x_device_setup(struct rk860x_regulator_info *di)
 		break;
 	case RK860X_CHIP_ID_02:
 	case RK860X_CHIP_ID_03:
+	case RK860X_CHIP_ID_04:
+	case RK860X_CHIP_ID_05:
 		di->vsel_min = 500000;
 		di->vsel_step = 6250;
 		di->n_voltages = RK860X_NVOLTAGES_160;
