@@ -652,6 +652,10 @@ struct mmc *sunxi_mmc_init(int sdc_no)
 	void *ccm = (void *)SUNXI_CCM_BASE;
 	struct sunxi_mmc_priv *priv = &mmc_host[sdc_no];
 	struct mmc_config *cfg = &priv->cfg;
+	bool limit_mmc2_25mhz =
+		IS_ENABLED(CONFIG_XPL_BUILD) &&
+		IS_ENABLED(CONFIG_SPL_MMC_SUNXI_A527_25MHZ) &&
+		sdc_no == 2;
 	int ret;
 
 	memset(priv, '\0', sizeof(struct sunxi_mmc_priv));
@@ -668,11 +672,17 @@ struct mmc *sunxi_mmc_init(int sdc_no)
 	    (sdc_no == 2))
 		cfg->host_caps = MMC_MODE_8BIT;
 
-	cfg->host_caps |= MMC_MODE_HS_52MHz | MMC_MODE_HS;
 	cfg->b_max = CONFIG_SYS_MMC_MAX_BLK_COUNT;
 
 	cfg->f_min = 400000;
-	cfg->f_max = 52000000;
+	if (limit_mmc2_25mhz) {
+		/* Keep affected A527 eMMC devices below HS52 during SPL. */
+		cfg->host_caps |= MMC_MODE_HS;
+		cfg->f_max = 25000000;
+	} else {
+		cfg->host_caps |= MMC_MODE_HS_52MHz | MMC_MODE_HS;
+		cfg->f_max = 52000000;
+	}
 
 	if (mmc_resource_init(sdc_no) != 0)
 		return NULL;
