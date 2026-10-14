@@ -25,6 +25,14 @@
 		status = "okay";
 	};
 
+	secure-efuse@20790000 {
+		compatible = "rockchip,rv1106bs-secure-efuse";
+		reg = <0x20790000 0x10000>;
+		clk_gate_addr = <0x2025001c>;
+		u-boot,dm-spl;
+		status = "okay";
+	};
+
 	/*
 	 * crypto_s and crypto (crypto_ns) describe the same RV1103B crypto
 	 * instance. The driver's bind() only accepts the "secure" node in
@@ -149,4 +157,3 @@
 	u-boot,dm-pre-reloc;
 	status = "okay";
 };
-
