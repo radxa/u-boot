@@ -810,6 +810,15 @@ config MMC_SUNXI
 	  This selects support for the SD/MMC Host Controller on
 	  Allwinner sunxi SoCs.
 
+config SPL_MMC_SUNXI_A527_25MHZ
+	bool "Limit A527 MMC2 to 25 MHz in SPL"
+	depends on SPL && MMC_SUNXI && MACH_SUN55I_A523 && !SPL_DM_MMC
+	help
+	  Enable this for A527 boards whose eMMC is connected to MMC2 and is
+	  unreliable at HS52 during legacy SPL initialization. This keeps the
+	  8-bit bus width, limits the clock to 25 MHz and does not advertise
+	  HS52 support. Other sun55i boards remain unchanged unless they opt in.
+
 config MMC_SUNXI_HAS_NEW_MODE
 	bool
 	depends on MMC_SUNXI
