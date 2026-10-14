@@ -11,6 +11,7 @@
 #include <asm/io.h>
 #include <bouncebuf.h>
 #include <clk.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <dm/device_compat.h>
 #include <linux/bitmap.h>
