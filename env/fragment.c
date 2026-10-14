@@ -288,6 +288,15 @@ static int envf_load(void)
 	if (!env)
 		return -EINVAL;
 
+	/*
+	 * envf is an overlay on the built-in environment.  When
+	 * CONFIG_ENV_WRITEABLE_LIST is disabled, env_load() does not import the
+	 * default environment before calling this driver.  Import it here so
+	 * env_get() uses the same hash table that env print operates on.
+	 */
+	if (!(gd->flags & GD_FLG_ENV_READY))
+		env_set_default(NULL, 0);
+
 	if (envf_init_vars() > 0) {
 		if (!himport_r(&env_htab, (char *)env->data, env_size, '\0',
 			H_NOCLEAR, 0, envf_num, (char * const *)envf_list)) {
