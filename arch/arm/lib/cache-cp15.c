@@ -214,7 +214,7 @@ static inline void mmu_setup(void)
 	 * Set the access control to client (1U) for each of the 16 domains
 	 */
 	asm volatile("mcr p15, 0, %0, c3, c0, 0"
-		     : : "r" (0x55555555));
+		     : : "r" (~0));
 
 	/* and enable the mmu */
 	reg = get_cr();	/* get control reg. */
