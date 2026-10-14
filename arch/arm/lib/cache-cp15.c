@@ -97,8 +97,18 @@ __weak void dram_bank_mmu_setup(int bank)
 	struct bd_info *bd = gd->bd;
 	int	i;
 
-	/* bd->bi_dram is available only after relocation */
-	if ((gd->flags & GD_FLG_RELOC) == 0)
+	/*
+	 * In SPL/TPL, spl_dcache_enable() fills bd->bi_dram right before the
+	 * MMU is enabled, so the bank info is already valid here and DRAM must
+	 * be mapped cacheable. Without it the SPL
+	 * runs with DRAM as DCACHE_OFF and memory-heavy work (LZMA decompress,
+	 * SHA256, memcpy) is an order of magnitude slower.
+	 *
+	 * In U-Boot proper, bi_dram is only populated after relocation, so keep
+	 * skipping the mapping until then.
+	 */
+	if (!IS_ENABLED(CONFIG_XPL_BUILD) &&
+	    (gd->flags & GD_FLG_RELOC) == 0)
 		return;
 
 	debug("%s: bank: %d\n", __func__, bank);
