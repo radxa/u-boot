@@ -425,6 +425,12 @@ static const struct udevice_id rk860x_id[] = {
 	{
 		.compatible = "rockchip,rk8603",
 	},
+	{
+		.compatible = "rockchip,rk8604",
+	},
+	{
+		.compatible = "rockchip,rk8605",
+	},
 	{ },
 };
 
