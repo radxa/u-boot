@@ -1067,6 +1067,7 @@ config SPL_MPC8XXX_INIT_DDR
 
 config SPL_MTD
 	bool "Support MTD drivers"
+	select SPL_LOAD_BLOCK
 	help
 	  Enable support for MTD (Memory Technology Device) within SPL. MTD
 	  provides a block interface over raw NAND and can also be used with
