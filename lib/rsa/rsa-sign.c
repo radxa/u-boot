@@ -691,6 +691,8 @@ int rsa_get_params(RSA *key, uint64_t *exponent, uint32_t *n0_invp,
 	return ret;
 }
 
+#if defined(CONFIG_RSA_N_SIZE) && defined(CONFIG_RSA_E_SIZE) && \
+	defined(CONFIG_RSA_C_SIZE)
 static void rsa_convert_big_endian(uint32_t *dst, const uint32_t *src,
 				   int total_len, int convert_len)
 {
@@ -784,6 +786,7 @@ err_nospc:
 
 	return ret ? -ENOSPC : 0;
 }
+#endif
 
 int rsa_add_verify_data(struct image_sign_info *info, void *keydest)
 {
@@ -885,10 +888,13 @@ int rsa_add_verify_data(struct image_sign_info *info, void *keydest)
 		ret = fdt_setprop_string(keydest, node, FIT_KEY_REQUIRED,
 					 info->require_keys);
 	}
+#if defined(CONFIG_RSA_N_SIZE) && defined(CONFIG_RSA_E_SIZE) && \
+	defined(CONFIG_RSA_C_SIZE)
 	if (!ret) {
 		ret = rsa_set_key_hash(keydest, node, info->crypto->key_len,
 				       info->checksum->name);
 	}
+#endif
 done:
 	BN_free(modulus);
 	BN_free(r_squared);
