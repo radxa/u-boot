@@ -337,7 +337,7 @@ config SPL_RAW_IMAGE_SUPPORT
 
 config SPL_LEGACY_IMAGE_FORMAT
 	bool "Support SPL loading and booting of Legacy images"
-	default n if ARCH_MVEBU
+	default n if ARCH_MVEBU || ARCH_ROCKCHIP
 	default y if !SPL_LOAD_FIT
 	depends on !TI_SECURE_DEVICE
 	help
