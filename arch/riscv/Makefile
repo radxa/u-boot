@@ -24,8 +24,14 @@ endif
 ifeq ($(CONFIG_RISCV_ISA_C),y)
 	ARCH_C = c
 endif
+ifeq ($(CONFIG_RISCV_ISA_V),y)
+	ARCH_V = v
+endif
 ifeq ($(CONFIG_RISCV_ISA_ZBB),y)
 	ARCH_ZBB = _zbb
+endif
+ifeq ($(CONFIG_RISCV_ISA_ZVKNHAB),y)
+	ARCH_ZVKNHAB = _zvknha_zvkb
 endif
 ifeq ($(CONFIG_CMODEL_MEDLOW),y)
 	CMODEL = medlow
@@ -35,7 +41,7 @@ ifeq ($(CONFIG_CMODEL_MEDANY),y)
 endif
 
 
-RISCV_MARCH = $(ARCH_BASE)$(ARCH_A)$(ARCH_F)$(ARCH_D)$(ARCH_C)$(ARCH_ZBB)
+RISCV_MARCH = $(ARCH_BASE)$(ARCH_A)$(ARCH_F)$(ARCH_D)$(ARCH_C)$(ARCH_V)$(ARCH_ZBB)$(ARCH_ZVKNHAB)
 ABI = $(ABI_BASE)$(ABI_D)
 
 # Newer binutils versions default to ISA spec version 20191213 which moves some

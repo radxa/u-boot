@@ -390,6 +390,18 @@ config RISCV_ISA_A
 	help
 	  Adds "A" to the ISA string passed to the compiler.
 
+config RISCV_ISA_V
+	bool "Vector Instructions support"
+	help
+	  Adds "V" to the ISA string passed to the compiler.
+
+config RISCV_ISA_ZVKNHAB
+	bool "Zvknh[ab] support"
+	depends on RISCV_ISA_V
+	help
+	  Support vsha2ms.vv/vsha2c[hl].vv instruction for
+	  sha256 computational acceleration.
+
 config RISCV_ISA_ZICBOM
 	bool "Zicbom support"
 	depends on !SYS_DISABLE_DCACHE_OPS
@@ -653,5 +665,22 @@ config SPL_OPTEE_LOAD_ADDR
 	depends on OPTEE
 	help
 	  Load address of the OP-TEE binary.
+
+menuconfig RISCV64_CRYPTO
+	bool "RISCV64 Accelerated Cryptographic Algorithms"
+	depends on 64BIT
+
+if RISCV64_CRYPTO
+
+config RISCV64_CE_SHA256
+	bool "SHA-256 digest algorithm (RISCV64 Crypto Extensions)"
+	depends on RISCV_ISA_ZVKNHAB
+	default y if SHA256
+
+config SPL_RISCV64_CE_SHA256
+	bool "SHA-256 digest algorithm (RISCV64 Crypto Extensions) in SPL"
+	depends on RISCV_ISA_ZVKNHAB && SPL
+	default y if RISCV_ISA_ZVKNHAB
+endif
 
 endmenu

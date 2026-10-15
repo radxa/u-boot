@@ -46,3 +46,5 @@ obj-$(CONFIG_$(PHASE_)USE_ARCH_STRCMP) += strcmp_zbb.o
 obj-$(CONFIG_$(PHASE_)USE_ARCH_STRNCMP) += strncmp_zbb.o
 
 obj-$(CONFIG_$(PHASE_)SEMIHOSTING) += semihosting.o
+
+obj-$(CONFIG_$(XPL_)RISCV64_CE_SHA256) += sha256_ce_glue.o sha256-riscv64-zvknha_or_zvknhb-zvkb.o
