@@ -406,6 +406,21 @@ function fit_gen_uboot_itb()
 	mv ${ITS_UBOOT} ${FIT_DIR}
 }
 
+function fit_fixup_address()
+{
+	local its=$1
+	local placeholder=$2
+	local addr=$3
+	local cells="<${addr}>"
+
+	# Use two cells when any of the upper 32 address bits are set.
+	if (( addr >> 32 )); then
+		cells="/bits/ 64 <${addr}>"
+	fi
+
+	sed -i "s|<[[:space:]]*${placeholder}[[:space:]]*>|${cells}|g" "${its}"
+}
+
 function fit_gen_boot_itb()
 {
 	if [ ! -z ${ARG_BOOT_IMG} ]; then
@@ -448,9 +463,9 @@ function fit_gen_boot_itb()
 		FDT_ADDR_R=`strings env/common.o | grep 'fdt_addr_r=' | awk -F "=" '{ print $2 }'`
 		KERNEL_ADDR_R=`strings env/common.o | grep 'kernel_addr_r=' | awk -F "=" '{ print $2 }'`
 		RMADISK_ADDR_R=`strings env/common.o | grep 'ramdisk_addr_r=' | awk -F "=" '{ print $2 }'`
-		sed -i "s/${FDT_ADDR_PLACEHOLDER}/${FDT_ADDR_R}/g"         ${ITS_BOOT}
-		sed -i "s/${KERNEL_ADDR_PLACEHOLDER}/${KERNEL_ADDR_R}/g"   ${ITS_BOOT}
-		sed -i "s/${RAMDISK_ADDR_PLACEHOLDER}/${RMADISK_ADDR_R}/g" ${ITS_BOOT}
+		fit_fixup_address ${ITS_BOOT} ${FDT_ADDR_PLACEHOLDER} ${FDT_ADDR_R}
+		fit_fixup_address ${ITS_BOOT} ${KERNEL_ADDR_PLACEHOLDER} ${KERNEL_ADDR_R}
+		fit_fixup_address ${ITS_BOOT} ${RAMDISK_ADDR_PLACEHOLDER} ${RMADISK_ADDR_R}
 
 		if [ "${ARG_ROLLBACK_PROTECT}" == "y" ]; then
 			VERSION=`grep 'rollback-index' ${ITS_BOOT} | awk -F '=' '{ printf $2 }' | tr -d ' '`
@@ -532,9 +547,9 @@ function fit_gen_recovery_itb()
 		FDT_ADDR_R=`strings env/common.o | grep 'fdt_addr_r=' | awk -F "=" '{ print $2 }'`
 		KERNEL_ADDR_R=`strings env/common.o | grep 'kernel_addr_r=' | awk -F "=" '{ print $2 }'`
 		RMADISK_ADDR_R=`strings env/common.o | grep 'ramdisk_addr_r=' | awk -F "=" '{ print $2 }'`
-		sed -i "s/${FDT_ADDR_PLACEHOLDER}/${FDT_ADDR_R}/g"         ${ITS_RECOVERY}
-		sed -i "s/${KERNEL_ADDR_PLACEHOLDER}/${KERNEL_ADDR_R}/g"   ${ITS_RECOVERY}
-		sed -i "s/${RAMDISK_ADDR_PLACEHOLDER}/${RMADISK_ADDR_R}/g" ${ITS_RECOVERY}
+		fit_fixup_address ${ITS_RECOVERY} ${FDT_ADDR_PLACEHOLDER} ${FDT_ADDR_R}
+		fit_fixup_address ${ITS_RECOVERY} ${KERNEL_ADDR_PLACEHOLDER} ${KERNEL_ADDR_R}
+		fit_fixup_address ${ITS_RECOVERY} ${RAMDISK_ADDR_PLACEHOLDER} ${RMADISK_ADDR_R}
 
 		if [ "${ARG_ROLLBACK_PROTECT}" == "y" ]; then
 			VERSION=`grep 'rollback-index' ${ITS_RECOVERY} | awk -F '=' '{ printf $2 }' | tr -d ' '`
