@@ -2791,28 +2791,15 @@ int fit_get_totalsize(const void *fit, int *totalsize)
 static int fit_image_set_address(const void *fit, int noffset, char *name,
 				 ulong addr)
 {
-	int len, cell_len;
-	const fdt32_t *cell;
+	int len;
 
-	cell = fdt_getprop(fit, noffset, name, &len);
-	if (cell == NULL) {
-		fit_get_debug(fit, noffset, name, len);
+	if (!fdt_getprop(fit, noffset, name, &len))
 		return -1;
-	}
 
-	if (len > sizeof(ulong)) {
-		printf("Unsupported %s address size\n", name);
-		return -1;
-	}
+	if (len == 8 || addr >= 0x100000000UL)
+		return fdt_setprop_u64((void *)fit, noffset, name, (u64)addr);
 
-	cell_len = len >> 2;
-	/* Use load64 to avoid compiling warning for 32-bit target */
-	while (cell_len--) {
-		*(fdt32_t *)cell = cpu_to_uimage(addr >> (32 * cell_len));
-		cell++;
-	}
-
-	return 0;
+	return fdt_setprop_u32((void *)fit, noffset, name, (u32)addr);
 }
 
 int fit_image_get_comp_addr(const void *fit, int noffset, ulong *comp)
