@@ -275,6 +275,9 @@ int fit_image_pre_process(const void *fit)
 	if ((gd->flags & GD_FLG_KDTB_READY) && gd->fdt_blob == (void *)fdt_addr_r)
 		sysmem_free((phys_addr_t)gd->fdt_blob);
 
+	/* increase before fixup */
+	fdt_increase_size((void *)fit, 64);
+
 	ret = fit_image_fixup_alloc(fit, FIT_FDT_PROP,
 				    "fdt_addr_r", MEM_FDT);
 	if (ret < 0)
