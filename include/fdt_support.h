@@ -323,6 +323,7 @@ static inline void fdt_fixup_mtdparts(void *fdt,
 int fdt_copy_fixed_partitions(void *blob);
 
 void fdt_del_node_and_alias(void *blob, const char *alias);
+int fdt_del_node_by_path(const void *blob, const char *path);
 
 /**
  * fdt_translate_address() - translate an addr from the DT into a CPU phys addr
@@ -381,6 +382,7 @@ int fdt_node_offset_by_pathf(void *blob, const char *fmt, ...)
 
 int fdt_set_phandle(void *fdt, int nodeoffset, uint32_t phandle);
 unsigned int fdt_create_phandle(void *fdt, int nodeoffset);
+int fdt_get_phandle_by_path(const void *blob, const char *path);
 unsigned int fdt_create_phandle_by_compatible(void *fdt, const char *compat);
 unsigned int fdt_create_phandle_by_pathf(void *fdt, const char *fmt, ...)
 	__attribute__ ((format (printf, 2, 3)));

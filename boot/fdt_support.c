@@ -1289,6 +1289,19 @@ void fdt_del_node_and_alias(void *blob, const char *alias)
 	fdt_delprop(blob, off, alias);
 }
 
+/*
+ * Delete the node at path, nothing to do if it does not exist.
+ */
+int fdt_del_node_by_path(const void *blob, const char *path)
+{
+	int node = fdt_path_offset(blob, path);
+
+	if (node < 0)
+		return node;
+
+	return fdt_del_node((void *)blob, node);
+}
+
 /* Max address size we deal with */
 #define OF_MAX_ADDR_CELLS	4
 #define OF_CHECK_COUNTS(na, ns)	((na) > 0 && (na) <= OF_MAX_ADDR_CELLS && \
@@ -1731,6 +1744,20 @@ int fdt_node_offset_by_compat_reg(void *blob, const char *compat,
 	}
 
 	return -FDT_ERR_NOTFOUND;
+}
+
+/*
+ * Get the phandle of the node at path.
+ */
+int fdt_get_phandle_by_path(const void *blob, const char *path)
+{
+	int node;
+
+	node = fdt_path_offset(blob, path);
+	if (node < 0)
+		return node;
+
+	return fdt_get_phandle(blob, node);
 }
 
 static int vnode_offset_by_pathf(void *blob, const char *fmt, va_list ap)
