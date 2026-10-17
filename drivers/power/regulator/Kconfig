@@ -189,6 +189,25 @@ config DM_REGULATOR_FAN53555
 	  or switching the mode is not supported by this driver (at
 	  this time).
 
+config DM_REGULATOR_MPQ8655
+	bool "Enable Driver Model for MPS MPQ8655-compatible regulators"
+	depends on DM_REGULATOR && DM_I2C
+	help
+	  Enable regulator support for the MPS MPQ8655 and compatible
+	  SC812C0, IS6608 and ES5330 devices. The driver supports voltage
+	  get/set, enable control, nested device-tree constraints and hardware
+	  initialization. The chip node is handled by a single regulator-class
+	  driver; regulator constraints are read from its "regulators" subnode.
+	  Supply phandles must reference the regulator subnode, not the I2C chip
+	  node. See doc/device-tree-bindings/regulator/mps,mpq8655.txt for the
+	  binding details. SPL support is not currently implemented.
+
+	  Note: the driver writes VOUT_COMMAND over I2C without any software
+	  limit of its own; the output-voltage clamp is the chip's hardware
+	  VOUT_MAX (0x24), normally programmed via OTP. Enable this driver only
+	  on boards with a trusted boot chain and a reachable I2C bus, and
+	  verify VOUT_MAX is set before software control is handed over.
+
 config DM_REGULATOR_COMMON
 	bool
 	depends on DM_REGULATOR

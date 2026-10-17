@@ -19,6 +19,7 @@ obj-$(CONFIG_$(XPL_)DM_REGULATOR_BD71837) += bd71837.o
 obj-$(CONFIG_$(XPL_)DM_REGULATOR_PCA9450) += pca9450.o
 obj-$(CONFIG_$(XPL_)REGULATOR_PWM) += pwm_regulator.o
 obj-$(CONFIG_$(XPL_)DM_REGULATOR_FAN53555) += fan53555.o
+obj-$(CONFIG_$(XPL_)DM_REGULATOR_MPQ8655) += mpq8655_regulator.o
 obj-$(CONFIG_$(XPL_)DM_REGULATOR_COMMON) += regulator_common.o
 obj-$(CONFIG_$(XPL_)DM_REGULATOR_FIXED) += fixed.o
 obj-$(CONFIG_$(XPL_)DM_REGULATOR_GPIO) += gpio-regulator.o

@@ -1,0 +1,75 @@
+Binding for MPS MPQ8655-compatible regulators
+
+Required properties:
+  - compatible: "mps,mpq8655", or a supported compatible for a pin-compatible
+    device ("sc,sc812c0", "ifs,is6608", or "ein,es5330")
+  - reg: I2C address
+  - regulators: contains exactly one enabled regulator subnode
+
+Optional chip properties:
+  - mps,switching-frequency-hz: switching frequency in Hz. Supported values
+    are 400000, 600000, 800000, and 1000000. If omitted, the existing
+    hardware setting is preserved.
+  - mps,overtemperature-limit-celsius: overtemperature limit in degrees C,
+    clamped to the [100, 160] window accepted by the driver. If omitted,
+    the existing hardware setting is preserved.
+  - mps,external-voltage-divider: use the external feedback divider.
+  - mps,rfp1-ohms: upper external feedback resistor in ohms. Required when
+    mps,external-voltage-divider is present.
+  - mps,rfp2-ohms: lower external feedback resistor in ohms. Required when
+    mps,external-voltage-divider is present.
+  - mps,multi-phase: configure multiphase operation.
+  - mps,single-phase: configure single-phase operation.
+
+For compatibility with existing board device trees, the driver also accepts
+the legacy properties mps,switching-frequency (deprecated; use
+mps,switching-frequency-hz) and mps,overtemperature-limit (deprecated; use
+mps,overtemperature-limit-celsius). New device trees should use the
+unit-suffixed properties above. The legacy aliases remain supported for
+existing boards; no removal date is currently planned.
+
+The regulator subnode uses the standard regulator constraints, including
+regulator-min-microvolt, regulator-max-microvolt, regulator-init-microvolt,
+regulator-always-on, regulator-boot-on, and regulator-ramp-delay. If
+regulator-init-microvolt is omitted, the driver's initialization leaves the
+current output voltage unchanged, except when
+mps,external-voltage-divider is present: there the driver must write
+VOUT_COMMAND once to latch the new VOUT_SCALE_LOOP value, so
+regulator-init-microvolt is required and omitting it makes the probe
+fail with -EINVAL. If regulator-ramp-delay is omitted, the hardware
+slew-rate setting is preserved.
+
+The driver represents the chip and its single enabled regulator as one
+UCLASS_REGULATOR device. It switches that device's OF node to the regulator
+subnode during bind so that the regulator uclass can parse constraints. As a
+result, supply phandles must reference the regulator subnode, not the I2C chip
+node. A reference that still points at the chip node never resolves and the
+consumer silently loses its regulator; the driver therefore walks the whole
+tree at bind and reports every such property together with the offending
+node path. Reporting is deliberately not fatal to bind: a stale reference
+that no consumer actually uses must not keep the regulator from registering.
+
+Example:
+
+	pmic@30 {
+		compatible = "mps,mpq8655";
+		reg = <0x30>;
+
+		mps,switching-frequency-hz = <800000>;
+		mps,overtemperature-limit-celsius = <145>;
+		mps,external-voltage-divider;
+		mps,rfp1-ohms = <1000>;
+		mps,rfp2-ohms = <3900>;
+
+		regulators {
+			vdd_cpu: regulator {
+				regulator-name = "vdd_cpu";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <844000>;
+				regulator-init-microvolt = <800000>;
+				regulator-boot-on;
+				regulator-always-on;
+				regulator-ramp-delay = <100>;
+			};
+		};
+	};
