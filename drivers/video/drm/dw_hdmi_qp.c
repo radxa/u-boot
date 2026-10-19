@@ -648,14 +648,49 @@ static bool is_hdmi2_sink(struct dw_hdmi_qp *hdmi)
 		hdmi->edid_data.display_info.color_formats & DRM_COLOR_FORMAT_YCRCB420;
 }
 
+static void dw_hdmi_quant_range_select(struct dw_hdmi_qp *hdmi, struct drm_display_mode *mode)
+{
+	struct drm_display_info *info = &hdmi->edid_data.display_info;
+	bool is_rgb = hdmi_bus_fmt_is_rgb(hdmi->hdmi_data.enc_out_bus_format);
+
+	if (is_rgb) {
+		/*
+		 * When edid supports selectable quantization range and userspace
+		 * did not specify the output range, RGB output prefer
+		 * set to Full Range. This aligns with typical RGB workloads (e.g., UI),
+		 * which generally expect Full Range quantization.
+		 */
+		if (info->rgb_quant_range_selectable) {
+			if (hdmi->hdmi_data.quant_range == HDMI_QUANTIZATION_RANGE_DEFAULT)
+				hdmi->hdmi_data.quant_range = HDMI_QUANTIZATION_RANGE_FULL;
+		} else
+			hdmi->hdmi_data.quant_range = drm_default_rgb_quant_range(mode);
+	} else {
+		/*
+		 * When edid supports selectable quantization range and userspace
+		 * not specify the output range, YUV output prefer set to Limited Range.
+		 * This aligns with typical YUV workloads (e.g., video playback), source
+		 * material are predominantly mastered in Limited Range.
+		 */
+		if (info->ycc_rgb_quant_range_selectable) {
+			if (hdmi->hdmi_data.quant_range == HDMI_QUANTIZATION_RANGE_DEFAULT)
+				hdmi->hdmi_data.quant_range = HDMI_QUANTIZATION_RANGE_LIMITED;
+		} else
+			hdmi->hdmi_data.quant_range = HDMI_QUANTIZATION_RANGE_LIMITED;
+	}
+}
+
 static void hdmi_config_AVI(struct dw_hdmi_qp *hdmi, struct drm_display_mode *mode)
 {
 	struct hdmi_avi_infoframe frame;
 	u32 val, i, j;
 	u8 buff[17];
 	bool is_hdmi2 = false;
-	enum hdmi_quantization_range rgb_quant_range =
-		hdmi->hdmi_data.quant_range;
+
+	if (!mode) {
+		printf("%s: mode is NULL\n", __func__);
+		return;
+	}
 
 	if (hdmi_bus_fmt_is_yuv420(hdmi->hdmi_data.enc_out_bus_format) ||
 	    hdmi->edid_data.display_info.hdmi.scdc.supported)
@@ -663,11 +698,13 @@ static void hdmi_config_AVI(struct dw_hdmi_qp *hdmi, struct drm_display_mode *mo
 	/* Initialise info frame from DRM mode */
 	drm_hdmi_avi_infoframe_from_display_mode(&frame, mode, is_hdmi2);
 
+	/* Set proper quant_range */
+	dw_hdmi_quant_range_select(hdmi, mode);
 	/*
 	 * Ignore monitor selectable quantization, use quantization set
 	 * by the user
 	 */
-	drm_hdmi_avi_infoframe_quant_range(&frame, mode, rgb_quant_range,
+	drm_hdmi_avi_infoframe_quant_range(&frame, mode, hdmi->hdmi_data.quant_range,
 					   true, is_hdmi2);
 	if (hdmi_bus_fmt_is_yuv444(hdmi->hdmi_data.enc_out_bus_format))
 		frame.colorspace = HDMI_COLORSPACE_YUV444;
