@@ -751,6 +751,16 @@ struct drm_display_info {
 	 * @hdmi: advance features of a HDMI sink.
 	 */
 	struct drm_hdmi_info hdmi;
+
+	/**
+	 * @rgb_quant_range_selectable: Sink support selectable RGB quantization range (QS)
+	 */
+	bool rgb_quant_range_selectable;
+
+	/**
+	 * @ycc_rgb_quant_range_selectable: Sink support selectable YCC quantization range (QY)
+	 */
+	bool ycc_rgb_quant_range_selectable;
 };
 
 struct edid {

@@ -3839,6 +3839,30 @@ static bool cea_db_is_scdb(const u8 *db)
 	return oui == CTA_EXT_DB_HF_SCDB;
 }
 
+static bool cea_db_is_vcdb(const u8 *db)
+{
+	if (cea_db_tag(db) != USE_EXTENDED_TAG)   /* = 0x07 */
+		return false;
+	if (cea_db_payload_len(db) != 2)
+		return false;
+	if (cea_db_extended_tag(db) != EXT_VIDEO_CAPABILITY_BLOCK)   /* = 0x00 */
+		return false;
+	return true;
+}
+
+#define EDID_CEA_VCDB_QS BIT(6)
+#define EDID_CEA_VCDB_QY BIT(7)
+
+static void drm_parse_vcdb(struct hdmi_edid_data *data, const u8 *db)
+{
+	struct drm_display_info *info = &data->display_info;
+
+	if (db[2] & EDID_CEA_VCDB_QS)
+		info->rgb_quant_range_selectable = true;
+	if (db[2] & EDID_CEA_VCDB_QY)
+		info->ycc_rgb_quant_range_selectable = true;
+}
+
 static void drm_parse_cea_ext(struct hdmi_edid_data *data,
 			      struct edid *edid)
 {
@@ -3871,6 +3895,8 @@ static void drm_parse_cea_ext(struct hdmi_edid_data *data,
 			drm_parse_hdmi_forum_vsdb(data, db);
 		if (cea_db_is_y420cmdb(db))
 			drm_parse_y420cmdb_bitmap(data, db);
+		if (cea_db_is_vcdb(db))
+			drm_parse_vcdb(data, db);
 	}
 }
 
