@@ -276,6 +276,13 @@ config SYSMEM
 	bool "System memory management support"
 	default y
 
+config SYSMEM_ATTR_FDT_VAL
+	hex "System attr value for FDT"
+	depends on SYSMEM
+	default 0x0
+	help
+	  System attr value for FDT, default 0x0 means inactive.
+
 config BIDRAM
 	bool "Board availiable memory management support"
 	default y
