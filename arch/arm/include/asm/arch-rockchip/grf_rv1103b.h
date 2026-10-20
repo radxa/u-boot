@@ -28,10 +28,13 @@ struct rv1103b_grf {
      uint32_t reserved00ac;                       /* address offset: 0x00ac */
      uint32_t macphy_con0;                        /* address offset: 0x00b0 */
      uint32_t macphy_con1;                        /* address offset: 0x00b4 */
-     uint32_t reserved1[(PMU_GRF + 0x10000 - (SYS_GRF + 0xB4)) / 4];
+     uint32_t rkmacphy_con1;                      /* address offset: 0x00b8, rv1106bs */
+     uint32_t rkmacphy_con2;                      /* address offset: 0x00bc, rv1106bs */
+     uint32_t reserved1[(PMU_GRF + 0x10000 - (SYS_GRF + 0xBC)) / 4];
 };
 
 check_member(rv1103b_grf, macphy_con1, SYS_GRF + 0xB4 - VEPU_GRF);
+check_member(rv1103b_grf, rkmacphy_con2, SYS_GRF + 0xBC - VEPU_GRF);
 
 /* grf_cpu register structure define */
 struct rv1103b_cpu_grf_reg {

@@ -41,6 +41,7 @@ struct rockchip_platform_data {
 	bool clock_input;
 	struct reset_ctl phy_reset;
 	bool integrated_phy;
+	unsigned int phy_clk_rate;
 	struct regmap *grf;
 	struct regmap *php_grf;
 };
@@ -1077,6 +1078,118 @@ static int rv1103b_set_to_rmii(struct udevice *dev)
 	return 0;
 }
 
+#define RV1106BS_GRF_GMAC_CON0		0x500a0
+#define RV1106BS_GRF_RKMACPHY_CON1	0x500b8
+#define RV1106BS_GRF_RKMACPHY_CON2	0x500bc
+
+/* RV1106BS_GRF_GMAC_CON0 */
+#define RV1106BS_MAC_PHY_INTF_SEL_RMII	GRF_BIT(3)
+#define RV1106BS_MAC_CLK_RMII_GATE	GRF_BIT(4)
+#define RV1106BS_MAC_CLK_RMII_NOGATE	GRF_CLR_BIT(4)
+#define RV1106BS_MAC_CLK_RMII_DIV2	GRF_BIT(5)
+#define RV1106BS_MAC_CLK_RMII_DIV20	GRF_CLR_BIT(5)
+#define RV1106BS_MAC_RKMACPHY_ENABLE	GRF_BIT(15)
+
+/* raw rkmacphy registers, no write-enable high half */
+#define RV1106BS_RKMACPHY_PHY_ID	(0x200680 << 5)
+#define RV1106BS_RKMACPHY_PHY_ADDR	0x2
+
+#define RV1106BS_RKMACPHY_PHY_REVISION	(0x1 << 6)
+#define RV1106BS_RKMACPHY_PHY_MODEL	(0x10 << 0)
+
+#define RV1106BS_RKMACPHY_DISABLE	0
+#define RV1106BS_RKMACPHY_ENABLE	BIT(31)
+
+#define RV1106BS_RKMACPHY_CLK_SEL_INPUT	0
+#define RV1106BS_RKMACPHY_CLK_SEL_OUTPUT	BIT(8)
+
+#define RV1106BS_RKMACPHY_CLK_24M	0
+#define RV1106BS_RKMACPHY_CLK_50M	BIT(11)
+
+static int rv1106bs_set_to_rmii(struct udevice *dev)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	unsigned int val;
+
+	/* enable rkmacphy first */
+	val = RV1106BS_MAC_RKMACPHY_ENABLE;
+	/* select rmii mode and div2 */
+	val |= RV1106BS_MAC_PHY_INTF_SEL_RMII |
+	       RV1106BS_MAC_CLK_RMII_DIV2;
+
+	regmap_write(data->grf, RV1106BS_GRF_GMAC_CON0, val);
+
+	return 0;
+}
+
+static int rv1106bs_set_gmac_speed(struct udevice *dev)
+{
+	unsigned int val;
+
+	switch (eqos->phy->speed) {
+	case 10:
+		val = RV1106BS_MAC_CLK_RMII_DIV20;
+		break;
+	case 100:
+		val = RV1106BS_MAC_CLK_RMII_DIV2;
+		break;
+	default:
+		dev_err(dev, "unknown speed value for RMII! speed=%d",
+			eqos->phy->speed);
+		return -EINVAL;
+	}
+
+	regmap_write(data->grf, RV1106BS_GRF_GMAC_CON0, val);
+
+	return 0;
+}
+
+static void rv1106bs_set_clock_selection(struct udevice *dev, bool enable)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+
+	/* only input mode, input is unused */
+	regmap_write(data->grf, RV1106BS_GRF_GMAC_CON0,
+		     RV1106BS_MAC_CLK_RMII_NOGATE);
+}
+
+static void rv1106bs_integrated_phy_powerup(struct udevice *dev)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	unsigned int value;
+
+	/* power down the phy first */
+	regmap_write(data->grf, RV1106BS_GRF_RKMACPHY_CON1,
+		     RV1106BS_RKMACPHY_DISABLE);
+	reset_assert(&data->phy_reset);
+	udelay(20);
+
+	/* clk selection */
+	if (data->phy_clk_rate == 50000000)
+		value = RV1106BS_RKMACPHY_CLK_50M;
+	else
+		value = RV1106BS_RKMACPHY_CLK_24M;
+	value |= data->clock_input ? RV1106BS_RKMACPHY_CLK_SEL_INPUT :
+				     RV1106BS_RKMACPHY_CLK_SEL_OUTPUT;
+	regmap_write(data->grf, RV1106BS_GRF_RKMACPHY_CON2, value);
+
+	/* phy id and phy address */
+	regmap_write(data->grf, RV1103B_GRF_MACPHY_CON1,
+		     RV1106BS_RKMACPHY_PHY_ID | RV1106BS_RKMACPHY_PHY_ADDR);
+
+	/* power up the phy */
+	value = RV1106BS_RKMACPHY_PHY_REVISION |
+		RV1106BS_RKMACPHY_PHY_MODEL |
+		RV1106BS_RKMACPHY_ENABLE;
+	regmap_write(data->grf, RV1106BS_GRF_RKMACPHY_CON1, value);
+	udelay(100);
+	reset_deassert(&data->phy_reset);
+	udelay(30 * 1000);
+}
+
 #define RV1126B_VI_GRF_GMAC_CON0		0x50050
 
 #define RV1126B_GMAC_PHY_INTF_SEL_RGMII		GRF_CLR_BIT(3)
@@ -1368,6 +1481,13 @@ static const struct rk_gmac_ops rk_gmac_ops[] = {
 		.set_clock_selection = rv1126b_set_clock_selection,
 		.integrated_phy_powerup = rv1126b_integrated_phy_powerup,
 	},
+	{
+		.compatible = "rockchip,rv1106bs-gmac",
+		.set_to_rmii = rv1106bs_set_to_rmii,
+		.set_gmac_speed = rv1106bs_set_gmac_speed,
+		.set_clock_selection = rv1106bs_set_clock_selection,
+		.integrated_phy_powerup = rv1106bs_integrated_phy_powerup,
+	},
 	{ }
 };
 
@@ -1516,6 +1636,11 @@ static int eqos_probe_resources_rk(struct udevice *dev)
 				return ret;
 			}
 		}
+
+		if (ofnode_read_u32(args.node, "clock-frequency",
+				    &data->phy_clk_rate))
+			data->phy_clk_rate = 50000000;
+		dev_dbg(dev, "phy clock-frequency: %u\n", data->phy_clk_rate);
 	}
 	return 0;
 
