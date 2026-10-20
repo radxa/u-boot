@@ -728,8 +728,10 @@ static int eqos_start(struct udevice *dev)
 	if (eqos->config->ops->eqos_get_tick_clk_rate) {
 		rate = eqos->config->ops->eqos_get_tick_clk_rate(dev);
 
-		val = (rate / 1000000) - 1;
-		writel(val, &eqos->mac_regs->us_tic_counter);
+		if (rate >= 1000000) {
+			val = (rate / 1000000) - 1;
+			writel(val, &eqos->mac_regs->us_tic_counter);
+		}
 	}
 
 	/*
@@ -1629,6 +1631,10 @@ static const struct udevice_id eqos_ids[] = {
 	},
 	{
 		.compatible = "rockchip,rk3588-gmac",
+		.data = (ulong)&eqos_rockchip_config
+	},
+	{
+		.compatible = "rockchip,rv1103b-gmac",
 		.data = (ulong)&eqos_rockchip_config
 	},
 #endif

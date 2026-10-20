@@ -11,6 +11,8 @@
 #include <clk.h>
 #include <dm.h>
 #include <dm/device_compat.h>
+#include <dm/ofnode.h>
+#include <misc.h>
 #include <net.h>
 #include <phy.h>
 #include <regmap.h>
@@ -746,6 +748,143 @@ static void rk3588_set_clock_selection(struct udevice *dev, bool enable)
 	regmap_write(data->php_grf, RK3588_GRF_CLK_CON1, val);
 }
 
+#define RV1103B_GRF_GMAC_CLK_CON	0x500a4
+
+#define RV1103B_GMAC_RMII_NOGATE	GRF_CLR_BIT(1)
+#define RV1103B_GMAC_RMII_GATE		GRF_BIT(1)
+
+#define RV1103B_GMAC_CLK_RMII_50M	GRF_BIT(2)
+#define RV1103B_GMAC_CLK_RMII_2_5M	GRF_CLR_BIT(2)
+
+#define RV1103B_GRF_MACPHY_CON0		0x500b0
+#define RV1103B_GRF_MACPHY_CON1		0x500b4
+
+#define RV1103B_MACPHY_ENABLE_MASK	BIT(1)
+#define RV1103B_MACPHY_ENABLE		0
+#define RV1103B_MACPHY_XMII_SEL_MASK	GENMASK(6, 5)
+#define RV1103B_MACPHY_XMII_SEL		BIT(6)
+#define RV1103B_MACPHY_24M_CLK_SEL_MASK	GENMASK(9, 7)
+#define RV1103B_MACPHY_24M_CLK_SEL_24M	(BIT(8) | BIT(9))
+#define RV1103B_MACPHY_PHY_ID_MASK	GENMASK(14, 10)
+#define RV1103B_MACPHY_PHY_ID		BIT(11)
+#define RV1103B_MACPHY_BGS_MASK		GENMASK(3, 0)
+
+static void rv1103b_get_phy_bgs(struct udevice *dev, unsigned char *bgs)
+{
+	struct ofnode_phandle_args cells;
+	unsigned char val;
+	ofnode otp_node;
+	u32 regs[2];
+	struct udevice *otp;
+
+	*bgs = 0;
+	if (dev_read_phandle_with_args(dev, "nvmem-cells", NULL, 0, 0, &cells))
+		return;
+	if (!ofnode_valid(cells.node))
+		return;
+	if (ofnode_read_u32_array(cells.node, "reg", regs, 2))
+		return;
+
+	otp_node = ofnode_get_parent(cells.node);
+	if (!ofnode_valid(otp_node))
+		return;
+	if (uclass_get_device_by_ofnode(UCLASS_MISC, otp_node, &otp))
+		return;
+
+	if (misc_read(otp, regs[0], &val, 1) != 1) {
+		dev_dbg(dev, "read macphy-bgs from otp failed, use default\n");
+		return;
+	}
+
+	*bgs = val;
+}
+
+static void rv1103b_gmac_integrated_phy_powerup(struct udevice *dev,
+						unsigned int con0,
+						unsigned int con1)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	unsigned char bgs[1] = {0};
+	unsigned int mask, val;
+
+	rv1103b_get_phy_bgs(dev, bgs);
+
+	reset_assert(&data->phy_reset);
+	udelay(20);
+
+	mask = RV1103B_MACPHY_ENABLE_MASK |
+	       RV1103B_MACPHY_XMII_SEL_MASK |
+	       RV1103B_MACPHY_24M_CLK_SEL_MASK |
+	       RV1103B_MACPHY_PHY_ID_MASK;
+	val = RV1103B_MACPHY_ENABLE |
+	      RV1103B_MACPHY_XMII_SEL |
+	      RV1103B_MACPHY_24M_CLK_SEL_24M |
+	      RV1103B_MACPHY_PHY_ID;
+	regmap_write(data->grf, con0, HIWORD_UPDATE(val, mask, 0));
+
+	regmap_write(data->grf, con1,
+		     HIWORD_UPDATE(bgs[0] & RV1103B_MACPHY_BGS_MASK,
+				   RV1103B_MACPHY_BGS_MASK, 0));
+
+	udelay(20);
+	reset_deassert(&data->phy_reset);
+	udelay(30 * 1000);
+}
+
+static void rv1103b_integrated_phy_powerup(struct udevice *dev)
+{
+	rv1103b_gmac_integrated_phy_powerup(dev, RV1103B_GRF_MACPHY_CON0,
+					   RV1103B_GRF_MACPHY_CON1);
+}
+
+static void rv1103b_set_clock_selection(struct udevice *dev, bool enable)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	unsigned int val = enable ? RV1103B_GMAC_RMII_NOGATE :
+			   RV1103B_GMAC_RMII_GATE;
+
+	/* only input mode */
+	regmap_write(data->grf, RV1103B_GRF_GMAC_CLK_CON, val);
+}
+
+static int rv1103b_set_rmii_speed(struct udevice *dev)
+{
+	struct eqos_priv *eqos = dev_get_priv(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+	unsigned int val;
+
+	switch (eqos->phy->speed) {
+	case 10:
+		val = RV1103B_GMAC_CLK_RMII_2_5M;
+		break;
+	case 100:
+		val = RV1103B_GMAC_CLK_RMII_50M;
+		break;
+	default:
+		dev_err(dev, "unknown speed value for RMII! speed=%d",
+			eqos->phy->speed);
+		return -EINVAL;
+	}
+
+	regmap_write(data->grf, RV1103B_GRF_GMAC_CLK_CON, val);
+
+	return 0;
+}
+
+static int rv1103b_set_to_rmii(struct udevice *dev)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
+
+	regmap_write(data->grf, RV1103B_GRF_GMAC_CLK_CON,
+		     RV1103B_GMAC_CLK_RMII_50M);
+
+	return 0;
+}
+
 static const struct rk_gmac_ops rk_gmac_ops[] = {
 	{
 		.compatible = "rockchip,rk3538-gmac",
@@ -806,6 +945,13 @@ static const struct rk_gmac_ops rk_gmac_ops[] = {
 			0xfe1c0000, /* gmac1 */
 			0x0, /* sentinel */
 		},
+	},
+	{
+		.compatible = "rockchip,rv1103b-gmac",
+		.set_to_rmii = rv1103b_set_to_rmii,
+		.set_gmac_speed = rv1103b_set_rmii_speed,
+		.set_clock_selection = rv1103b_set_clock_selection,
+		.integrated_phy_powerup = rv1103b_integrated_phy_powerup,
 	},
 	{ }
 };
@@ -894,8 +1040,16 @@ static int eqos_probe_resources_rk(struct udevice *dev)
 
 	ret = clk_get_by_name(dev, "stmmaceth", &eqos->clk_master_bus);
 	if (ret) {
-		dev_dbg(dev, "clk_get_by_name(stmmaceth) failed: %d", ret);
-		goto err_release_resets;
+		if (dev_read_stringlist_search(dev, "clock-names", "stmmaceth") < 0) {
+			ret = clk_get_by_index(dev, 0, &eqos->clk_master_bus);
+			if (ret) {
+				dev_dbg(dev, "no master clock: %d\n", ret);
+				ret = 0;
+			}
+		} else {
+			dev_err(dev, "clk_get_by_name(stmmaceth) failed: %d\n", ret);
+			goto err_release_resets;
+		}
 	}
 
 	if (device_is_compatible(dev, "rockchip,rk3568-gmac")) {
