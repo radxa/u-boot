@@ -248,6 +248,9 @@ config PHY_NXP_TJA11XX
 config PHY_REALTEK
 	bool "Realtek Ethernet PHYs support"
 
+config PHY_RK630
+	bool "Rockchip RK630 Ethernet PHYs support"
+
 config PHY_ROCKCHIP
 	bool "Rockchip ROCKCHIP Ethernet PHYs support"
 
