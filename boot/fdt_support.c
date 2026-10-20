@@ -564,6 +564,29 @@ static int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size,
 #define MEMORY_BANKS_MAX 4
 #endif
 
+void fdt_dump_memory(void *blob)
+{
+	struct fdt_resource res;
+	int i, noffset;
+
+	noffset = fdt_subnode_offset(blob, 0, "memory");
+	if (noffset < 0)
+		return;
+
+	printf("## memory:\n");
+	for (i = 0; i < MEMORY_BANKS_MAX; i++) {
+		if (fdt_get_resource(blob, noffset, "reg", i, &res))
+			break;
+
+		res.end += 1;
+		if (!res.start && !res.end)
+			break;
+
+		printf("  0x%08llx - 0x%08llx (size: 0x%08llx)\n",
+		       (u64)res.start, (u64)res.end, (u64)res.end - (u64)res.start);
+	}
+}
+
 /**
  * fdt_fixup_memory_banks - Update DT memory node
  * @blob: Pointer to DT blob
@@ -637,24 +660,7 @@ int fdt_fixup_memory_banks(void *blob, u64 start[], u64 size[], int banks)
 #else
 int fdt_fixup_memory_banks(void *blob, u64 start[], u64 size[], int banks)
 {
-	struct fdt_resource res;
-	int i, nodeoffset;
-	nodeoffset = fdt_subnode_offset(blob, 0, "memory");
-
-	/* show memory */
-	if (nodeoffset > 0) {
-		for (i = 0; i < MEMORY_BANKS_MAX; i++) {
-			if (fdt_get_resource(blob, nodeoffset, "reg", i, &res))
-				break;
-
-			res.end += 1;
-			if (!res.start && !res.end)
-				break;
-
-			printf("fixed bank: 0x%08llx - 0x%08llx (size: 0x%08llx)\n",
-			       (u64)res.start, (u64)res.end, (u64)res.end - (u64)res.start);
-		}
-	}
+	fdt_dump_memory(blob);
 
 	return 0;
 }

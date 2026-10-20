@@ -123,6 +123,13 @@ void do_fixup_by_compat_u32(void *fdt, const char *compat,
 int fdt_fixup_memory(void *blob, u64 start, u64 size);
 
 /**
+ * fdt_dump_memory() - dump the memory node in the DT
+ *
+ * @blob: FDT blob to update
+ */
+void fdt_dump_memory(void *blob);
+
+/**
  * fdt_fixup_memory_banks() - fill the DT mem node with multiple memory banks
  *
  * @blob: FDT blob to update
