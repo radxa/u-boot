@@ -66,6 +66,10 @@
 	};
 };
 
+&ccu {
+	bootph-pre-ram;
+};
+
 &ehci0 {
 	status = "okay";
 };
@@ -122,10 +126,29 @@
 };
 
 &mmc0 {
+	bootph-pre-ram;
 	vmmc-supply = <&reg_cldo3>;
 	cd-gpios = <&pio 5 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; /* PF6 */
 	bus-width = <4>;
 	status = "okay";
+};
+
+&mmc0_pins {
+	bootph-pre-ram;
+};
+
+&mmc2 {
+	bootph-pre-ram;
+	bus-width = <8>;
+	max-frequency = <25000000>;
+	non-removable;
+	vmmc-supply = <&reg_cldo3>;
+	vqmmc-supply = <&reg_cldo1>;
+	status = "okay";
+};
+
+&mmc2_pins {
+	bootph-pre-ram;
 };
 
 &ohci0 {
@@ -136,7 +159,12 @@
 	status = "okay";
 };
 
+&osc24M {
+	bootph-pre-ram;
+};
+
 &pio {
+	bootph-pre-ram;
 	vcc-pb-supply = <&reg_cldo3>;	/* via VCC-IO */
 	vcc-pc-supply = <&reg_cldo1>;
 	vcc-pd-supply = <&reg_cldo3>;
@@ -147,6 +175,10 @@
 	vcc-pi-supply = <&reg_cldo3>;
 	vcc-pj-supply = <&reg_cldo4>;
 	vcc-pk-supply = <&reg_cldo1>;
+};
+
+&r_ccu {
+	bootph-pre-ram;
 };
 
 &r_i2c0 {
@@ -342,6 +374,10 @@
  *	vcc-pl-supply = <&reg_aldo3>;
  */
 	vcc-pm-supply = <&reg_aldo3>;
+};
+
+&rtc {
+	bootph-pre-ram;
 };
 
 &uart0 {

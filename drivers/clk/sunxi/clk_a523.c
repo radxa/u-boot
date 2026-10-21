@@ -6,6 +6,7 @@
 #include <clk-uclass.h>
 #include <dm.h>
 #include <errno.h>
+#include <asm/io.h>
 #include <clk/sunxi.h>
 #include <linux/bitops.h>
 
@@ -14,6 +15,7 @@
 
 static struct ccu_clk_gate a523_gates[] = {
 	[CLK_PLL_PERIPH0_200M]	= GATE_DUMMY,
+	[CLK_PLL_AUDIO0_4X]	= GATE(0x078, BIT(27) | BIT(30) | BIT(31)),
 	[CLK_APB1]		= GATE_DUMMY,
 
 	[CLK_BUS_MMC0]		= GATE(0x84c, BIT(0)),
@@ -77,9 +79,16 @@ static struct ccu_reset a523_resets[] = {
 	[RST_BUS_OTG]		= RESET(0xa8c, BIT(24)),
 };
 
+static void a523_ccu_init(void *base)
+{
+	/* Keep MMC interconnect gates open; bus gates control each controller. */
+	setbits_le32(base + 0xe04, GENMASK(19, 17) | GENMASK(7, 5));
+}
+
 const struct ccu_desc a523_ccu_desc = {
 	.gates	= a523_gates,
 	.resets	= a523_resets,
 	.num_gates = ARRAY_SIZE(a523_gates),
 	.num_resets = ARRAY_SIZE(a523_resets),
+	.init = a523_ccu_init,
 };

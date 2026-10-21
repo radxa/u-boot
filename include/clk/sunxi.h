@@ -66,12 +66,14 @@ struct ccu_reset {
  *
  * @gates:	clock gates
  * @resets:	reset unit
+ * @init:	optional controller-specific initialization
  */
 struct ccu_desc {
 	const struct ccu_clk_gate *gates;
 	const struct ccu_reset *resets;
 	u8 num_gates;
 	u8 num_resets;
+	void (*init)(void *base);
 };
 
 /**

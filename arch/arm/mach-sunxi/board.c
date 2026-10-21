@@ -10,6 +10,7 @@
  */
 
 #include <cpu_func.h>
+#include <hang.h>
 #include <init.h>
 #include <log.h>
 #include <mmc.h>
@@ -484,7 +485,9 @@ void board_init_f(ulong dummy)
 	clock_init();
 	gpio_init();
 
-	spl_init();
+	/* Driver model needs the SRAM malloc pool before DRAM is available. */
+	if (spl_early_init())
+		hang();
 	preloader_console_init();
 
 #if CONFIG_IS_ENABLED(I2C) && CONFIG_IS_ENABLED(SYS_I2C_LEGACY)
