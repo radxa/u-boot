@@ -78,6 +78,7 @@ static int sunxi_clk_bind(struct udevice *dev)
 
 static int sunxi_clk_probe(struct udevice *dev)
 {
+	struct ccu_plat *plat = dev_get_plat(dev);
 	struct clk_bulk clk_bulk;
 	struct reset_ctl_bulk rst_bulk;
 	int ret;
@@ -89,6 +90,9 @@ static int sunxi_clk_probe(struct udevice *dev)
 	ret = reset_get_bulk(dev, &rst_bulk);
 	if (!ret)
 		reset_deassert_bulk(&rst_bulk);
+
+	if (plat->desc->init)
+		plat->desc->init(plat->base);
 
 	return 0;
 }
