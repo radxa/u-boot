@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0+
+
+#include "sunxi-u-boot.dtsi"
+
+&ccu {
+	bootph-pre-ram;
+};
+
+&mmc0 {
+	bootph-pre-ram;
+};
+
+&mmc0_pins {
+	bootph-pre-ram;
+};
+
+&mmc2 {
+	bootph-pre-ram;
+	/* shortcut: use 25 MHz until HS52 timing is validated. */
+	max-frequency = <25000000>;
+};
+
+&mmc2_pins {
+	bootph-pre-ram;
+};
+
+&osc24M {
+	bootph-pre-ram;
+};
+
+&pio {
+	bootph-pre-ram;
+};
+
+&r_ccu {
+	bootph-pre-ram;
+};
+
+&rtc {
+	bootph-pre-ram;
+};
