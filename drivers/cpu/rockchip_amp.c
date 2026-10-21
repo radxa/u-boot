@@ -8,6 +8,7 @@
 #include <amp.h>
 #include <bootm.h>
 #include <bidram.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <image.h>
 #include <sysmem.h>
