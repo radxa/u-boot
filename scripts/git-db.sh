@@ -249,6 +249,9 @@ rev_filters=()
 for author in "${authors[@]}"; do
 	rev_filters+=("--author=$author")
 done
+if [ -n "$max_count" ]; then
+	rev_filters+=("--max-count=$max_count")
+fi
 
 git_pathspecs=()
 for pathspec in "${pathspecs[@]}"; do
@@ -266,10 +269,6 @@ if [ "${#git_pathspecs[@]}" -gt 0 ]; then
 	commits=$(git rev-list "${rev_filters[@]}" "${commit_args[@]}" -- "${git_pathspecs[@]}")
 else
 	commits=$(git rev-list "${rev_filters[@]}" "${commit_args[@]}")
-fi
-
-if [ -n "$max_count" ]; then
-	commits=$(printf '%s\n' $commits | head -n "$max_count")
 fi
 
 for commit in $commits; do
