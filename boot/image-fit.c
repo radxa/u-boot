@@ -2464,9 +2464,9 @@ int fit_image_load_index(struct bootm_headers *images, ulong addr,
 		return ret;
 #endif
 
-#if !defined(USE_HOSTCC)
+#if !defined(USE_HOSTCC) && defined(CONFIG_FIT_CIPHER)
 	/* Decrypt data before uncompress/move */
-	if (IS_ENABLED(CONFIG_FIT_CIPHER) && IMAGE_ENABLE_DECRYPT) {
+	if (IMAGE_ENABLE_DECRYPT) {
 		int cipher_noffset =
 			fdt_subnode_offset(fit, noffset, FIT_CIPHER_NODENAME);
 
