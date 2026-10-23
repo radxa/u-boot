@@ -2448,9 +2448,11 @@ int fit_image_load_index(struct bootm_headers *images, ulong addr,
 		puts("OK\n");
 	}
 #endif
+#ifndef USE_HOSTCC
 	ret = fit_image_get_load(fit, noffset, &load);
 	if (ret < 0)
 		return ret;
+#endif
 
 	/* perform any post-processing on the image data */
 	if (!tools_build() && IS_ENABLED(CONFIG_FIT_IMAGE_POST_PROCESS)) {
