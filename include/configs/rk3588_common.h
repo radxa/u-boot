@@ -34,6 +34,24 @@
 #define OTP_RSA_HASH_ADDR		0x9c0
 #define OTP_RSA_HASH_SIZE		32
 
+/* firmware key */
+#define OTP_FW_ENC_KEY_ADDR		(0x20 * 4)
+#define OTP_FW_ENC_KEY_SIZE		(0x08 * 4)
+
+#define OTP_OEM_KEY0_ADDR		(0x28 * 4)
+#define OTP_OEM_KEY0_SIZE		(0x08 * 4)
+
+#define OTP_OEM_KEY1_ADDR		(0x30 * 4)
+#define OTP_OEM_KEY1_SIZE		(0x08 * 4)
+
+#define OTP_OEM_KEY2_ADDR		(0x38 * 4)
+#define OTP_OEM_KEY2_SIZE		(0x08 * 4)
+
+#define OTP_OEM_KEY3_ADDR		(0x68 * 4)
+#define OTP_OEM_KEY3_SIZE		(0x08 * 4)
+
+#define CRYPTO_S_BY_KEYLAD_BASE		0xfe420000
+
 /* rockusb */
 #define CFG_USB_DNL_BASE		0xfc000000
 #define CONFIG_ROCKUSB_G_DNL_PID	0x350b
