@@ -1004,13 +1004,13 @@ static int spl_internal_load_kernel_fit(struct spl_image_info *spl_image,
 {
 	struct spl_image_info image_info;
 	struct spl_fit_info ctx;
-	char fit_header[info->bl_len];
+	char fit_header[spl_get_bl_len(info)];
 	ulong offset;
 	int node, ret, i;
 
 	offset = BLK_SIZE(info, sector);
 
-	if (info->read(info, offset, info->bl_len, &fit_header) < info->bl_len) {
+	if (info->read(info, offset, spl_get_bl_len(info), &fit_header) < spl_get_bl_len(info)) {
 		debug("%s: Failed to read header\n", __func__);
 		return -EIO;
 	}
@@ -1382,13 +1382,13 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 #ifdef CONFIG_MP_BOOT
 	mpb_init_1(*info);
 #endif
-	printf("Trying fit image at 0x%lx sector\n", offset / info->bl_len);
+	printf("Trying fit image at 0x%lx sector\n", offset / spl_get_bl_len(info));
 	g_spl_load_info = info;
 	for (i = 0; i < CONFIG_SPL_FIT_IMAGE_MULTIPLE; i++) {
 		if (i > 0) {
 			offset += i * (CONFIG_SPL_FIT_IMAGE_KB << 10);
-			printf("Trying fit image at 0x%lx sector\n", offset / info->bl_len);
-			if (info->read(info, offset, info->bl_len, fit) < info->bl_len) {
+			printf("Trying fit image at 0x%lx sector\n", offset / spl_get_bl_len(info));
+			if (info->read(info, offset, spl_get_bl_len(info), fit) < spl_get_bl_len(info)) {
 				printf("IO error\n");
 				continue;
 			}
