@@ -13,7 +13,10 @@ dedupe_ignore_keys=(
 )
 
 platform_list=(
+	rv1103b
 	rk3538
+	rk3562
+	rk3568
 	rk3572
 	rk3576
 	rk3588
