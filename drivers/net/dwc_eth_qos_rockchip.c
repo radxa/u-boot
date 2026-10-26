@@ -1125,6 +1125,9 @@ static int rv1106bs_set_to_rmii(struct udevice *dev)
 
 static int rv1106bs_set_gmac_speed(struct udevice *dev)
 {
+	struct eqos_priv *eqos = dev_get_priv(dev);
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct rockchip_platform_data *data = pdata->priv_pdata;
 	unsigned int val;
 
 	switch (eqos->phy->speed) {
