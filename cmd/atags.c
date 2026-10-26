@@ -127,6 +127,8 @@ static void atags_print_tag(struct tag *t)
 		printf("     magic = 0x%x\n", t->hdr.magic);
 		printf("   version = 0x%x\n", t->u.ram_part.version);
 		printf("     count = 0x%x\n", t->u.ram_part.count);
+		printf("   rd_base = 0x%llx\n", t->u.ram_part.ramdisk_base);
+		printf("   rd_size = 0x%x\n", t->u.ram_part.ramdisk_size);
 		for (i = 0; i < ARRAY_SIZE(t->u.ram_part.reserved); i++)
 			printf("    res[%d] = 0x%x\n", i, t->u.ram_part.reserved[i]);
 
