@@ -146,6 +146,7 @@ struct file_cache {
 };
 
 static uint8_t *meta_buffer;
+static uint8_t *verify_buffer;
 static struct meta_block meta_info;
 static struct cache_block cache_info[2];
 static struct file_cache read_cache;
@@ -1086,6 +1087,15 @@ static int rkss_storage_init(void)
 			meta_buffer = NULL;
 			return -1;
 		}
+
+		/* Always use, no need to release */
+		verify_buffer = (uint8_t *)memalign(CONFIG_SYS_CACHELINE_SIZE, blksz);
+		if (!verify_buffer) {
+			printf("%s: Malloc verify buffer failed!\n", __func__);
+			free(meta_buffer);
+			meta_buffer = NULL;
+			return -1;
+		}
 	}
 
 	for (int i = 0; i < ARRAY_SIZE(cache_info); i++) {
@@ -1108,6 +1118,11 @@ static int rkss_sync_cache_block(void)
 	uint32_t ret, ver;
 	int block_id;
 
+	if (verify_buffer == NULL) {
+		printf("%s: verify_buffer is null\n", __func__);
+		return -1;
+	}
+
 	// write cache buffer to device.
 	for (uint32_t n = 0; n < ARRAY_SIZE(cache_info); n++) {
 		if (!cache_info[n].data || !cache_info[n].used)
@@ -1129,15 +1144,15 @@ static int rkss_sync_cache_block(void)
 			return -1;
 		}
 
-		/* verify */
-		memset(cache_info[n].data, 0, blksz);
+		/* verify with a scratch buffer, keep cache on failure for retry */
+		memset(verify_buffer, 0, blksz);
 		ret = blk_dread(dev_desc, get_area_page_offset(ver) + block_id * pages_per_block,
-				pages_per_block, cache_info[n].data);
+				pages_per_block, verify_buffer);
 		if (ret != pages_per_block) {
 			printf("%s: blk_read fail\n", __func__);
 			return -1;
 		}
-		if (rkss_crc32(cache_info[n].data, blksz, 0) != meta_info.header->block_crc[block_id]) {
+		if (rkss_crc32(verify_buffer, blksz, 0) != meta_info.header->block_crc[block_id]) {
 			printf("%s: blk verify fail\n", __func__);
 			return -1;
 		}
@@ -1156,6 +1171,11 @@ static int rkss_sync_meta_block(void)
 	uint32_t pages_per_block = blksz / page_size;
 	uint32_t crc_size = blksz - sizeof(struct meta_footer);
 	uint32_t ret, ver;
+	uint32_t old_counter, old_footer_tag, old_footer_crc, old_footer_counter;
+	uint16_t old_block_dirty;
+	uint8_t old_block_update[ARRAY_SIZE(meta_info.header->block_update)];
+	struct meta_header *vheader;
+	struct meta_footer *vfooter;
 
 	int meta_id = get_meta_block_id();
 	if (meta_id < 0) {
@@ -1173,14 +1193,31 @@ static int rkss_sync_meta_block(void)
 		return -1;
 	}
 
+	if (verify_buffer == NULL) {
+		printf("%s verify_buffer is null\n", __func__);
+		return -1;
+	}
+
 	if (meta_info.header->block_dirty == 0) {
 		debug("No need to sync meta block!\n");
 		return 0;
 	}
 
+	/*
+	 * Save the committed state so that a failed write/verify can be
+	 * retried without losing the in-memory meta data.
+	 */
+	old_counter = meta_info.header->counter;
+	old_block_dirty = meta_info.header->block_dirty;
+	memcpy(old_block_update, meta_info.header->block_update,
+	       ARRAY_SIZE(meta_info.header->block_update));
+	old_footer_tag = meta_info.footer->tag;
+	old_footer_crc = meta_info.footer->crc;
+	old_footer_counter = meta_info.footer->counter;
+
 	meta_info.header->counter++;
 	meta_info.header->block_dirty = 0;
-	memset(meta_info.header->block_update, 0, 128);
+	memset(meta_info.header->block_update, 0, ARRAY_SIZE(meta_info.header->block_update));
 	meta_info.footer->tag = RKSS_TAG;
 	meta_info.footer->counter = meta_info.header->counter;
 	meta_info.footer->crc = rkss_crc32(meta_buffer, crc_size, 0);
@@ -1194,30 +1231,50 @@ static int rkss_sync_meta_block(void)
 			 pages_per_block, meta_buffer);
 	if (ret != pages_per_block) {
 		printf("%s: blk_dwrite fail\n", __func__);
-		return -1;
+		goto err;
 	}
 
-	/* verify */
-	memset(meta_buffer, 0, blksz);
+	/* verify with a scratch buffer, keep meta_buffer intact in RAM */
+	memset(verify_buffer, 0, blksz);
 	ret = blk_dread(dev_desc, get_area_page_offset(ver) + meta_id * pages_per_block,
-			pages_per_block, meta_buffer);
+			pages_per_block, verify_buffer);
 	if (ret != pages_per_block) {
 		printf("%s: blk_read fail\n", __func__);
-		return -1;
+		goto err;
 	}
 
-	if (meta_info.header->tag != RKSS_TAG ||
-	    meta_info.footer->counter != meta_info.header->counter ||
-	    rkss_crc32(meta_buffer, crc_size, 0) != meta_info.footer->crc) {
+	vheader = (struct meta_header *)(void *)verify_buffer;
+	vfooter = (struct meta_footer *)(void *)(verify_buffer + blksz - page_size);
+	if (vheader->tag != RKSS_TAG ||
+	    vfooter->tag != RKSS_TAG ||
+	    vheader->counter != meta_info.header->counter ||
+	    vfooter->counter != meta_info.header->counter ||
+	    vfooter->crc != meta_info.footer->crc ||
+	    rkss_crc32(verify_buffer, crc_size, 0) != meta_info.footer->crc) {
 		printf("%s: blk verify fail\n", __func__);
-		return -1;
+		goto err;
 	}
 
 	return 0;
+
+err:
+	meta_info.header->counter = old_counter;
+	meta_info.header->block_dirty = old_block_dirty;
+	memcpy(meta_info.header->block_update, old_block_update,
+	       ARRAY_SIZE(meta_info.header->block_update));
+	meta_info.footer->tag = old_footer_tag;
+	meta_info.footer->crc = old_footer_crc;
+	meta_info.footer->counter = old_footer_counter;
+	return -1;
 }
 
 static int rkss_sync_block(void)
 {
+	if (meta_buffer == NULL || meta_info.header == NULL) {
+		printf("%s: meta buffer is null\n", __func__);
+		return -1;
+	}
+
 	if (rkss_sync_cache_block() < 0) {
 		printf("rkss_sync_cache_block fail !\n");
 		return -1;
@@ -1955,7 +2012,10 @@ int tee_supp_rk_fs_process_v3(size_t num_params,
 	case OPTEE_MRF_CLOSE:
 		debug(">>>>>>> [%d] OPTEE_MRF_CLOSE!\n", rkss_step++);
 		ret = ree_fs_new_close(num_params, params);
-		rkss_sync_block();
+		if (rkss_sync_block() < 0) {
+			printf("sync block failed on close!\n");
+			ret = TEE_ERROR_GENERIC;
+		}
 		break;
 	case OPTEE_MRF_READ:
 		debug(">>>>>>> [%d] OPTEE_MRF_READ!\n", rkss_step++);
@@ -1972,12 +2032,18 @@ int tee_supp_rk_fs_process_v3(size_t num_params,
 	case OPTEE_MRF_REMOVE:
 		debug(">>>>>>> [%d] OPTEE_MRF_REMOVE!\n", rkss_step++);
 		ret = ree_fs_new_remove(num_params, params);
-		rkss_sync_block();
+		if (rkss_sync_block() < 0) {
+			printf("sync block failed on remove!\n");
+			ret = TEE_ERROR_GENERIC;
+		}
 		break;
 	case OPTEE_MRF_RENAME:
 		debug(">>>>>>> [%d] OPTEE_MRF_RENAME!\n", rkss_step++);
 		ret = ree_fs_new_rename(num_params, params);
-		rkss_sync_block();
+		if (rkss_sync_block() < 0) {
+			printf("sync block failed on rename!\n");
+			ret = TEE_ERROR_GENERIC;
+		}
 		break;
 	case OPTEE_MRF_OPENDIR:
 		debug(">>>>>>> [%d] OPTEE_MRF_OPENDIR!\n", rkss_step++);
