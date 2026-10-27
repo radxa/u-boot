@@ -106,6 +106,14 @@ parse_fn_t board_bidram_parse_fn(void);
  * @return 0 on success, otherwise error
  */
 int board_bidram_reserve(struct bidram *bidram);
+
+/**
+ * bidram_gd_ext_init() - Weak function for board to implement
+ *
+ * @return 0 on success, otherwise error
+ */
+int bidram_gd_ext_init(void);
+
 #else
 static inline int bidram_initr(void) { return 0; }
 static inline phys_size_t bidram_get_ram_size(void) { return 0; }
@@ -119,6 +127,7 @@ static inline int bidram_fixup(void) { return 0; }
 static inline u64 bidram_append_size(void) { return 0; }
 static inline parse_fn_t board_bidram_parse_fn(void) { return NULL; }
 static inline int board_bidram_reserve(struct bidram *bidram) { return 0; }
+static inline int bidram_gd_ext_init(void) { return 0; }
 static inline struct memblock *
 	bidram_reserved_is_overlap(phys_addr_t base, phys_size_t size)
 {

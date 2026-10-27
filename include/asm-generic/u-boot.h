@@ -65,6 +65,14 @@ struct bd_info {
 		u64 start;
 		u64 size;
 	} bi_dram[CONFIG_NR_DRAM_BANKS];
+
+	/* RISCV SMODE: board-specific dram */
+#if CONFIG_IS_ENABLED(RISCV_SMODE)
+	struct {
+		u64 start;
+		u64 size;
+	} bi_dram_ext[CONFIG_NR_DRAM_BANKS];
+#endif
 };
 
 #endif /* __ASSEMBLY__ */

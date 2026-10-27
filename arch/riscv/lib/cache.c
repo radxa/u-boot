@@ -108,6 +108,14 @@ __weak void flush_dcache_all(void)
 		start = gd->bd->bi_dram[i].start;
 		end = start + gd->bd->bi_dram[i].size;
 		cbo_flush(start, end);
+
+		/* board-specific dram */
+		if (!gd->bd->bi_dram_ext[i].size)
+			continue;
+
+		start = gd->bd->bi_dram_ext[i].start;
+		end = start + gd->bd->bi_dram_ext[i].size;
+		cbo_flush(start, end);
 	}
 #endif
 }
@@ -133,6 +141,14 @@ __weak void invalidate_dcache_all(void)
 
 		start = gd->bd->bi_dram[i].start;
 		end = start + gd->bd->bi_dram[i].size;
+		cbo_inval(start, end);
+
+		/* board-specific dram */
+		if (!gd->bd->bi_dram_ext[i].size)
+			continue;
+
+		start = gd->bd->bi_dram_ext[i].start;
+		end = start + gd->bd->bi_dram_ext[i].size;
 		cbo_inval(start, end);
 	}
 #endif

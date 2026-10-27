@@ -507,6 +507,15 @@ phys_size_t bidram_get_ram_size(void)
 		return 0;
 	}
 
+	/* Init: gd->bd->bi_dram_ext[] */
+	if (gd->flags & GD_FLG_RELOC) {
+		ret = bidram_gd_ext_init();
+		if (ret) {
+			BIDRAM_E("Failed to init gd bi_dram_ext[] for board\n");
+			return 0;
+		}
+	}
+
 	BIDRAM_D("DRAM size: 0x%08lx\n",
 		 (ulong)ram_addr_end - CFG_SYS_SDRAM_BASE);
 
@@ -526,6 +535,12 @@ __weak parse_fn_t board_bidram_parse_fn(void)
 __weak int board_bidram_reserve(struct bidram *bidram)
 {
 	/* please define platform specific board_bidram_reserve() */
+	return 0;
+}
+
+__weak int bidram_gd_ext_init(void)
+{
+	/* please define platform specific bidram_gd_ext_init() */
 	return 0;
 }
 
