@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2026 Rockchip Electronics Co., Ltd.
+ */
+
+#include <dt-bindings/input/input.h>
+
+/ {
+	aliases {
+		mmc0 = &sdhci;
+	};
+
+	chosen {
+		stdout-path = &uart2;
+		u-boot,spl-boot-order = &sdhci;
+	};
+
+	firmware: firmware {
+		bootph-all;
+
+		optee: optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+			bootph-all;
+			status = "okay";
+		};
+	};
+
+	/* Secure and non-secure Crypto views share the same register base. */
+	crypto_s: crypto_s@fe380000 {
+		compatible = "rockchip,rk3568-crypto";
+		reg = <0x0 0xfe380000 0x0 0x4000>;
+		secure;
+		clocks = <&cru CLK_CRYPTO_NS_CORE>, <&cru CLK_CRYPTO_NS_PKA>;
+		clock-names = "sclk_crypto", "apkclk_crypto";
+		clock-frequency = <150000000>, <300000000>;
+		bootph-all;
+		status = "okay";
+	};
+
+	adc-keys {
+		compatible = "adc-keys";
+		io-channels = <&saradc 0>;
+		io-channel-names = "buttons";
+		keyup-threshold-microvolt = <1800000>;
+		bootph-all;
+		status = "okay";
+
+		volumeup-key {
+			bootph-all;
+			linux,code = <KEY_VOLUMEUP>;
+			label = "volume up";
+			press-threshold-microvolt = <9>;
+		};
+	};
+};
+
+&xin24m {
+	bootph-all;
+};
+
+&psci {
+	bootph-all;
+	status = "okay";
+};
+
+&grf {
+	bootph-all;
+	status = "okay";
+};
+
+&pmugrf {
+	bootph-all;
+	status = "okay";
+};
+
+&cru {
+	bootph-all;
+	status = "okay";
+};
+
+&pmucru {
+	bootph-all;
+	status = "okay";
+};
+
+&uart2 {
+	clock-frequency = <24000000>;
+	bootph-all;
+	/delete-property/ pinctrl-names;
+	/delete-property/ pinctrl-0;
+	status = "okay";
+};
+
+&saradc {
+	bootph-all;
+	status = "okay";
+};
+
+&sdhci {
+	bus-width = <8>;
+	bootph-all;
+	/delete-property/ pinctrl-names;
+	/delete-property/ pinctrl-0;
+	mmc-hs400-1_8v;
+	non-removable;
+	status = "okay";
+};
+
+&crypto {
+	bootph-all;
+	status = "okay";
+};
+
+/* Keep USB cable detection available for the download key. */
+&usb2phy0_grf {
+	bootph-all;
+	status = "okay";
+};
+
+&usb2phy0 {
+	bootph-all;
+	status = "okay";
+};
+
+&u2phy0_otg {
+	bootph-all;
+	status = "okay";
+};

@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0+
+/* RK3568 evaluation board SPL thunderboot control device tree. */
+
+/dts-v1/;
+#include "rk3568.dtsi"
+
+/ {
+	model = "Rockchip RK3568 Evaluation Board Thunderboot";
+	compatible = "rockchip,rk3568-evb", "rockchip,rk3568";
+};
