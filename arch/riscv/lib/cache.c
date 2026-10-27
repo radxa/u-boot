@@ -25,7 +25,14 @@ enum {
 	CBO_FLUSH,
 	CBO_INVAL
 } riscv_cbo_ops;
-static int zicbom_block_size;
+
+/*
+ * Keep zicbom_block_size in .data, like riscv_cbom_block_size.
+ * start.S clears the relocated BSS, but calls flush_dcache_all() before
+ * jumping to relocated code. The original BSS is not initialized then.
+ */
+static int zicbom_block_size __section(".data") = 0;
+
 extern unsigned int riscv_get_cbom_block_size(void);
 static inline void do_cbo_clean(unsigned long base)
 {
@@ -108,8 +115,10 @@ __weak void flush_dcache_all(void)
 		start = gd->bd->bi_dram[i].start;
 		end = start + gd->bd->bi_dram[i].size;
 		cbo_flush(start, end);
+	}
 
-		/* board-specific dram */
+	/* board-specific dram */
+	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		if (!gd->bd->bi_dram_ext[i].size)
 			continue;
 
@@ -142,8 +151,10 @@ __weak void invalidate_dcache_all(void)
 		start = gd->bd->bi_dram[i].start;
 		end = start + gd->bd->bi_dram[i].size;
 		cbo_inval(start, end);
+	}
 
-		/* board-specific dram */
+	/* board-specific dram */
+	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		if (!gd->bd->bi_dram_ext[i].size)
 			continue;
 
