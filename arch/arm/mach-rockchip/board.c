@@ -372,7 +372,8 @@ int board_init(void)
 	return rk_board_init();
 }
 
-#if !defined(CONFIG_SYS_DCACHE_OFF) && !defined(CONFIG_ARM64)
+/* arm64 and riscv have their own weak enable_caches(), don't override it */
+#if !defined(CONFIG_SYS_DCACHE_OFF) && !defined(CONFIG_ARM64) && !defined(CONFIG_RISCV)
 void enable_caches(void)
 {
 	icache_enable();
