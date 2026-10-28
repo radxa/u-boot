@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+#include "rk3576-rock-4d-u-boot.dtsi"
+
+/ {
+	chosen {
+		/* Keep the SPI bootloader authoritative; scan OS media in U-Boot. */
+		u-boot,spl-boot-order = &spi_nor, &sdmmc, "same-as-spl";
+	};
+};
+
+/* Apply after the SoC defaults, which otherwise re-enable eMMC. */
+&sdhci {
+	status = "disabled";
+};
+
+&sfc0 {
+	bootph-all;
+	pinctrl-names = "default";
+	pinctrl-0 = <&fspi0_pins &fspi0_csn0>;
+	status = "okay";
+};
+
+&fspi0_pins {
+	bootph-all;
+};
+
+&fspi0_csn0 {
+	bootph-all;
+};

@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+#include <dt-bindings/input/input.h>
+#include "rk3576-u-boot.dtsi"
+
+/ {
+	chosen {
+		/* SD recovery first, then the module fitted to the storage connector. */
+		u-boot,spl-boot-order = &sdmmc, &sdhci, &ufs, "same-as-spl";
+	};
+
+	bootstd {
+		filename-prefixes = "/", "/boot/";
+	};
+
+	vcc5v0_host: vcc5v0-host {
+		bootph-all;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_host";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_host_pwren>;
+	};
+
+	vcc5v0_otg: vcc5v0-otg {
+		bootph-all;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_otg";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio2 RK_PD2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_otg_pwren>;
+	};
+};
+
+&spi_nand {
+	status = "disabled";
+};
+
+&spi_nor {
+	status = "okay";
+};
+
+&sfc0 {
+	/* FSPI0 shares its pins with eMMC; only the SPI variant enables it. */
+	status = "disabled";
+};
+
+&emmc_bus8 {
+	bootph-all;
+};
+
+&emmc_clk {
+	bootph-all;
+};
+
+&emmc_cmd {
+	bootph-all;
+};
+
+&emmc_strb {
+	bootph-all;
+};
+
+&emmc_rstnout {
+	bootph-all;
+};
+
+&i2c6 {
+	bootph-all;
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c6m3_xfer>;
+
+	eeprom@50 {
+		bootph-all;
+		compatible = "atmel,24c16";
+		reg = <0x50>;
+		pagesize = <16>;
+	};
+};
+
+&i2c6m3_xfer {
+	bootph-all;
+};
+
+&pcfg_pull_none_smt {
+	bootph-all;
+};
+
+&pinctrl {
+	usb {
+		usb_host_pwren: usb-host-pwren {
+			bootph-all;
+			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		usb_otg_pwren: usb-otg-pwren {
+			bootph-all;
+			rockchip,pins = <2 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+};
+
+&u2phy0_otg {
+	vbus-supply = <&vcc5v0_otg>;
+};
+
+&usb_drd0_dwc3 {
+	bootph-all;
+	dr_mode = "host";
+	status = "okay";
+};
+
+&usbdp_phy {
+	rockchip,dp-lane-mux = <2 3>;
+};
+
+&u2phy1 {
+	bootph-all;
+	status = "okay";
+};
+
+&u2phy1_otg {
+	bootph-all;
+	phy-supply = <&vcc5v0_host>;
+	status = "okay";
+};
+
+&combphy1_psu {
+	bootph-all;
+	status = "okay";
+};
+
+&usb_drd1_dwc3 {
+	bootph-all;
+	dr_mode = "host";
+	status = "okay";
+};
+
+&sata0 {
+	/* The board routes this combo PHY to PCIe. */
+	status = "disabled";
+};
