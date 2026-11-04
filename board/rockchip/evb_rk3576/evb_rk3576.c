@@ -111,6 +111,7 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 static struct variant_def variants[] = {
 	{"radxa,rock-4d", 380, 460, 0, 40, "rockchip/rk3576-rock-4d.dtb"},
 	{"radxa,rock-4d-spi", 380, 460, 2000, 2080, "rockchip/rk3576-rock-4d-spi.dtb"},
+	{"radxa,nx4-c200", 780, 860, 0, -1, "rockchip/rk3576-radxa-nx4-orin-c200.dtb"},
 };
 
 static void set_fdtfile(void)
