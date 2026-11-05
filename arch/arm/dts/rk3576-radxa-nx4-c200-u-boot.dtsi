@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+#include "rk3576-radxa-nx4-u-boot.dtsi"
+
+&vcc5v0_hdmi {
+	bootph-all;
+};
+
+&hdmi_en {
+	bootph-all;
+};
+
+&vcc_1v8_shutdown {
+	bootph-all;
+};
+
+&shutdown_en {
+	bootph-all;
+};
+
+&usb_drd0_dwc3 {
+	bootph-all;
+};
+
+&u2phy1 {
+	bootph-all;
+};
+
+&u2phy1_otg {
+	bootph-all;
+};
+
+&usb_drd1_dwc3 {
+	bootph-all;
+};
+
+&combphy1_psu {
+	bootph-all;
+};
+
+&pcie0 {
+	bootph-all;
+};
+
+&pcie0_intc {
+	bootph-all;
+};
+
+&sata0 {
+	/* C200 routes combo PHY0 to the PCIe connector. */
+	status = "disabled";
+};
