@@ -8,10 +8,16 @@
 /dts-v1/;
 
 #include "rk3576-radxa-cm4.dtsi"
+#include <dt-bindings/display/rockchip_vop.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Radxa CM4 RPI CM4 IO Board";
 	compatible = "radxa,cm4-rpi-cm4-io", "radxa,cm4", "rockchip,rk3576";
+
+	chosen {
+		u-boot,spl-boot-order = &spi_nor, "same-as-spl";
+	};
 
 	vcc12v_dcin: vcc12v-dcin {
 		compatible = "regulator-fixed";
@@ -148,6 +154,108 @@
 			contribution = <8192>;
 		};
 	};
+};
+
+&vdpp {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&vop {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&vop_out {
+	u-boot,dm-pre-reloc;
+};
+
+&vop_mmu {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&pmu {
+	u-boot,dm-pre-reloc;
+};
+
+&vp0 {
+	u-boot,dm-pre-reloc;
+	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER0 | 1 << ROCKCHIP_VOP2_ESMART0)>;
+	rockchip,primary-plane = <ROCKCHIP_VOP2_CLUSTER0>;
+	cursor-win-id = <ROCKCHIP_VOP2_ESMART0>;
+};
+
+&vp1 {
+	u-boot,dm-pre-reloc;
+	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER1 | 1 << ROCKCHIP_VOP2_ESMART1)>;
+	rockchip,primary-plane = <ROCKCHIP_VOP2_CLUSTER1>;
+	cursor-win-id = <ROCKCHIP_VOP2_ESMART1>;
+};
+
+&vp2 {
+	u-boot,dm-pre-reloc;
+	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_ESMART2 | 1 << ROCKCHIP_VOP2_ESMART3)>;
+	rockchip,primary-plane = <ROCKCHIP_VOP2_ESMART2>;
+	cursor-win-id = <ROCKCHIP_VOP2_ESMART3>;
+};
+
+&vp0_out_hdmi {
+	u-boot,dm-pre-reloc;
+};
+
+&display_subsystem {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	clocks = <&hdptxphy_hdmi>;
+	clock-names = "hdmi0_phy_pll";
+};
+
+&hdmi {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	cec-enable;
+	enable-gpios = <&gpio2 RK_PB0 GPIO_ACTIVE_HIGH>;
+};
+
+&hdmi_in {
+	u-boot,dm-pre-reloc;
+};
+
+&hdmi_in_vp0 {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&hdptxphy_grf {
+	u-boot,dm-pre-reloc;
+};
+
+&vo0_grf {
+	u-boot,dm-pre-reloc;
+};
+
+&hdptxphy_hdmi {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&route_hdmi {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+	connect = <&vp0_out_hdmi>;
+};
+
+&hdmi_txm0_pins {
+	u-boot,dm-pre-reloc;
+};
+
+&hdmi_tx_scl {
+	u-boot,dm-pre-reloc;
+};
+
+&hdmi_tx_sda {
+	u-boot,dm-pre-reloc;
 };
 
 &pinctrl {
