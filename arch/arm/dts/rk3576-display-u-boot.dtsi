@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+&display_subsystem {
+	bootph-all;
+};
+
+&hdmi {
+	bootph-all;
+};
+
+&hdmi_in {
+	bootph-all;
+};
+
+&hdmi_in_vp0 {
+	bootph-all;
+};
+
+&hdptxphy {
+	bootph-all;
+};
+
+&hdptxphy_grf {
+	bootph-all;
+};
+
+&vo0_grf {
+	bootph-all;
+};
+
+&route_hdmi {
+	bootph-all;
+};
+
+&vop {
+	bootph-all;
+};
+
+&vop_mmu {
+	bootph-all;
+};
+
+&vop_out {
+	bootph-all;
+};
+
+&pmu {
+	bootph-all;
+};
+
+&power {
+	bootph-all;
+};
+
+&vp0 {
+	bootph-all;
+	rockchip,plane-mask = <0x5>;
+	rockchip,primary-plane = <0>;
+	cursor-win-id = <2>;
+};
+
+&vp1 {
+	bootph-all;
+	rockchip,plane-mask = <0xa>;
+	rockchip,primary-plane = <1>;
+	cursor-win-id = <3>;
+};
+
+&vp2 {
+	bootph-all;
+	rockchip,plane-mask = <0x300>;
+	rockchip,primary-plane = <8>;
+	cursor-win-id = <9>;
+};
+
+&vp0_out_hdmi {
+	bootph-all;
+};
+
+&hdmi_txm0_pins {
+	bootph-all;
+};
+
+&hdmi_tx_scl {
+	bootph-all;
+};
+
+&hdmi_tx_sda {
+	bootph-all;
+};
+
+&pcfg_pull_none_smt {
+	bootph-all;
+};
