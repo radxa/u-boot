@@ -2482,6 +2482,17 @@ void rockchip_display_fixup(void *blob)
 		list_for_each_entry(s, &rockchip_display_list, head) {
 			if (s->is_init) {
 				ret = load_bmp_logo(&s->logo, s->klogo_name, 0);
+				/*
+				 * The kernel logo is normally loaded from the resource
+				 * image. If it is unavailable, reuse the cached U-Boot
+				 * logo so the kernel can inherit the active framebuffer.
+				 */
+				if (ret < 0 && s->ulogo_name[0]) {
+					printf("VP%d kernel logo '%s' not found, reuse '%s'\n",
+					       s->crtc_state.crtc_id, s->klogo_name,
+					       s->ulogo_name);
+					ret = load_bmp_logo(&s->logo, s->ulogo_name, 0);
+				}
 				if (ret < 0) {
 					s->is_klogo_valid = false;
 					printf("VP%d fail to load kernel logo\n",
