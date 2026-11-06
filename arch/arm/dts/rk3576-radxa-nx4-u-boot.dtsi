@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 #include <dt-bindings/input/input.h>
 #include "rk3576-u-boot.dtsi"
+#include "rk3576-display-u-boot.dtsi"
 
 / {
 	chosen {
@@ -37,70 +38,6 @@
 };
 
 &eeprom {
-	bootph-all;
-};
-
-&display_subsystem {
-	bootph-all;
-};
-
-&hdmi {
-	bootph-all;
-};
-
-&hdmi_in {
-	bootph-all;
-};
-
-&hdmi_in_vp0 {
-	bootph-all;
-};
-
-&hdptxphy {
-	bootph-all;
-};
-
-&hdptxphy_grf {
-	bootph-all;
-};
-
-&route_hdmi {
-	bootph-all;
-};
-
-&vop {
-	bootph-all;
-};
-
-&vop_mmu {
-	bootph-all;
-};
-
-&vop_out {
-	bootph-all;
-};
-
-&vp0 {
-	bootph-all;
-};
-
-&vp0_out_hdmi {
-	bootph-all;
-};
-
-&hdmi_txm0_pins {
-	bootph-all;
-};
-
-&hdmi_tx_scl {
-	bootph-all;
-};
-
-&hdmi_tx_sda {
-	bootph-all;
-};
-
-&pcfg_pull_none_smt {
 	bootph-all;
 };
 

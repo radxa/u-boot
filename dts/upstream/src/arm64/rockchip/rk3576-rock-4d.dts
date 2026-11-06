@@ -8,6 +8,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/rockchip.h>
 #include "rk3576.dtsi"
+#include "rk3576-display.dtsi"
 #include <dt-bindings/input/input.h>
 
 / {
@@ -78,6 +79,36 @@
 
 &pcie0_intc {
 	u-boot,dm-pre-reloc;
+};
+
+&display_subsystem {
+	status = "okay";
+};
+
+&hdmi {
+	enable-gpios = <&gpio2 RK_PB0 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&hdmi_in_vp0 {
+	status = "okay";
+};
+
+&hdptxphy {
+	status = "okay";
+};
+
+&route_hdmi {
+	status = "okay";
+	connect = <&vp0_out_hdmi>;
+};
+
+&vop {
+	status = "okay";
+};
+
+&vop_mmu {
+	status = "okay";
 };
 
 &pinctrl {
