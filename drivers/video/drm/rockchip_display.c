@@ -1325,8 +1325,23 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name, uintptr_t
 	bmp_create(&bmp, &bitmap_callbacks);
 
 	if (addr) {
-		len = MAX_IMAGE_BYTES;
-		memcpy(bmp_data, (void *)addr, MAX_IMAGE_BYTES);
+		const u8 *data = (const u8 *)addr;
+
+		if (data[0] != 'B' || data[1] != 'M') {
+			printf("invalid bmp at 0x%lx\n", (ulong)addr);
+			ret = -EINVAL;
+			goto free_bmp_data;
+		}
+
+		len = get_unaligned_le32(data + 2);
+		if (len <= 0 || len > MAX_IMAGE_BYTES) {
+			printf("invalid bmp size %d at 0x%lx\n", len,
+			       (ulong)addr);
+			ret = -E2BIG;
+			goto free_bmp_data;
+		}
+
+		memcpy(bmp_data, data, len);
 	} else {
 		len = resource_read_file(bmp_data, bmp_name, 0, MAX_IMAGE_BYTES);
 		if (len < 0) {
@@ -1601,9 +1616,15 @@ int rockchip_show_logo(void)
 	int count = 0;
 
 	list_for_each_entry(s, &rockchip_display_list, head) {
+		uintptr_t addr = 0;
+
 		s->logo.mode = s->logo_mode;
 		s->logo.rotate = s->logo_rotate;
-		if (load_bmp_logo(&s->logo, s->ulogo_name, 0)) {
+#ifdef CONFIG_ROCKCHIP_FIT_LOGO
+		addr = CONFIG_ROCKCHIP_FIT_LOGO_LOAD_ADDR;
+#endif
+		if (load_bmp_logo(&s->logo, s->ulogo_name, addr) &&
+		    (!addr || load_bmp_logo(&s->logo, s->ulogo_name, 0))) {
 			printf("failed to display uboot logo\n");
 		} else {
 			ret = display_logo(s);

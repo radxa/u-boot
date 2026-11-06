@@ -159,6 +159,41 @@ function gen_fdt_node()
 	FDT="fdt = ${FDT_LIST};"
 };
 
+function gen_fit_logo_node()
+{
+	local LOGO_PATH
+	local LOGO_LOAD_ADDR
+
+	if ! grep -q '^CONFIG_ROCKCHIP_FIT_LOGO=y' .config; then
+		return
+	fi
+
+	LOGO_PATH=`sed -n 's/^CONFIG_ROCKCHIP_FIT_LOGO_PATH="\(.*\)"/\1/p' .config`
+	LOGO_LOAD_ADDR=`sed -n 's/^CONFIG_ROCKCHIP_FIT_LOGO_LOAD_ADDR=//p' .config`
+	if [ -z "${LOGO_PATH}" ] || [ ! -f "${srctree}/${LOGO_PATH}" ]; then
+		echo "ERROR: Invalid FIT logo path: ${LOGO_PATH}" >&2
+		exit 1
+	fi
+	if [ -z "${LOGO_LOAD_ADDR}" ]; then
+		echo "ERROR: No FIT logo load address" >&2
+		exit 1
+	fi
+
+	echo "		logo {
+			description = \"Rockchip boot logo\";
+			data = /incbin/(\"${LOGO_PATH}\");
+			type = \"standalone\";
+			arch = \"${U_ARCH}\";
+			compression = \"none\";
+			load = ${FIT_ADDR_PREFIX}<${LOGO_LOAD_ADDR}>;
+			hash {
+				algo = \"sha256\";
+			};
+		};"
+
+	LOADABLE_LOGO="\"logo\""
+}
+
 function gen_kfdt_node()
 {
 	if [ -z ${UBOOT_LOAD_ADDR} ]; then
@@ -524,6 +559,7 @@ function gen_firmware_configurations()
 	LOADABLES=`append_list "${LOADABLE_UBOOT}" "${LOADABLE_FIRMWARE}"`
 	LOADABLES=`append_list "${LOADABLES}" "${LOADABLE_TEE}"`
 	LOADABLES=`append_list "${LOADABLES}" "${LOADABLE_OTHER}"`
+	LOADABLES=`append_list "${LOADABLES}" "${LOADABLE_LOGO}"`
 	SIGN_IMAGES=`append_list "\"firmware\"" "\"loadables\""`
 	SIGN_IMAGES=`append_list "${SIGN_IMAGES}" "${FDT_SIGN}"`
 	SIGN_IMAGES=`append_list "${SIGN_IMAGES}" "${STANDALONE_SIGN}"`
