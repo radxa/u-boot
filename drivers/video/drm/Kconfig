@@ -16,6 +16,27 @@ config DRM_MEM_RESERVED_SIZE_MBYTES
 	depends on DRM_ROCKCHIP
 	default 32
 
+config ROCKCHIP_FIT_LOGO
+	bool "Embed a boot logo as a FIT loadable"
+	depends on DRM_ROCKCHIP && SPL_LOAD_FIT
+	help
+	  Embed a BMP image in u-boot.itb as a separate loadable. SPL loads
+	  the image before entering U-Boot, and the Rockchip DRM logo path
+	  decodes it directly from the configured memory address.
+
+config ROCKCHIP_FIT_LOGO_PATH
+	string "FIT boot logo path"
+	depends on ROCKCHIP_FIT_LOGO
+	help
+	  Path to an uncompressed BMP image, relative to the U-Boot source
+	  directory.
+
+config ROCKCHIP_FIT_LOGO_LOAD_ADDR
+	hex "FIT boot logo load address"
+	depends on ROCKCHIP_FIT_LOGO
+	help
+	  DRAM address where SPL loads the embedded BMP image.
+
 config DRM_DP_HELPER
 	bool
 	depends on DRM_ROCKCHIP
@@ -312,4 +333,3 @@ config ROCKCHIP_VIDCONSOLE_BPP8
 endchoice
 
 source "drivers/video/drm/display-serdes/Kconfig"
-

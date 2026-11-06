@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+#include <dt-bindings/input/input.h>
+#include "rk3576-u-boot.dtsi"
+#include "rk3576-display-u-boot.dtsi"
+
+/ {
+	chosen {
+		u-boot,spl-boot-order = &sdhci, "same-as-spl";
+	};
+};
+
+&emmc_bus8 {
+	bootph-all;
+};
+
+&emmc_clk {
+	bootph-all;
+};
+
+&emmc_cmd {
+	bootph-all;
+};
+
+&emmc_strb {
+	bootph-all;
+};
+
+&emmc_rstnout {
+	bootph-all;
+};
+
+&i2c6 {
+	bootph-all;
+};
+
+&i2c6m3_xfer {
+	bootph-all;
+};
+
+&eeprom {
+	bootph-all;
+};
+
+&sdmmc {
+	status = "disabled";
+};
+
+&sfc0 {
+	status = "disabled";
+};
+
+&spi_nand {
+	status = "disabled";
+};
+
+&spi_nor {
+	status = "disabled";
+};
+
+&ufs {
+	status = "disabled";
+};
+
+&otp {
+	bootph-all;
+	status = "okay";
+};
