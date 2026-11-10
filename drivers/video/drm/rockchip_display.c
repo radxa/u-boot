@@ -1170,7 +1170,7 @@ static int load_kernel_bmp_logo(struct logo_info *logo, const char *bmp_name)
 	return 0;
 }
 
-#ifdef CONFIG_ROCKCHIP_RESOURCE_IMAGE
+#if defined(CONFIG_ROCKCHIP_RESOURCE_IMAGE) || defined(CONFIG_ROCKCHIP_FAT_LOGO)
 static void *bitmap_create(int width, int height, unsigned int state)
 {
 	/* Ensure a stupidly large bitmap is not created */
