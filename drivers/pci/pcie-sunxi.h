@@ -426,7 +426,7 @@ struct sunxi_pcie {
 	struct reset_ctl    pcie_rst;
 	struct reset_ctl    pwrup_rst;
 	struct reset_ctl    pcie_its_rst;
-	struct phy *phy;
+	struct phy phy;
 	struct dma_trx_obj	*dma_obj;
 	const struct sunxi_pcie_of_data *drvdata;
 	struct gpio_desc	pwr_gpio;
@@ -448,7 +448,7 @@ struct sunxi_pcie {
 #define to_sunxi_pcie_from_ep(endpoint)   \
 		container_of((endpoint), struct sunxi_pcie, ep)
 
-void sunxi_pcie_plat_init(struct udevice *dev);
+int sunxi_pcie_plat_init(struct udevice *dev);
 int sunxi_pcie_plat_hw_init(struct udevice *dev);
 
 void sunxi_pcie_plat_set_rate(struct sunxi_pcie *pci);

@@ -11,7 +11,6 @@
 #include <generic-phy.h>
 #include <pci.h>
 #include <power-domain.h>
-#include <power/regulator.h>
 #include <reset.h>
 #include <syscon.h>
 #include <asm/io.h>
@@ -360,42 +359,44 @@ static int sunxi_pcie_host_speed_change(struct sunxi_pcie *pci, int gen)
 	return 0;
 }
 
-static void sunxi_pcie_host_init(struct udevice *dev)
+static int sunxi_pcie_host_init(struct udevice *dev)
 {
 	struct sunxi_pcie *pci = dev_get_priv(dev);
 	int ret;
 
 	ret = gpio_request_by_name(dev, "pwr-gpios", 0, &pci->pwr_gpio, GPIOD_IS_OUT);
-	if (ret) {
-		printf("dnx: fail to request power gpio\n");
-	}
+	if (ret && ret != -ENOENT)
+		return ret;
 
 	ret = gpio_request_by_name(dev, "rst-gpios", 0, &pci->rst_gpio, GPIOD_IS_OUT);
-	if (ret) {
-		printf("dnx: fail to request reset gpio\n");
-	}
+	if (ret)
+		return ret;
 
 	ret = gpio_request_by_name(dev, "wake-gpios", 0, &pci->wake_gpio, GPIOD_IS_OUT);
-	if (ret) {
-		printf("dnx: fail to request wake gpio\n");
-	}
+	if (ret && ret != -ENOENT)
+		return ret;
 
-	dm_gpio_set_value(&pci->pwr_gpio, 0);
-	mdelay(100);
-	dm_gpio_set_value(&pci->pwr_gpio, 1);
+	if (dm_gpio_is_valid(&pci->pwr_gpio)) {
+		dm_gpio_set_value(&pci->pwr_gpio, 0);
+		mdelay(100);
+		dm_gpio_set_value(&pci->pwr_gpio, 1);
+	}
 
 	sunxi_pcie_plat_ltssm_disable(pci);
 
-	dm_gpio_set_value(&pci->wake_gpio, 1);
+	if (dm_gpio_is_valid(&pci->wake_gpio))
+		dm_gpio_set_value(&pci->wake_gpio, 1);
 	dm_gpio_set_value(&pci->rst_gpio, 0);
 	mdelay(100);
 	dm_gpio_set_value(&pci->rst_gpio, 1);
 
 	sunxi_pcie_host_setup_rc(&pci->pcie_port);
 
-	sunxi_pcie_host_establish_link(pci);
+	ret = sunxi_pcie_host_establish_link(pci);
+	if (ret)
+		return ret;
 
-	sunxi_pcie_host_speed_change(pci, pci->link_gen);
+	return sunxi_pcie_host_speed_change(pci, pci->link_gen);
 }
 
 static int sunxi_pcie_probe(struct udevice *dev)
@@ -403,55 +404,14 @@ static int sunxi_pcie_probe(struct udevice *dev)
 	struct sunxi_pcie *pcie = dev_get_priv(dev);
 	struct udevice *ctlr = pci_get_controller(dev);
 	struct pci_controller *hose = dev_get_uclass_priv(ctlr);
-	struct udevice *pcie1v8_supply, *pcie3v3_supply;
 	int ret;
 
 	pcie->dev = dev;
 	pcie->first_busno = dev_seq(dev);
 	pcie->drvdata = (struct sunxi_pcie_of_data *)dev_get_driver_data(dev);
 	pcie->link_gen = dev_read_u32_default(dev, "max-link-speed", 1);
-	pcie->phy = kmalloc(sizeof(struct phy), __GFP_ZERO);
 
-
-	ret = device_get_supply_regulator(dev, "pcie1v8-supply", &pcie1v8_supply);
-	if (ret) {
-		printf("no pcie1v8-supply\n");
-	} else {
-		pcie->pcie1v8_supply = pcie1v8_supply;
-		ret = regulator_set_enable(pcie1v8_supply, true);
-		if (ret) {
-			printf("fail to enable pcie1v8-supply\n");
-			return ret;
-		}
-
-		ret = regulator_set_value(pcie1v8_supply, 1800000);
-		if (ret) {
-			printf("fail to set pcie1v8 voltage\n");
-			return ret;
-		}
-		printf("success to set pcie1v8 voltage\n");
-	}
-
-	ret = device_get_supply_regulator(dev, "pcie3v3-supply", &pcie3v3_supply);
-	if (ret) {
-		printf("no pcie3v3-supply\n");
-	} else {
-		pcie->pcie3v3_supply = pcie3v3_supply;
-		ret = regulator_set_enable(pcie3v3_supply, true);
-		if (ret) {
-			printf("fail to enable pcie3v3-supply\n");
-			return ret;
-		}
-
-		ret = regulator_set_value(pcie3v3_supply, 3300000);
-		if (ret) {
-			printf("fail to set pcie3v3 voltage\n");
-			return ret;
-		}
-		printf("success to set pcie3v3 voltage\n");
-	}
-
-	ret = generic_phy_get_by_name(dev, "pcie-phy", pcie->phy);
+	ret = generic_phy_get_by_name(dev, "pcie-phy", &pcie->phy);
 
 	if (ret < 0) {
 		printf("%s-%d: failed get pcie-phy %d\n", __func__, __LINE__, ret);
@@ -472,14 +432,16 @@ static int sunxi_pcie_probe(struct udevice *dev)
 			SUNXI_PCIE_MEM_SIZE, PCI_REGION_MEM);
 	hose->region_count = 2;
 
-	sunxi_pcie_plat_init(dev);
+	ret = sunxi_pcie_plat_init(dev);
+	if (ret)
+		return ret;
 
-	sunxi_pcie_plat_hw_init(dev);
+	ret = sunxi_pcie_plat_hw_init(dev);
+	if (ret)
+		return ret;
 
 	/* Start the controller. */
-	sunxi_pcie_host_init(dev);
-
-	return 0;
+	return sunxi_pcie_host_init(dev);
 }
 
 static const struct dm_pci_ops sunxi_pcie_ops = {
