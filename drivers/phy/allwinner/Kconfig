@@ -33,3 +33,13 @@ config PHY_SUN50I_USB3
 	help
 	  Enable this to support the USB3 transceiver that is part of
 	  Allwinner sun50i SoCs.
+
+config PHY_SUN55I_A523_PCIE
+	bool "Allwinner A523 PCIe PHY driver"
+	depends on MACH_SUN55I_A523
+	select PHY
+	help
+	  Enable the INNO combo PHY in PCIe mode on Allwinner A523/A527.
+	  This configures the 100 MHz reference clock and analogue settings
+	  required by the DesignWare PCIe controller. The shared PHY stays
+	  in PCIe mode; USB storage can use the separate USB2 controllers.
