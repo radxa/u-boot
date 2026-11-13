@@ -166,10 +166,10 @@
 	BOOTENV_DEV_MMC(MMC, mmc, 0)					\
 	BOOTENV_DEV_MMC(MMC, mmc, 1)					\
 	"bootcmd_mmc_auto="						\
-		"if test ${mmc_bootdev} -eq 1; then "			\
+		"if test \"${mmc_bootdev}\" = \"1\"; then "		\
 			"run bootcmd_mmc1; "				\
 			"run bootcmd_mmc0; "				\
-		"elif test ${mmc_bootdev} -eq 0; then "			\
+		"else "							\
 			"run bootcmd_mmc0; "				\
 			"run bootcmd_mmc1; "				\
 		"fi\0"
