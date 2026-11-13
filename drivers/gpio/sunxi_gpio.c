@@ -15,6 +15,7 @@
 #include <malloc.h>
 #include <asm/io.h>
 #include <asm/gpio.h>
+#include <dm/device-internal.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <sunxi_gpio.h>
 
@@ -284,15 +285,34 @@ static int sunxi_gpio_get_function(struct udevice *dev, unsigned offset)
 static int sunxi_gpio_xlate(struct udevice *dev, struct gpio_desc *desc,
 			    struct ofnode_phandle_args *args)
 {
+	struct udevice *bank;
 	int ret;
 
-	ret = device_get_child(dev, args->args[0], &desc->dev);
-	if (ret)
-		return ret;
-	desc->offset = args->args[1];
-	desc->flags = gpio_flags_xlate(args->args[2]);
+	if (args->args_count != 3 || args->args[1] >= SUNXI_GPIOS_PER_BANK)
+		return -EINVAL;
 
-	return 0;
+	device_foreach_child(bank, dev) {
+		struct sunxi_gpio_plat *plat;
+
+		/* GPIO hogs are also children, but do not identify a bank. */
+		if (device_get_uclass_id(bank) != UCLASS_GPIO)
+			continue;
+		plat = dev_get_plat(bank);
+		if (!plat || plat->bank != args->args[0])
+			continue;
+
+		ret = device_probe(bank);
+		if (ret)
+			return ret;
+
+		desc->dev = bank;
+		desc->offset = args->args[1];
+		desc->flags = gpio_flags_xlate(args->args[2]);
+
+		return 0;
+	}
+
+	return -EINVAL;
 }
 
 static int sunxi_gpio_set_flags(struct udevice *dev, unsigned int offset,

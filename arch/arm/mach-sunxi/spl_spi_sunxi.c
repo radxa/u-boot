@@ -113,7 +113,8 @@
  */
 static void spi0_pinmux_setup(unsigned int pin_function)
 {
-	if (IS_ENABLED(CONFIG_MACH_SUN60I_A733)) {
+	if (IS_ENABLED(CONFIG_MACH_SUN55I_A523) ||
+	    IS_ENABLED(CONFIG_MACH_SUN60I_A733)) {
 		sunxi_gpio_set_cfgpin(SUNXI_GPC(2), pin_function);
 		sunxi_gpio_set_cfgpin(SUNXI_GPC(3), pin_function);
 		sunxi_gpio_set_cfgpin(SUNXI_GPC(4), pin_function);
@@ -286,8 +287,9 @@ static void spi0_init(void)
 
 	if (IS_ENABLED(CONFIG_MACH_SUN60I_A733))
 		pin_function = 5;
-	else if (IS_ENABLED(CONFIG_MACH_SUN50I) ||
-	    IS_ENABLED(CONFIG_SUN50I_GEN_H6))
+	else if (IS_ENABLED(CONFIG_MACH_SUN55I_A523) ||
+		 IS_ENABLED(CONFIG_MACH_SUN50I) ||
+		 IS_ENABLED(CONFIG_SUN50I_GEN_H6))
 		pin_function = SUN50I_GPC_SPI0;
 	else if (IS_ENABLED(CONFIG_MACH_SUNIV) ||
 		 IS_ENABLED(CONFIG_MACH_SUN8I_R528))

@@ -77,6 +77,7 @@ static struct ccu_reset a523_resets[] = {
 	[RST_BUS_EHCI0]		= RESET(0xa8c, BIT(20)),
 	[RST_BUS_EHCI1]		= RESET(0xa8c, BIT(21)),
 	[RST_BUS_OTG]		= RESET(0xa8c, BIT(24)),
+	[RST_BUS_PCIE_USB3]	= RESET(0xaac, BIT(16)),
 };
 
 static void a523_ccu_init(void *base)

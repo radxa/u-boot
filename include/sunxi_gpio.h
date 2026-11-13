@@ -207,6 +207,7 @@ enum sunxi_gpio_number {
 struct sunxi_gpio_plat {
 	void			*regs;
 	char			bank_name[3];
+	u8			bank;
 };
 
 /* prototypes for the non-DM GPIO/pinctrl functions, used in the SPL */

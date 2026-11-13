@@ -222,6 +222,7 @@ static int sunxi_pinctrl_bind(struct udevice *dev)
 			return -ENOMEM;
 
 		gpio_plat->regs = plat->base + i * sunxi_pinctrl_bank_size(desc);
+		gpio_plat->bank = i;
 		gpio_plat->bank_name[0] = 'P';
 		gpio_plat->bank_name[1] = 'A' + desc->first_bank + i;
 		gpio_plat->bank_name[2] = '\0';

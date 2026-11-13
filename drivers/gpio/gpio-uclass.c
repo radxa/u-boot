@@ -290,6 +290,12 @@ static int gpio_find_and_xlate(struct gpio_desc *desc,
 
 #if CONFIG_IS_ENABLED(GPIO_HOG)
 
+static int gpio_request_tail(int ret, const char *nodename,
+			     struct ofnode_phandle_args *args,
+			     const char *list_name, int index,
+			     struct gpio_desc *desc, int flags,
+			     bool add_index, struct udevice *gpio_dev);
+
 struct gpio_hog_priv {
 	struct gpio_desc gpiod;
 };
@@ -297,13 +303,14 @@ struct gpio_hog_priv {
 struct gpio_hog_data {
 	int gpiod_flags;
 	int value;
-	u32 val[2];
+	struct ofnode_phandle_args args;
 };
 
 static int gpio_hog_of_to_plat(struct udevice *dev)
 {
 	struct gpio_hog_data *plat = dev_get_plat(dev);
 	const char *nodename;
+	u32 cells;
 	int ret;
 
 	plat->value = 0;
@@ -318,10 +325,18 @@ static int gpio_hog_of_to_plat(struct udevice *dev)
 		printf("%s: missing gpio-hog state.\n", __func__);
 		return -EINVAL;
 	}
-	ret = dev_read_u32_array(dev, "gpios", plat->val, 2);
+	ret = dev_read_u32(dev->parent, "#gpio-cells", &cells);
+	if (ret)
+		return ret;
+	if (!cells || cells > ARRAY_SIZE(plat->args.args))
+		return -EINVAL;
+
+	plat->args.node = dev_ofnode(dev->parent);
+	plat->args.args_count = cells;
+	ret = dev_read_u32_array(dev, "gpios", plat->args.args, cells);
 	if (ret) {
-		printf("%s: wrong gpios property, 2 values needed %d\n",
-		       __func__, ret);
+		printf("%s: wrong gpios property, %u values needed %d\n",
+		       __func__, cells, ret);
 		return ret;
 	}
 	nodename = dev_read_string(dev, "line-name");
@@ -337,9 +352,9 @@ static int gpio_hog_probe(struct udevice *dev)
 	struct gpio_hog_priv *priv = dev_get_priv(dev);
 	int ret;
 
-	ret = gpio_dev_request_index(dev->parent, dev->name, "gpio-hog",
-				     plat->val[0], plat->gpiod_flags,
-				     plat->val[1], &priv->gpiod);
+	ret = gpio_request_tail(0, dev->name, &plat->args, "gpio-hog", 0,
+				&priv->gpiod, plat->gpiod_flags, false,
+				dev->parent);
 	if (ret < 0) {
 		debug("%s: node %s could not get gpio.\n", __func__,
 		      dev->name);

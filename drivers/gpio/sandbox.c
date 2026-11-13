@@ -204,6 +204,18 @@ static int sb_gpio_get_function(struct udevice *dev, unsigned offset)
 static int sb_gpio_xlate(struct udevice *dev, struct gpio_desc *desc,
 			 struct ofnode_phandle_args *args)
 {
+	struct ofnode_phandle_args bank_args;
+
+	if (dev_get_driver_data(dev)) {
+		if (args->args_count != 3 || args->args[1] >= 32)
+			return -EINVAL;
+		bank_args = *args;
+		bank_args.args_count = 2;
+		bank_args.args[0] = args->args[0] * 32 + args->args[1];
+		bank_args.args[1] = args->args[2];
+		args = &bank_args;
+	}
+
 	desc->offset = args->args[0];
 	if (args->args_count < 2)
 		return 0;
@@ -362,6 +374,7 @@ static int gpio_sandbox_remove(struct udevice *dev)
 
 static const struct udevice_id sandbox_gpio_ids[] = {
 	{ .compatible = "sandbox,gpio" },
+	{ .compatible = "sandbox,gpio-bank", .data = 1 },
 	{ }
 };
 

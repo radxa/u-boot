@@ -9,6 +9,7 @@
 #include <linux/types.h>
 #include <linux/delay.h>
 #include <asm/arch/clock.h>
+#include <asm/arch/cpu.h>
 #include <power/regulator.h>
 //#include <sunxi_power/axp.h>
 #include <dm.h>
@@ -294,28 +295,40 @@ void sunxi_pcie_plat_set_rate(struct sunxi_pcie *pci)
 	sunxi_pcie_writel_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL, val);
 }
 
+static int sunxi_pcie_enable_supply(struct sunxi_pcie *pci, const char *name,
+				    int uV, struct udevice **supply)
+{
+	int ret;
+
+	ret = device_get_supply_regulator(pci->dev, name, supply);
+	if (ret == -ENOENT)
+		return 0;
+	if (ret)
+		return ret;
+
+	/* Fixed regulators expose their voltage without a setter. */
+	if (regulator_get_value(*supply) != uV) {
+		ret = regulator_set_value(*supply, uV);
+		if (ret)
+			return ret;
+	}
+
+	return regulator_set_enable_if_allowed(*supply, true);
+}
+
 static int sunxi_pcie_plat_power_on(struct sunxi_pcie *pci)
 {
 	int ret;
 
-	ret = device_get_supply_regulator(pci->dev, "pcie1v8-supply",
-					  &pci->pcie1v8_supply);
-
-	if (ret && ret != -ENOENT) {
-		printf("failed to get vpcie1v2 supply (ret=%d)\n", ret);
+	ret = sunxi_pcie_enable_supply(pci, "pcie1v8-supply", 1800000,
+				       &pci->pcie1v8_supply);
+	if (ret)
 		return ret;
-	}
 
-	ret = device_get_supply_regulator(pci->dev, "pcie3v3-supply",
-					  &pci->pcie3v3_supply);
-	if (ret && ret != -ENOENT) {
-		printf("failed to get vpcie3v3 supply (ret=%d)\n", ret);
+	ret = sunxi_pcie_enable_supply(pci, "pcie3v3-supply", 3300000,
+				       &pci->pcie3v3_supply);
+	if (ret)
 		return ret;
-	}
-
-	regulator_set_value(pci->pcie1v8_supply, 1800000);
-
-	regulator_set_value(pci->pcie3v3_supply, 3300000);
 
 	udelay(2000);
 	return 0;
@@ -334,6 +347,12 @@ static int sunxi_pcie_plat_clk_setup(struct sunxi_pcie *pci)
 	unsigned long reg_value = 0;
 	struct sunxi_pcie_ccm_reg *const ccm =
 		(struct sunxi_pcie_ccm_reg *)SUNXI_PCIE_CCM_BASE;
+
+	if (IS_ENABLED(CONFIG_MACH_SUN55I_A523)) {
+		/* A523 AUX uses OSC24M; the PHY owns the shared subsystem reset. */
+		writel(BIT(31), SUNXI_CCM_BASE + 0xaa0);
+		return 0;
+	}
 
 	if (pci->drvdata->need_pcie_rst) {
 		reg_value = readl(&ccm->pcie_bgr_reg);
@@ -370,6 +389,11 @@ static void sunxi_pcie_plat_clk_exit(struct sunxi_pcie *pci)
 	struct sunxi_pcie_ccm_reg *const ccm =
 		(struct sunxi_pcie_ccm_reg *)SUNXI_PCIE_CCM_BASE;
 
+	if (IS_ENABLED(CONFIG_MACH_SUN55I_A523)) {
+		clrbits_le32(SUNXI_CCM_BASE + 0xaa0, BIT(31));
+		return;
+	}
+
 #ifndef CONFIG_MACH_SUN55IW3
 	if (pci->drvdata->has_pcie_its_clk) {
 		reg_value = readl(&ccm->its_bgr_reg);
@@ -399,7 +423,7 @@ static int sunxi_pcie_plat_combo_phy_init(struct sunxi_pcie *pci)
 {
 	int ret;
 
-	ret = generic_phy_init(pci->phy);
+	ret = generic_phy_init(&pci->phy);
 	if (ret) {
 		printf("fail to init phy, err %d\n", ret);
 		return ret;
@@ -411,7 +435,7 @@ static int sunxi_pcie_plat_combo_phy_init(struct sunxi_pcie *pci)
 #if 0
 static void sunxi_pcie_plat_combo_phy_deinit(struct sunxi_pcie *pci)
 {
-	generic_phy_exit(pci->phy);
+	generic_phy_exit(&pci->phy);
 }
 #endif
 
@@ -442,10 +466,12 @@ err0:
 	return ret;
 }
 
-void sunxi_pcie_plat_init(struct udevice *dev)
+int sunxi_pcie_plat_init(struct udevice *dev)
 {
 	struct sunxi_pcie *pci = dev_get_priv(dev);
-	pci->dbi_base = (void *)SUNXI_PCIE_DBI_ADDR;
+	pci->dbi_base = dev_read_addr_ptr(dev);
+	if (!pci->dbi_base)
+		return -EINVAL;
 
 	pci->app_base = pci->dbi_base + PCIE_USER_DEFINED_REGISTER;
 
@@ -458,10 +484,12 @@ void sunxi_pcie_plat_init(struct udevice *dev)
 	pci->pcie_port.io_size = SUNXI_PCIE_IO_SIZE;
 	pci->pcie_port.mem_base = SUNXI_PCIE_MEM_ADDR;
 	pci->pcie_port.mem_size = SUNXI_PCIE_MEM_SIZE;
-	pci->pcie_port.va_cfg0_base = (void *)pci->pcie_port.cfg0_base;
+	pci->pcie_port.va_cfg0_base = (void *)(uintptr_t)pci->pcie_port.cfg0_base;
 	pci->pcie_port.cpu_pcie_addr_quirk = pci->drvdata->cpu_pcie_addr_quirk;
 	if (pci->pcie_port.cpu_pcie_addr_quirk) {
 		pci->pcie_port.cfg0_base -= PCIE_CPU_BASE;
 		pci->pcie_port.io_base   -= PCIE_CPU_BASE;
 	}
+
+	return 0;
 }

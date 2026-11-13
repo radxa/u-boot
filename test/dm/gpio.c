@@ -10,6 +10,7 @@
 #include <acpi/acpi_device.h>
 #include <asm/gpio.h>
 #include <dm/device-internal.h>
+#include <dm/lists.h>
 #include <dm/root.h>
 #include <dm/test.h>
 #include <dm/util.h>
@@ -115,7 +116,7 @@ static int dm_test_gpio(struct unit_test_state *uts)
 	/* add gpio hog tests */
 	ut_assertok(gpio_hog_lookup_name("hog_input_active_low", &desc));
 	ut_asserteq(GPIOD_IS_IN | GPIOD_ACTIVE_LOW, desc->flags);
-	ut_asserteq(10, desc->offset);
+	ut_asserteq(8, desc->offset);
 	ut_asserteq(1, dm_gpio_get_value(desc));
 	ut_assertok(gpio_hog_lookup_name("hog_input_active_high", &desc));
 	ut_asserteq(GPIOD_IS_IN, desc->flags);
@@ -137,9 +138,9 @@ static int dm_test_gpio(struct unit_test_state *uts)
 	/* Check if lookup for labels work */
 	ut_assertok(gpio_lookup_name("hog_input_active_low.gpio-hog", &dev, &offset,
 				     &gpio));
-	ut_asserteq_str(dev->name, "base-gpios");
-	ut_asserteq(10, offset);
-	ut_asserteq(CONFIG_SANDBOX_GPIO_COUNT + 10, gpio);
+	ut_asserteq_str(dev->name, "pinmux-gpios");
+	ut_asserteq(8, offset);
+	ut_asserteq(CONFIG_SANDBOX_GPIO_COUNT + 25 + 10 + 8, gpio);
 	ut_assert(gpio_lookup_name("hog_not_exist", &dev, &offset,
 				   &gpio));
 
@@ -157,6 +158,37 @@ static int dm_test_gpio(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_gpio, UTF_SCAN_PDATA | UTF_SCAN_FDT);
+
+/* GPIO hogs must pass bank, pin and polarity to a three-cell provider. */
+static int dm_test_gpio_hog_three_cells(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	struct gpio_desc *desc;
+	ofnode node = ofnode_path("/gpio-hog-3cell");
+
+	ut_assert(ofnode_valid(node));
+	ut_assertok(lists_bind_fdt(dm_root(), node, &dev, NULL, false));
+	ut_assertnonnull(dev);
+	ut_assertok(dm_autoprobe());
+
+	ut_assertok(gpio_hog_lookup_name("hog_3cell_high", &desc));
+	ut_asserteq_ptr(dev, desc->dev);
+	ut_asserteq(38, desc->offset);
+	ut_asserteq(GPIOD_IS_OUT, desc->flags);
+	ut_asserteq(1, dm_gpio_get_value(desc));
+	ut_asserteq(1, sandbox_gpio_get_value(dev, desc->offset));
+
+	ut_assertok(gpio_hog_lookup_name("hog_3cell_active_low", &desc));
+	ut_asserteq_ptr(dev, desc->dev);
+	ut_asserteq(39, desc->offset);
+	ut_asserteq(GPIOD_IS_OUT | GPIOD_ACTIVE_LOW, desc->flags);
+	ut_asserteq(1, dm_gpio_get_value(desc));
+	ut_asserteq(0, sandbox_gpio_get_value(dev, desc->offset));
+
+	return 0;
+}
+
+DM_TEST(dm_test_gpio_hog_three_cells, UTF_SCAN_FDT);
 
 /* Test that GPIO open-drain/open-source emulation works correctly */
 static int dm_test_gpio_opendrain_opensource(struct unit_test_state *uts)

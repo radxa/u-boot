@@ -885,12 +885,19 @@ int misc_init_r(void)
 
 int board_late_init(void)
 {
+#ifdef CONFIG_RADXA_UNIFIED_IMAGE
+	int ret;
+#endif
+
 #ifdef CONFIG_USB_ETHER
 	usb_ether_init();
 #endif
 
 #ifdef CONFIG_RADXA_UNIFIED_IMAGE
 	if (!radxa_set_board_type()) {
+		ret = radxa_fixup_pcie_gpios((void *)gd->fdt_blob);
+		if (ret)
+			printf("Warning: failed to configure PCIe GPIOs: %d\n", ret);
 		radxa_enable_boot_led();
 		radxa_set_compat_fdt();
 	}

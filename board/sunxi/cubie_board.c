@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <sunxi_gpio.h>
 #include <asm-generic/gpio.h>
+#include <linux/libfdt.h>
 #include <sunxi_gpadc.h>
 #include <dm/device.h>
 #include "cubie_board.h"
@@ -87,6 +88,57 @@ int radxa_set_board_type(void)
 	}
 	printf("No compatible board type found for vol=%d, level=%d\n", vol, level);
 	return -ENODEV;
+}
+
+int radxa_fixup_pcie_gpios(void *fdt)
+{
+	const struct hw_info_def *info = &hw_info[board_index];
+	const char *const names[] = {
+		info->pcie_power_gpio, info->pcie_reset_gpio, info->pcie_wake_gpio,
+	};
+	static const char *const props[] = {
+		"pwr-gpios", "rst-gpios", "wake-gpios",
+	};
+	fdt32_t cells[ARRAY_SIZE(props)][4];
+	const fdt32_t *prop;
+	unsigned long pin;
+	char *end;
+	int node, len, ret, i;
+
+	node = fdt_node_offset_by_compatible(fdt, -1,
+					     "allwinner,sunxi-pcie-v300-rc");
+	if (node < 0)
+		return node;
+
+	for (i = 0; i < ARRAY_SIZE(props); i++) {
+		const char *name = names[i];
+
+		if (!name || name[0] != 'P' || name[1] < 'A' ||
+		    name[1] > 'K' || !name[2])
+			return -EINVAL;
+		pin = dectoul(name + 2, &end);
+		if (*end || pin >= 32)
+			return -EINVAL;
+
+		prop = fdt_getprop(fdt, node, props[i], &len);
+		if (!prop)
+			return len;
+		if (len != sizeof(cells[i]))
+			return -FDT_ERR_BADVALUE;
+		memcpy(cells[i], prop, sizeof(cells[i]));
+		/* DM GPIO numbers are dynamic; DT cells need the physical bank/pin. */
+		cells[i][1] = cpu_to_fdt32(name[1] - 'A');
+		cells[i][2] = cpu_to_fdt32(pin);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(props); i++) {
+		ret = fdt_setprop_inplace(fdt, node, props[i], cells[i],
+					  sizeof(cells[i]));
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 void radxa_enable_boot_led(void)

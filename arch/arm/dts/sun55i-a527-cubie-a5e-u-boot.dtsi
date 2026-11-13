@@ -1,6 +1,46 @@
 // SPDX-License-Identifier: GPL-2.0+
 
 #include "sunxi-u-boot.dtsi"
+#include <dt-bindings/phy/phy.h>
+
+/ {
+	reg_pcie_3v3: pcie-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "pcie-3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-enable-ramp-delay = <1000>;
+		gpio = <&r_pio 0 11 GPIO_ACTIVE_HIGH>; /* PL11 */
+		enable-active-high;
+	};
+};
+
+&{/soc} {
+	pcie_phy: phy@4f00000 {
+		compatible = "allwinner,sun55i-a523-pcie-phy";
+		reg = <0x04f00000 0x80000>, <0x04f80000 0x80000>;
+		reg-names = "phy-ctl", "phy-clk";
+		resets = <&ccu RST_BUS_PCIE_USB3>;
+		#phy-cells = <1>;
+	};
+
+	pcie: pcie@4800000 {
+		compatible = "allwinner,sunxi-pcie-v210-rc";
+		reg = <0x04800000 0x480000>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		bus-range = <0 0xff>;
+		device_type = "pci";
+		ranges = <0x81000000 0 0x21000000 0x21000000 0 0x01000000>,
+			 <0x82000000 0 0x22000000 0x22000000 0 0x07000000>;
+		phys = <&pcie_phy PHY_TYPE_PCIE>;
+		phy-names = "pcie-phy";
+		pcie3v3-supply = <&reg_pcie_3v3>;
+		rst-gpios = <&pio 7 11 GPIO_ACTIVE_HIGH>; /* PH11, PERST# */
+		num-lanes = <1>;
+		max-link-speed = <2>;
+	};
+};
 
 &ccu {
 	bootph-pre-ram;
@@ -30,6 +70,20 @@
 
 &pio {
 	bootph-pre-ram;
+
+	pcie-mux-select {
+		gpio-hog;
+		gpios = <1 6 GPIO_ACTIVE_HIGH>; /* PB6 */
+		output-high;
+		line-name = "pcie-mux-select";
+	};
+
+	pcie-mux-enable {
+		gpio-hog;
+		gpios = <1 7 GPIO_ACTIVE_HIGH>; /* PB7, GMA340 OE# */
+		output-low;
+		line-name = "pcie-mux-enable";
+	};
 };
 
 &r_ccu {

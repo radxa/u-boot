@@ -890,25 +890,20 @@
 			gpio-bank-name = "a";
 			sandbox,gpio-count = <25>;
 			gpio-line-names = "", "eth1-reset", "rtc-irq";
-			hog_input_active_low {
-				gpio-hog;
-				input;
-				gpios = <10 GPIO_ACTIVE_LOW>;
-			};
 			hog_input_active_high {
 				gpio-hog;
 				input;
-				gpios = <11 GPIO_ACTIVE_HIGH>;
+				gpios = <11>;
 			};
 			hog_output_low {
 				gpio-hog;
 				output-low;
-				gpios = <12 GPIO_ACTIVE_HIGH>;
+				gpios = <12>;
 			};
 			hog_output_high {
 				gpio-hog;
 				output-high;
-				gpios = <13 GPIO_ACTIVE_HIGH>;
+				gpios = <13>;
 			};
 		};
 
@@ -927,6 +922,35 @@
 			#gpio-cells = <2>;
 			gpio-bank-name = "c";
 			sandbox,gpio-count = <10>;
+
+			hog_input_active_low {
+				gpio-hog;
+				input;
+				gpios = <8 GPIO_ACTIVE_LOW>;
+			};
+		};
+	};
+
+	gpio-hog-3cell {
+		compatible = "sandbox,gpio-bank";
+		status = "disabled";
+		gpio-controller;
+		#gpio-cells = <3>;
+		gpio-bank-name = "hog";
+		sandbox,gpio-count = <64>;
+
+		output-high {
+			gpio-hog;
+			gpios = <1 6 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "hog_3cell_high";
+		};
+
+		output-active-low {
+			gpio-hog;
+			gpios = <1 7 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "hog_3cell_active_low";
 		};
 	};
 
