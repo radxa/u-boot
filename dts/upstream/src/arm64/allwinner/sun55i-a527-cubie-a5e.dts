@@ -250,6 +250,7 @@
 			};
 
 			reg_bldo3: bldo3 {
+				regulator-always-on;
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-name = "vcc-mipi-cam";
