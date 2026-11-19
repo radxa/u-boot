@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2025 Rockchip Electronics Co., Ltd.
+ * Copyright (c) 2025 Radxa Computer (Shenzhen) Co., Ltd.
+ */
+
+#include "rk3576-radxa-cm4-u-boot.dtsi"
+
+&vcc12v_dcin {
+	bootph-all;
+};
+
+/* USB */
+
+&u2phy0 {
+	bootph-all;
+};
+
+&u2phy0_otg {
+	bootph-all;
+};
+
+&usb_drd0_dwc3 {
+	bootph-all;
+};
+
+&usb2phy_grf {
+	bootph-all;
+};
+
+&usb_grf {
+	bootph-all;
+};
+
+&php_grf {
+	bootph-all;
+};
+
+&usb20_reset {
+	bootph-all;
+};
+
+&usb20_reset_pin {
+	bootph-all;
+};
+
+/* PCIe */
+&vcc3v3_pcie {
+	bootph-all;
+};
+
+&combphy0_ps {
+	bootph-all;
+};
+
+&pcie0 {
+	bootph-all;
+};
