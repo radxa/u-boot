@@ -47,7 +47,7 @@ static const struct hw_info_def hw_info[] = {
 	},
 	{
 		.compatible = "allwinner,sun60i-a733",
-		.fdtfile = "allwinner/sun60i-a733-cm-a7-rpi-cm5-io.dtb",
+		.fdtfile = "allwinner/sun60i-a733-cm-a73-rpi-cm5-io.dtb",
 		.pcie_power_gpio = "PD20",
 		.pcie_wake_gpio = "PD21",
 		.pcie_reset_gpio = "PD22",
